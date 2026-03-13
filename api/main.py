@@ -122,3 +122,25 @@ def get_device_history(
     conn.close()
 
     return rows
+
+
+@app.get("/measurements/recent")
+def get_recent_measurements(limit: int = Query(default=20, le=200)):
+    conn = get_connection()
+    cur = conn.cursor()
+
+    cur.execute(
+        """
+        SELECT device_id, metric, value, unit, event_time
+        FROM measurements
+        ORDER BY event_time DESC
+        LIMIT %s;
+        """,
+        (limit,),
+    )
+    rows = cur.fetchall()
+
+    cur.close()
+    conn.close()
+
+    return rows
