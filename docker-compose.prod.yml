@@ -1,0 +1,47 @@
+services:
+  postgres:
+    image: postgres:15
+    container_name: iot_postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql
+
+  ttn-ingestor:
+    build:
+      context: ./ttn-ingestor
+    container_name: ttn_ingestor
+    environment:
+      POSTGRES_HOST: ${POSTGRES_HOST}
+      POSTGRES_INTERNAL_PORT: ${POSTGRES_INTERNAL_PORT}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      TTN_MQTT_HOST: ${TTN_MQTT_HOST}
+      TTN_MQTT_PORT: ${TTN_MQTT_PORT}
+      TTN_USERNAME: ${TTN_USERNAME}
+      TTN_PASSWORD: ${TTN_PASSWORD}
+      TTN_TOPIC: ${TTN_TOPIC}
+    depends_on:
+      - postgres
+
+  api:
+    build:
+      context: ./api
+    container_name: iot_api
+    environment:
+      POSTGRES_HOST: ${POSTGRES_HOST}
+      POSTGRES_INTERNAL_PORT: ${POSTGRES_INTERNAL_PORT}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports:
+      - "8000:8000"
+    depends_on:
+      - postgres
+
+volumes:
+  postgres_data:
