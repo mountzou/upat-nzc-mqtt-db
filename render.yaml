@@ -1,0 +1,72 @@
+services:
+  - type: web
+    name: upat-nzc-api
+    runtime: docker
+    rootDir: api
+    autoDeploy: true
+    plan: free
+    envVars:
+      - key: POSTGRES_HOST
+        fromDatabase:
+          name: upat-nzc-postgres
+          property: host
+      - key: POSTGRES_INTERNAL_PORT
+        fromDatabase:
+          name: upat-nzc-postgres
+          property: port
+      - key: POSTGRES_USER
+        fromDatabase:
+          name: upat-nzc-postgres
+          property: user
+      - key: POSTGRES_PASSWORD
+        fromDatabase:
+          name: upat-nzc-postgres
+          property: password
+      - key: POSTGRES_DB
+        fromDatabase:
+          name: upat-nzc-postgres
+          property: database
+
+  - type: pserv
+    name: upat-nzc-ttn-ingestor
+    runtime: docker
+    rootDir: ttn-ingestor
+    autoDeploy: true
+    plan: free
+    envVars:
+      - key: POSTGRES_HOST
+        fromDatabase:
+          name: upat-nzc-postgres
+          property: host
+      - key: POSTGRES_INTERNAL_PORT
+        fromDatabase:
+          name: upat-nzc-postgres
+          property: port
+      - key: POSTGRES_USER
+        fromDatabase:
+          name: upat-nzc-postgres
+          property: user
+      - key: POSTGRES_PASSWORD
+        fromDatabase:
+          name: upat-nzc-postgres
+          property: password
+      - key: POSTGRES_DB
+        fromDatabase:
+          name: upat-nzc-postgres
+          property: database
+      - key: TTN_MQTT_HOST
+        sync: false
+      - key: TTN_MQTT_PORT
+        value: "1883"
+      - key: TTN_USERNAME
+        sync: false
+      - key: TTN_PASSWORD
+        sync: false
+      - key: TTN_TOPIC
+        sync: false
+
+databases:
+  - name: upat-nzc-postgres
+    plan: free
+    databaseName: iot_db
+    user: iot
