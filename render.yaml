@@ -32,7 +32,7 @@ services:
     runtime: docker
     rootDir: ttn-ingestor
     autoDeploy: true
-    plan: free
+    plan: starter
     envVars:
       - key: POSTGRES_HOST
         fromDatabase:
