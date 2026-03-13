@@ -27,7 +27,7 @@ services:
           name: upat-nzc-postgres
           property: database
 
-  - type: pserv
+  - type: worker
     name: upat-nzc-ttn-ingestor
     runtime: docker
     rootDir: ttn-ingestor
