@@ -1,17 +1,17 @@
+import os
 import json
 import paho.mqtt.client as mqtt
 import psycopg2
 
+BROKER_HOST = os.getenv("MQTT_HOST", "mosquitto")
+BROKER_PORT = int(os.getenv("MQTT_INTERNAL_PORT", "1883"))
+TOPIC = os.getenv("SHELLY_TOPIC", "test/topic")
 
-BROKER_HOST = "mosquitto"
-BROKER_PORT = 1883
-TOPIC = "test/topic"
-
-DB_HOST = "postgres"
-DB_PORT = 5432
-DB_NAME = "iot_db"
-DB_USER = "iot"
-DB_PASSWORD = "iot"
+DB_HOST = os.getenv("POSTGRES_HOST", "postgres")
+DB_PORT = int(os.getenv("POSTGRES_INTERNAL_PORT", "5432"))
+DB_NAME = os.getenv("POSTGRES_DB")
+DB_USER = os.getenv("POSTGRES_USER")
+DB_PASSWORD = os.getenv("POSTGRES_PASSWORD")
 
 
 def get_connection():

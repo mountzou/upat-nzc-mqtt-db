@@ -1,9 +1,12 @@
 CREATE TABLE devices (
     id SERIAL PRIMARY KEY,
     source TEXT NOT NULL,
-    external_id TEXT NOT NULL,
+    device_id TEXT NOT NULL,
+    dev_eui TEXT,
     name TEXT,
-    created_at TIMESTAMP DEFAULT NOW()
+    created_at TIMESTAMP DEFAULT NOW(),
+    UNIQUE (source, device_id),
+    UNIQUE (source, dev_eui)
 );
 
 CREATE TABLE raw_messages (
