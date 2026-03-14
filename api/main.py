@@ -1,7 +1,11 @@
 import os
-from fastapi import FastAPI, HTTPException, Query
+from typing import Annotated
+
+from fastapi import FastAPI, Query
 import psycopg2
 from psycopg2.extras import RealDictCursor
+
+from schemas import HistoryQueryParams
 
 app = FastAPI()
 
@@ -21,6 +25,44 @@ def get_connection():
         password=DB_PASSWORD,
         cursor_factory=RealDictCursor,
     )
+
+
+def round_numeric(value):
+    if isinstance(value, (int, float)) and value is not None:
+        return round(value, 1)
+    return value
+
+
+def build_measurements_response(device_id, rows, metrics=None):
+    snapshots = []
+    snapshots_by_time = {}
+
+    for row in rows:
+        event_time = row["event_time"]
+        event_time_key = event_time.isoformat() if event_time else "null"
+
+        if metrics and row["metric"] not in metrics:
+            continue
+
+        if event_time_key not in snapshots_by_time:
+            snapshot = {
+                "device_id": row["device_id"],
+                "event_time": event_time,
+                "measurements": {},
+            }
+            snapshots_by_time[event_time_key] = snapshot
+            snapshots.append(snapshot)
+
+        snapshots_by_time[event_time_key]["measurements"][row["metric"]] = {
+            "value": round_numeric(row["value"]),
+            "unit": row["unit"],
+        }
+
+    return {
+        "device_id": device_id,
+        "count": len(snapshots),
+        "items": snapshots,
+    }
 
 
 @app.get("/health")
@@ -58,76 +100,91 @@ def list_devices():
 
 
 @app.get("/devices/{device_id}/latest")
-def get_latest_measurements(device_id: str):
+def get_latest_measurements(
+    device_id: str,
+    metric: str | None = Query(default=None),
+    limit: int = Query(default=30, le=1000),
+):
     conn = get_connection()
     cur = conn.cursor()
+    metrics = None
 
-    cur.execute(
-        """
-        SELECT DISTINCT ON (metric)
+    if metric:
+        metrics = {
+            item.strip()
+            for item in metric.split(",")
+            if item.strip()
+        }
+
+    query = """
+        WITH aggregated AS (
+            SELECT
+                device_id,
+                metric,
+                AVG(value) AS value,
+                unit,
+                date_bin(
+                    INTERVAL '1 minute',
+                    event_time,
+                    TIMESTAMP '2001-01-01 00:00:00'
+                ) AS bucket_time
+            FROM measurements
+            WHERE device_id = %s
+    """
+    query_params = [device_id]
+
+    if metrics:
+        query += " AND metric = ANY(%s)"
+        query_params.append(sorted(metrics))
+
+    query += """
+            GROUP BY device_id, metric, unit, bucket_time
+        ),
+        selected_times AS (
+            SELECT DISTINCT bucket_time
+            FROM aggregated
+            ORDER BY bucket_time DESC
+            LIMIT %s
+        )
+        SELECT
             device_id,
             metric,
             value,
             unit,
-            event_time
-        FROM measurements
-        WHERE device_id = %s
-        ORDER BY metric, event_time DESC;
-        """,
-        (device_id,),
-    )
+            bucket_time AS event_time
+        FROM aggregated
+        WHERE bucket_time IN (SELECT bucket_time FROM selected_times)
+        ORDER BY bucket_time DESC, metric ASC;
+    """
+    query_params.append(limit)
+    cur.execute(query, query_params)
     rows = cur.fetchall()
 
     cur.close()
     conn.close()
 
-    return rows
+    return build_measurements_response(device_id, rows, metrics)
 
 
 @app.get("/devices/{device_id}/history")
 @app.get("/device/{device_id}/history")
 def get_device_history(
     device_id: str,
-    metric: str | None = Query(default=None),
-    metrics: str | None = Query(default=None),
-    limit: int = Query(default=100, le=1000),
-    aggregate: str | None = Query(default=None),
-    bucket: str | None = Query(default=None),
-    bucket_unit: str | None = Query(default=None),
-    bucket_size: int | None = Query(default=None, ge=1, le=10080),
+    params: Annotated[HistoryQueryParams, Query()],
 ):
     conn = get_connection()
     cur = conn.cursor()
-    requested_metrics = None
 
-    if metrics:
-        requested_metrics = {
-            item.strip()
-            for item in metrics.split(",")
-            if item.strip()
-        }
+    metrics    = params.resolved_metrics
+    start_time = params.resolved_start_time
+    end_time   = params.resolved_end_time
 
-    if aggregate is not None or bucket is not None or bucket_unit is not None or bucket_size is not None:
-        if aggregate != "avg":
-            raise HTTPException(
-                status_code=400,
-                detail="aggregate must be 'avg' when provided",
-            )
-        resolved_bucket_unit = bucket_unit or bucket
+    has_aggregation = any(
+        value is not None
+        for value in (params.aggregate, params.bucket, params.bucket_unit, params.bucket_size)
+    )
 
-        if resolved_bucket_unit not in {"minute", "hour"}:
-            raise HTTPException(
-                status_code=400,
-                detail="bucket or bucket_unit must be 'minute' or 'hour' when aggregate is used",
-            )
-        if bucket is not None and bucket_unit is not None and bucket != bucket_unit:
-            raise HTTPException(
-                status_code=400,
-                detail="bucket and bucket_unit must match when both are provided",
-            )
-
-        resolved_bucket_size = bucket_size or 1
-        bucket_interval = f"{resolved_bucket_size} {resolved_bucket_unit}"
+    if has_aggregation:
 
         query = """
             WITH aggregated AS (
@@ -144,14 +201,18 @@ def get_device_history(
                 FROM measurements
                 WHERE device_id = %s
         """
-        params = [bucket_interval, device_id]
+        query_params = [params.resolved_bucket_interval, device_id]
 
-        if metric:
-            query += " AND metric = %s"
-            params.append(metric)
-        elif requested_metrics:
+        if start_time:
+            query += " AND event_time >= %s"
+            query_params.append(start_time)
+        if end_time:
+            query += " AND event_time <= %s"
+            query_params.append(end_time)
+
+        if metrics:
             query += " AND metric = ANY(%s)"
-            params.append(sorted(requested_metrics))
+            query_params.append(sorted(metrics))
 
         query += """
                 GROUP BY device_id, metric, unit, bucket_time
@@ -167,15 +228,26 @@ def get_device_history(
             WHERE bucket_time IN (SELECT bucket_time FROM selected_times)
             ORDER BY bucket_time DESC, metric ASC;
         """
-        params.append(limit)
-        cur.execute(query, params)
-    elif metric:
-        cur.execute(
-            """
+        query_params.append(params.limit)
+        cur.execute(query, query_params)
+        
+    elif metrics:
+        query = """
             WITH selected_times AS (
                 SELECT DISTINCT event_time
                 FROM measurements
-                WHERE device_id = %s AND metric = %s
+                WHERE device_id = %s AND metric = ANY(%s)
+        """
+        query_params = [device_id, sorted(metrics)]
+
+        if start_time:
+            query += " AND event_time >= %s"
+            query_params.append(start_time)
+        if end_time:
+            query += " AND event_time <= %s"
+            query_params.append(end_time)
+
+        query += """
                 ORDER BY event_time DESC
                 LIMIT %s
             )
@@ -184,16 +256,26 @@ def get_device_history(
             WHERE device_id = %s
               AND event_time IN (SELECT event_time FROM selected_times)
             ORDER BY event_time DESC, metric ASC;
-            """,
-            (device_id, metric, limit, device_id),
-        )
+        """
+        query_params.extend([params.limit, device_id])
+        cur.execute(query, query_params)
     else:
-        cur.execute(
-            """
+        query = """
             WITH selected_times AS (
                 SELECT DISTINCT event_time
                 FROM measurements
                 WHERE device_id = %s
+        """
+        query_params = [device_id]
+
+        if start_time:
+            query += " AND event_time >= %s"
+            query_params.append(start_time)
+        if end_time:
+            query += " AND event_time <= %s"
+            query_params.append(end_time)
+
+        query += """
                 ORDER BY event_time DESC
                 LIMIT %s
             )
@@ -202,63 +284,13 @@ def get_device_history(
             WHERE device_id = %s
               AND event_time IN (SELECT event_time FROM selected_times)
             ORDER BY event_time DESC, metric ASC;
-            """,
-            (device_id, limit, device_id),
-        )
-
-    rows = cur.fetchall()
-
-    cur.close()
-    conn.close()
-
-    snapshots = []
-    snapshots_by_time = {}
-
-    for row in rows:
-        event_time = row["event_time"]
-        event_time_key = event_time.isoformat() if event_time else "null"
-
-        if requested_metrics and row["metric"] not in requested_metrics:
-            continue
-
-        if event_time_key not in snapshots_by_time:
-            snapshot = {
-                "device_id": row["device_id"],
-                "event_time": event_time,
-                "measurements": {},
-            }
-            snapshots_by_time[event_time_key] = snapshot
-            snapshots.append(snapshot)
-
-        snapshots_by_time[event_time_key]["measurements"][row["metric"]] = {
-            "value": row["value"],
-            "unit": row["unit"],
-        }
-
-    return {
-        "device_id": device_id,
-        "count": len(snapshots),
-        "items": snapshots,
-    }
-
-
-@app.get("/measurements/recent")
-def get_recent_measurements(limit: int = Query(default=20, le=200)):
-    conn = get_connection()
-    cur = conn.cursor()
-
-    cur.execute(
         """
-        SELECT device_id, metric, value, unit, event_time
-        FROM measurements
-        ORDER BY event_time DESC
-        LIMIT %s;
-        """,
-        (limit,),
-    )
+        query_params.extend([params.limit, device_id])
+        cur.execute(query, query_params)
+
     rows = cur.fetchall()
 
     cur.close()
     conn.close()
 
-    return rows
+    return build_measurements_response(device_id, rows, metrics)
