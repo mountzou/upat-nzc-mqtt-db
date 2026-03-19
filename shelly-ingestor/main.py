@@ -51,13 +51,13 @@ def upsert_device(conn, device_id, name=None):
     with conn.cursor() as cur:
         cur.execute(
             """
-            INSERT INTO shelly_devices (device_id, name)
-            VALUES (%s, %s)
-            ON CONFLICT (device_id)
+            INSERT INTO shelly_devices (source, device_id, name)
+            VALUES (%s, %s, %s)
+            ON CONFLICT (source, device_id)
             DO UPDATE SET
                 name = COALESCE(EXCLUDED.name, shelly_devices.name)
             """,
-            (device_id, name),
+            ("shelly", device_id, name),
         )
 
 
@@ -163,7 +163,7 @@ def insert_pro3em_metrics(conn, device_id, payload_obj, event_time):
         "a_current": "A",
         "b_current": "A",
         "c_current": "A",
-        "neutral_current": "A",
+        "n_current": "A",
         "total_current": "A",
         "a_act_power": "W",
         "b_act_power": "W",
@@ -176,13 +176,13 @@ def insert_pro3em_metrics(conn, device_id, payload_obj, event_time):
         "a_pf": None,
         "b_pf": None,
         "c_pf": None,
-        "freq": "Hz",
+        "a_freq": "Hz",
+        "b_freq": "Hz",
+        "c_freq": "Hz",
     }
 
     for metric, unit in unit_by_metric.items():
-        metric_name = "frequency" if metric == "freq" else metric
-        maybe_insert_metric(conn, device_id, metric_name, payload_obj.get(metric), unit, event_time)
-
+        maybe_insert_metric(conn, device_id, metric, payload_obj.get(metric), unit, event_time)
 
 # Process incoming MQTT messages, extract relevant data, and store it in the database
 def on_message(client, userdata, msg):
