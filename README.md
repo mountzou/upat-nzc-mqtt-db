@@ -1,8 +1,62 @@
 # upat-nzc-mqtt-db
 
-Small IoT backend for ingesting MQTT sensor data into Postgres and exposing it through a FastAPI service.
+Backend service for the SchoolHeroZ Digital Twin that ingests data from UPAT and Shelly MQTT devices, stores it in PostgreSQL, and exposes retrieval APIs for device measurements.
 
-## API
+## Project structure
+
+This project is organized into five directories, each implementing a core service of the system.
+
+- `/db`: PostgreSQL schema and initialization scripts
+- `/api`: FastAPI retrieval service
+- `/ttn-ingestor`: MQTT ingestor for UPAT environmental devices
+- `/shelly-ingestor`: MQTT ingestor for Shelly energy devices
+- `/mosquitto`: Mosquitto broker configuration for Shelly message ingestion
+
+## Project setup
+
+This project follows a container-based architecture, where each core service is built from its own Docker image and runs as an independent container managed through Docker Compose.
+
+Each core service directory contains its own `Dockerfile`. At the project root, `docker-compose.yml` defines the local development setup, while `docker-compose.prod.yml` defines the production deployment setup.
+
+## Environment variables
+
+Before starting the services, create a `.env` file in the project root and define the required environment variables for PostgreSQL, MQTT, TTN, API configuration, and Shelly ingestion.
+
+These variables are used by `docker-compose.yml` for local development and by `docker-compose.prod.yml` for production deployment.
+
+A sample `env.local` file is included in the project root to help users populate the required environment variables during setup.
+
+## Getting started
+
+Clone the repository:
+
+```bash
+git clone https://github.com/mountzou/upat-nzc-mqtt-db.git
+cd upat-nzc-mqtt-db
+```
+
+Start the local services with Docker Compose:
+
+```
+docker compose up -d --build
+```
+
+Check that the containers are running:
+
+```
+docker compose ps
+```
+
+Inspect the service logs:
+
+```
+docker compose logs --tail=50 postgres
+docker compose logs --tail=50 ttn-ingestor
+docker compose logs --tail=50 shelly-ingestor
+docker compose logs --tail=50 api
+```
+
+## API service
 
 Base URL in local development:
 
@@ -29,14 +83,14 @@ Example response:
 }
 ```
 
-### `GET /devices`
+### `GET /upat/devices`
 
-Returns all known devices from the `devices` table.
+Returns all known environmental devices from the `upat_devices` table.
 
 Example:
 
 ```bash
-curl -s http://localhost:8000/devices
+curl -s http://localhost:8000/upat/devices
 ```
 
 Example response:
@@ -54,27 +108,27 @@ Example response:
 ]
 ```
 
-### `GET /devices/{device_id}/latest`
+### `GET /upat/device/{device_id}/latest`
 
-Returns the latest `30` one-minute aggregated measurement groups for the selected device by default.
+Returns the latest 30 one-minute aggregated measurement snapshots for the selected device by default.
 
 Query parameters:
 
 - `metric`
-  Optional. One metric or a comma-separated list, for example `temperature` or `temperature,relative_humidity`.
+  Optional. Repeat the parameter to request multiple metrics, for example `?metric=temperature&metric=relative_humidity`.
 - `limit`
   Optional. Number of grouped items to return. Default: `30`. Maximum: `1000`.
 
 Example:
 
 ```bash
-curl -s "http://localhost:8000/devices/portable-112/latest"
+curl -s "http://localhost:8000/upat/device/portable-112/latest"
 ```
 
 Filter specific metrics:
 
 ```bash
-curl -s "http://localhost:8000/devices/portable-112/latest?metric=temperature,relative_humidity&limit=10"
+curl -s "http://localhost:8000/upat/device/portable-112/latest?metric=temperature&metric=relative_humidity&limit=10"
 ```
 
 Example response:
@@ -102,21 +156,14 @@ Example response:
 }
 ```
 
-### `GET /devices/{device_id}/history`
+### `GET /upat/device/{device_id}/history`
 
-Returns grouped measurements for one device. It can return:
-
-- raw grouped measurements by original `event_time`
-- aggregated grouped measurements using time buckets
-
-### `GET /device/{device_id}/history`
-
-Alias of the same history endpoint above.
+Returns historical aggregated environmental measurements for a single device from `upat_measurements`.
 
 Query parameters:
 
 - `metric`
-  Optional. One metric or a comma-separated list.
+  Optional. Repeat the parameter to request multiple metrics.
 - `limit`
   Optional. Number of grouped items to return. Default: `100`. Maximum: `1000`.
 - `start`
@@ -131,8 +178,6 @@ Query parameters:
   - `YYYY-MM-DDTHH:MM`
 - `aggregate`
   Optional. Currently supports only `avg`.
-- `bucket`
-  Optional. Legacy bucket unit shortcut.
 - `bucket_unit`
   Optional. Supported values:
   - `minute`
@@ -145,64 +190,39 @@ Notes:
 
 - If `start` or `end` is provided as `YYYY-MM-DD`, the API expands it to the full day.
 - If aggregation parameters are used, `aggregate=avg` must also be provided.
-- `limit` applies to grouped timestamps or grouped time buckets, not individual measurement rows.
-
-#### Raw history examples
-
-Latest raw grouped measurements:
-
-```bash
-curl -s "http://localhost:8000/devices/portable-112/history?limit=10"
-```
-
-Raw history for selected metrics:
-
-```bash
-curl -s "http://localhost:8000/devices/portable-112/history?metric=temperature,relative_humidity&limit=10"
-```
-
-Raw history for a full day:
-
-```bash
-curl -s "http://localhost:8000/devices/portable-112/history?start=2026-03-14&end=2026-03-14"
-```
-
-Raw history for a specific time window:
-
-```bash
-curl -s "http://localhost:8000/devices/portable-112/history?start=2026-03-14T08:00&end=2026-03-14T12:00"
-```
+- `limit` applies only when no explicit `start` and `end` range is provided.
+- If no time range is provided, the default history view is the last 1 day aggregated at 1-minute resolution.
 
 #### Aggregated history examples
 
 Hourly averages:
 
 ```bash
-curl -s "http://localhost:8000/devices/portable-112/history?aggregate=avg&bucket_unit=hour&bucket_size=1&limit=24"
+curl -s "http://localhost:8000/upat/device/portable-112/history?aggregate=avg&bucket_unit=hour&bucket_size=1&limit=24"
 ```
 
 Two-hour averages:
 
 ```bash
-curl -s "http://localhost:8000/devices/portable-112/history?aggregate=avg&bucket_unit=hour&bucket_size=2&limit=24"
+curl -s "http://localhost:8000/upat/device/portable-112/history?aggregate=avg&bucket_unit=hour&bucket_size=2&limit=24"
 ```
 
 Daily averages:
 
 ```bash
-curl -s "http://localhost:8000/devices/portable-112/history?aggregate=avg&bucket_unit=day&bucket_size=1&limit=7"
+curl -s "http://localhost:8000/upat/device/portable-112/history?aggregate=avg&bucket_unit=day&bucket_size=1&limit=7"
 ```
 
 Filtered aggregated history:
 
 ```bash
-curl -s "http://localhost:8000/devices/portable-112/history?metric=temperature,relative_humidity&aggregate=avg&bucket_unit=hour&bucket_size=2&limit=12"
+curl -s "http://localhost:8000/upat/device/portable-112/history?metric=temperature&metric=relative_humidity&aggregate=avg&bucket_unit=hour&bucket_size=2&limit=12"
 ```
 
 Aggregated history in a time range:
 
 ```bash
-curl -s "http://localhost:8000/devices/portable-112/history?aggregate=avg&bucket_unit=hour&bucket_size=2&start=2026-03-14T00:00&end=2026-03-14T12:00"
+curl -s "http://localhost:8000/upat/device/portable-112/history?aggregate=avg&bucket_unit=hour&bucket_size=2&start=2026-03-14T00:00&end=2026-03-14T12:00"
 ```
 
 Example response:
@@ -242,18 +262,4 @@ Example response:
     }
   ]
 }
-```
-
-## Development
-
-Start the stack locally:
-
-```bash
-docker compose up --build
-```
-
-Rebuild just the API service:
-
-```bash
-docker compose up -d --build api
 ```
