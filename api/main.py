@@ -2,11 +2,11 @@ import os
 from datetime import datetime, timedelta
 from typing import Annotated
 
-from fastapi import FastAPI, Query
+from fastapi import FastAPI, Query, HTTPException
 import psycopg2
 from psycopg2.extras import RealDictCursor
 
-from schemas import HistoryQueryParams, normalize_metrics
+from schemas import HistoryQueryParams, normalize_metrics, parse_datetime_bound
 
 # Start the FastAPI application
 app = FastAPI()
@@ -283,3 +283,99 @@ def fetch_device_history(table_name, device_id, params):
             rows = cur.fetchall()
 
     return format_response_object(device_id, rows, metrics)
+
+from fastapi import HTTPException
+from schemas import HistoryQueryParams, normalize_metrics, parse_datetime_bound
+
+
+@app.get("/shelly/device/{device_id}/energy")
+def get_shelly_device_energy(
+    device_id: str,
+    start: str,
+    end: str,
+):
+    start_time = parse_datetime_bound(start, "start")
+    end_time = parse_datetime_bound(end, "end")
+
+    if start_time > end_time:
+        raise HTTPException(
+            status_code=400,
+            detail="start must be earlier than or equal to end",
+        )
+
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT device_id, metric, value, unit, event_time
+                FROM shelly_measurements
+                WHERE device_id = %s
+                  AND metric = ANY(%s)
+                  AND event_time >= %s
+                  AND event_time <= %s
+                ORDER BY event_time ASC, metric ASC;
+                """,
+                (
+                    device_id,
+                    ["a_act_power", "b_act_power", "c_act_power"],
+                    start_time,
+                    end_time,
+                ),
+            )
+            rows = cur.fetchall()
+
+    by_time = {}
+    for row in rows:
+        ts = row["event_time"]
+        if ts not in by_time:
+            by_time[ts] = {}
+        by_time[ts][row["metric"]] = row["value"]
+
+    timestamps = sorted(by_time.keys())
+
+    if len(timestamps) < 2:
+        return {
+            "device_id": device_id,
+            "start": start_time,
+            "end": end_time,
+            "energy_wh": {
+                "a": 0.0,
+                "b": 0.0,
+                "c": 0.0,
+                "total": 0.0,
+            },
+        }
+
+    energy = {"a": 0.0, "b": 0.0, "c": 0.0}
+
+    phase_metric_map = {
+        "a": "a_act_power",
+        "b": "b_act_power",
+        "c": "c_act_power",
+    }
+
+    for i in range(1, len(timestamps)):
+        t0 = timestamps[i - 1]
+        t1 = timestamps[i]
+        dt_hours = (t1 - t0).total_seconds() / 3600.0
+
+        prev_vals = by_time[t0]
+        curr_vals = by_time[t1]
+
+        for phase, metric in phase_metric_map.items():
+            if metric in prev_vals and metric in curr_vals:
+                p0 = prev_vals[metric]
+                p1 = curr_vals[metric]
+                energy[phase] += ((p0 + p1) / 2.0) * dt_hours
+
+    return {
+        "device_id": device_id,
+        "start": start_time,
+        "end": end_time,
+        "energy_wh": {
+            "a": round(energy["a"], 3),
+            "b": round(energy["b"], 3),
+            "c": round(energy["c"], 3),
+            "total": round(energy["a"] + energy["b"] + energy["c"], 3),
+        },
+    }
