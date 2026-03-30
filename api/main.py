@@ -284,15 +284,13 @@ def fetch_device_history(table_name, device_id, params):
 
     return format_response_object(device_id, rows, metrics)
 
-from fastapi import HTTPException
-from schemas import HistoryQueryParams, normalize_metrics, parse_datetime_bound
-
 
 @app.get("/shelly/device/{device_id}/energy")
 def get_shelly_device_energy(
     device_id: str,
     start: str,
     end: str,
+    bucket_minutes: int = Query(default=30, ge=1, le=1440),
 ):
     start_time = parse_datetime_bound(start, "start")
     end_time = parse_datetime_bound(end, "end")
@@ -303,79 +301,62 @@ def get_shelly_device_energy(
             detail="start must be earlier than or equal to end",
         )
 
+    bucket_interval = f"{bucket_minutes} minutes"
+    bucket_hours = bucket_minutes / 60.0
+
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
                 """
-                SELECT device_id, metric, value, unit, event_time
-                FROM shelly_measurements
-                WHERE device_id = %s
-                  AND metric = ANY(%s)
-                  AND event_time >= %s
-                  AND event_time <= %s
-                ORDER BY event_time ASC, metric ASC;
+                WITH bucketed AS (
+                    SELECT
+                        date_bin(
+                            %s::interval,
+                            event_time,
+                            TIMESTAMP '2001-01-01 00:00:00'
+                        ) AS bucket_time,
+                        AVG(CASE WHEN metric = 'a_act_power' THEN value END) AS a_avg,
+                        AVG(CASE WHEN metric = 'b_act_power' THEN value END) AS b_avg,
+                        AVG(CASE WHEN metric = 'c_act_power' THEN value END) AS c_avg
+                    FROM shelly_measurements
+                    WHERE device_id = %s
+                      AND metric = ANY(%s)
+                      AND event_time >= %s
+                      AND event_time <= %s
+                    GROUP BY bucket_time
+                )
+                SELECT
+                    COALESCE(SUM(a_avg * %s), 0) AS a_wh,
+                    COALESCE(SUM(b_avg * %s), 0) AS b_wh,
+                    COALESCE(SUM(c_avg * %s), 0) AS c_wh
+                FROM bucketed;
                 """,
                 (
+                    bucket_interval,
                     device_id,
                     ["a_act_power", "b_act_power", "c_act_power"],
                     start_time,
                     end_time,
+                    bucket_hours,
+                    bucket_hours,
+                    bucket_hours,
                 ),
             )
-            rows = cur.fetchall()
+            row = cur.fetchone()
 
-    by_time = {}
-    for row in rows:
-        ts = row["event_time"]
-        if ts not in by_time:
-            by_time[ts] = {}
-        by_time[ts][row["metric"]] = row["value"]
-
-    timestamps = sorted(by_time.keys())
-
-    if len(timestamps) < 2:
-        return {
-            "device_id": device_id,
-            "start": start_time,
-            "end": end_time,
-            "energy_wh": {
-                "a": 0.0,
-                "b": 0.0,
-                "c": 0.0,
-                "total": 0.0,
-            },
-        }
-
-    energy = {"a": 0.0, "b": 0.0, "c": 0.0}
-
-    phase_metric_map = {
-        "a": "a_act_power",
-        "b": "b_act_power",
-        "c": "c_act_power",
-    }
-
-    for i in range(1, len(timestamps)):
-        t0 = timestamps[i - 1]
-        t1 = timestamps[i]
-        dt_hours = (t1 - t0).total_seconds() / 3600.0
-
-        prev_vals = by_time[t0]
-        curr_vals = by_time[t1]
-
-        for phase, metric in phase_metric_map.items():
-            if metric in prev_vals and metric in curr_vals:
-                p0 = prev_vals[metric]
-                p1 = curr_vals[metric]
-                energy[phase] += ((p0 + p1) / 2.0) * dt_hours
+    a = round(float(row["a_wh"] or 0.0), 3)
+    b = round(float(row["b_wh"] or 0.0), 3)
+    c = round(float(row["c_wh"] or 0.0), 3)
 
     return {
         "device_id": device_id,
         "start": start_time,
         "end": end_time,
+        "bucket_minutes": bucket_minutes,
         "energy_wh": {
-            "a": round(energy["a"], 3),
-            "b": round(energy["b"], 3),
-            "c": round(energy["c"], 3),
-            "total": round(energy["a"] + energy["b"] + energy["c"], 3),
+            "a": a,
+            "b": b,
+            "c": c,
+            "total": round(a + b + c, 3),
         },
     }
