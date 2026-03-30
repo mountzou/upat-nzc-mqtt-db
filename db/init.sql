@@ -72,3 +72,12 @@ CREATE TABLE IF NOT EXISTS shelly_measurements (
 
 CREATE INDEX IF NOT EXISTS idx_shelly_measurements_device_metric_event_time
     ON shelly_measurements (device_id, metric, event_time DESC);
+
+CREATE INDEX IF NOT EXISTS idx_shelly_energy_device_time
+    ON shelly_measurements (device_id, event_time)
+    WHERE metric IN ('a_act_power', 'b_act_power', 'c_act_power');
+
+CREATE INDEX IF NOT EXISTS idx_shelly_energy_covering
+    ON shelly_measurements (device_id, event_time, metric)
+    INCLUDE (value)
+    WHERE metric IN ('a_act_power', 'b_act_power', 'c_act_power');
