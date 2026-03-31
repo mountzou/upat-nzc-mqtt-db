@@ -81,3 +81,42 @@ CREATE INDEX IF NOT EXISTS idx_shelly_energy_covering
     ON shelly_measurements (device_id, event_time, metric)
     INCLUDE (value)
     WHERE metric IN ('a_act_power', 'b_act_power', 'c_act_power');
+
+CREATE TABLE shelly_plug_hourly_energy (
+    device_id TEXT NOT NULL,
+    window_start TIMESTAMPTZ NOT NULL,
+    window_end TIMESTAMPTZ NOT NULL,
+
+    energy_wh DOUBLE PRECISION,
+
+    is_working_day SMALLINT NOT NULL,
+    is_working_hour SMALLINT NOT NULL,
+
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+    PRIMARY KEY (device_id, window_start, window_end)
+);
+
+CREATE TABLE shelly_pro3em_hourly_energy (
+    device_id TEXT NOT NULL,
+    window_start TIMESTAMPTZ NOT NULL,
+    window_end TIMESTAMPTZ NOT NULL,
+
+    a_energy_wh DOUBLE PRECISION,
+    b_energy_wh DOUBLE PRECISION,
+    c_energy_wh DOUBLE PRECISION,
+    total_energy_wh DOUBLE PRECISION,
+
+    is_working_day SMALLINT NOT NULL,
+    is_working_hour SMALLINT NOT NULL,
+
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+    PRIMARY KEY (device_id, window_start, window_end)
+);
+
+CREATE INDEX idx_plug_window_time
+ON shelly_plug_hourly_energy (window_start, window_end);
+
+CREATE INDEX idx_pro3em_window_time
+ON shelly_pro3em_hourly_energy (window_start, window_end);
