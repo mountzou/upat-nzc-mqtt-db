@@ -8,10 +8,8 @@ from psycopg2.extras import RealDictCursor
 
 from schemas import HistoryQueryParams, normalize_metrics, parse_datetime_bound
 
-# Start the FastAPI application
 app = FastAPI()
 
-# Define database connection parameters
 DB_HOST = os.getenv("POSTGRES_HOST", "postgres")
 DB_PORT = int(os.getenv("POSTGRES_INTERNAL_PORT", "5432"))
 DB_NAME = os.getenv("POSTGRES_DB")
@@ -19,14 +17,12 @@ DB_USER = os.getenv("POSTGRES_USER")
 DB_PASSWORD = os.getenv("POSTGRES_PASSWORD")
 
 
-# Round numeric values to 1 decimal place
 def round_numeric(value):
     if isinstance(value, (int, float)) and value is not None:
         return round(value, 1)
     return value
 
 
-# Establish a new PostgreSQL connection
 def get_connection():
     return psycopg2.connect(
         host=DB_HOST,
@@ -38,93 +34,66 @@ def get_connection():
     )
 
 
-# Define `/health` endpoint to check PostgreSQL connectivity
-@app.get("/health")
-def health():
-    try:
-        with get_connection() as conn:
-            with conn.cursor() as cur:
-                cur.execute("SELECT 1;")
-                cur.fetchone()
-        return {"status": "ok", "database": "connected"}
-    except Exception as e:
-        return {"status": "error", "details": str(e)}
+def normalize_device_ids(device_ids: list[str] | None):
+    if not device_ids:
+        return None
+    return sorted({d.strip() for d in device_ids if d and d.strip()}) or None
 
 
-# Define `/upat/devices` endpoint to list all environmental devices in the PostgreSQL database
-@app.get("/upat/devices")
-def get_all_upat_devices():
-    with get_connection() as conn:
-        with conn.cursor() as cur:
-            cur.execute(
-                """
-                SELECT id, source, device_id, dev_eui, name, created_at
-                FROM upat_devices
-                ORDER BY source, device_id;
-                """
-            )
-            return cur.fetchall()
+def resolve_energy_time_bounds(start: str | None, end: str | None):
+    now = datetime.utcnow()
+    default_end = now.replace(minute=0, second=0, microsecond=0)
+    default_start = default_end - timedelta(hours=24)
+
+    start_time = parse_datetime_bound(start, "start") if start is not None else default_start
+    end_time = parse_datetime_bound(end, "end") if end is not None else default_end
+
+    if start_time > end_time:
+        raise HTTPException(
+            status_code=400,
+            detail="start must be earlier than or equal to end",
+        )
+
+    return start_time, end_time
 
 
-# Define `/shelly/devices` endpoint to list all Shelly devices in the PostgreSQL database
-@app.get("/shelly/devices")
-def get_all_shelly_devices():
-    with get_connection() as conn:
-        with conn.cursor() as cur:
-            cur.execute(
-                """
-                SELECT id, device_id, name, created_at
-                FROM shelly_devices
-                ORDER BY device_id;
-                """
-            )
-            return cur.fetchall()
+def get_shelly_energy_table_spec(device_id: str):
+    if device_id.startswith("shellyplug"):
+        return {
+            "device_type": "plug",
+            "table_name": "shelly_plug_hourly_energy",
+        }
+
+    if device_id.startswith("shellypro3em"):
+        return {
+            "device_type": "pro3em",
+            "table_name": "shelly_pro3em_hourly_energy",
+        }
+
+    raise HTTPException(
+        status_code=400,
+        detail=f"Unknown Shelly device type for device_id={device_id}",
+    )
 
 
-# Define `/upat/device/{device_id}/latest` endpoint to fetch the latest measurements for a specific UPAT device
-@app.get("/upat/device/{device_id}/latest")
-def get_latest_measurements(
-        device_id: str,
-        metric: list[str] | None = Query(default=None),
-        limit: int = Query(default=30, le=1000),
-    ):
-    return fetch_device_latest("upat_measurements", device_id, metric, limit)
+def split_shelly_device_ids(device_ids: list[str]):
+    plug_ids = [d for d in device_ids if d.startswith("shellyplug")]
+    pro3em_ids = [d for d in device_ids if d.startswith("shellypro3em")]
+    unknown_ids = [d for d in device_ids if d not in plug_ids and d not in pro3em_ids]
+
+    if unknown_ids:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unknown Shelly device type for device_ids={unknown_ids}",
+        )
+
+    return plug_ids, pro3em_ids
 
 
-# Define `/shelly/device/{device_id}/latest` endpoint to fetch the latest measurements for a specific Shelly device
-@app.get("/shelly/device/{device_id}/latest")
-def get_latest_shelly_measurements(
-        device_id: str,
-        metric: list[str] | None = Query(default=None),
-        limit: int = Query(default=30, le=1000),
-    ):
-    return fetch_device_latest("shelly_measurements", device_id, metric, limit)
-
-
-# Define `/upat/device/{device_id}/history` endpoint to fetch the historical measurements for a specific UPAT device
-@app.get("/upat/device/{device_id}/history")
-def get_device_history(
-        device_id: str,
-        params: Annotated[HistoryQueryParams, Query()],
-    ):
-    return fetch_device_history("upat_measurements", device_id, params)
-
-
-# Define `/shelly/device/{device_id}/history` endpoint to fetch the historical measurements for a specific Shelly device
-@app.get("/shelly/device/{device_id}/history")
-def get_shelly_device_history(
-        device_id: str,
-        params: Annotated[HistoryQueryParams, Query()],
-    ):
-    return fetch_device_history("shelly_measurements", device_id, params)
-
-
-# Group measurements by event_time and format the response object
 def format_response_object(device_id, rows, metrics=None):
     snapshots = []
     snapshots_by_time = {}
 
-    # For every PostgreSQL row in the query result, group measurements by event_time
     for row in rows:
         event_time = row["event_time"]
         event_time_key = event_time.isoformat() if event_time else "null"
@@ -153,15 +122,10 @@ def format_response_object(device_id, rows, metrics=None):
     }
 
 
-# Fetch the latest measurements for a specific device, optionally filtered by metrics and limited by count
 def fetch_device_latest(table_name, device_id, metrics, limit):
-    # Get a sorted list including the normalized metric names
     normalized_metrics = normalize_metrics(metrics)
 
-    # Initialize query parts and parameters for the SQL query
     query_params = []
-
-    # Incorporate device_id parameter for the SQL query
     query_parts = [f"""
         WITH aggregated AS (
             SELECT
@@ -179,12 +143,10 @@ def fetch_device_latest(table_name, device_id, metrics, limit):
     """]
     query_params.append(device_id)
 
-    # Incorporate `metric` parameter if provided for the SQL query
     if normalized_metrics:
         query_parts.append(" AND metric = ANY(%s)")
         query_params.append(normalized_metrics)
 
-    # Incorporate `limit` parameter for the SQL query
     query_parts.append("""
             GROUP BY device_id, metric, unit, bucket_time
         ),
@@ -214,14 +176,12 @@ def fetch_device_latest(table_name, device_id, metrics, limit):
     return format_response_object(device_id, rows, normalized_metrics)
 
 
-# Fetch the historical measurements for a specific device, optionally filtered by metrics, time range, and bucket interval
 def fetch_device_history(table_name, device_id, params):
     metrics = params.resolved_metrics
-    end_time   = params.resolved_end_time or datetime.now()
+    end_time = params.resolved_end_time or datetime.now()
     start_time = params.resolved_start_time or (end_time - timedelta(days=1))
     bucket_interval = params.resolved_bucket_interval or "1 minute"
 
-    # Incorporate device_id AND bucket_interval parameters for the SQL query
     query_parts = [f"""
         WITH aggregated AS (
             SELECT
@@ -239,18 +199,16 @@ def fetch_device_history(table_name, device_id, params):
     """]
     query_params = [bucket_interval, device_id]
 
-    # Incorporate datetime parameters for the SQL query
     if start_time and end_time:
         query_parts.append(" AND event_time >= %s")
         query_params.append(start_time)
         query_parts.append(" AND event_time <= %s")
         query_params.append(end_time)
-    # Incorporate metrics parameters for the SQL query
+
     if metrics:
         query_parts.append(" AND metric = ANY(%s)")
         query_params.append(metrics)
 
-    # If both start and end time are provided, group by the bucket_time and return all results
     if params.start is not None and params.end is not None:
         query_parts.append("""
                 GROUP BY device_id, metric, unit, bucket_time
@@ -259,7 +217,6 @@ def fetch_device_history(table_name, device_id, params):
             FROM aggregated
             ORDER BY bucket_time DESC, metric ASC;
         """)
-    # If only start or end time is provided, group by the bucket_time and return only limited results for each metric
     else:
         query_parts.append("""
                 GROUP BY device_id, metric, unit, bucket_time
@@ -285,78 +242,459 @@ def fetch_device_history(table_name, device_id, params):
     return format_response_object(device_id, rows, metrics)
 
 
-@app.get("/shelly/device/{device_id}/energy")
-def get_shelly_device_energy(
-    device_id: str,
-    start: str,
-    end: str,
-    bucket_minutes: int = Query(default=30, ge=1, le=1440),
-):
-    start_time = parse_datetime_bound(start, "start")
-    end_time = parse_datetime_bound(end, "end")
+@app.get("/health")
+def health():
+    try:
+        with get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT 1;")
+                cur.fetchone()
+        return {"status": "ok", "database": "connected"}
+    except Exception as e:
+        return {"status": "error", "details": str(e)}
 
-    if start_time > end_time:
-        raise HTTPException(
-            status_code=400,
-            detail="start must be earlier than or equal to end",
-        )
 
-    bucket_interval = f"{bucket_minutes} minutes"
-    bucket_hours = bucket_minutes / 60.0
-
+@app.get("/upat/devices")
+def get_all_upat_devices():
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
                 """
-                WITH bucketed AS (
+                SELECT id, source, device_id, dev_eui, name, created_at
+                FROM upat_devices
+                ORDER BY source, device_id;
+                """
+            )
+            return cur.fetchall()
+
+
+@app.get("/shelly/devices")
+def get_all_shelly_devices():
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT id, device_id, name, created_at
+                FROM shelly_devices
+                ORDER BY device_id;
+                """
+            )
+            return cur.fetchall()
+
+
+@app.get("/upat/device/{device_id}/latest")
+def get_latest_measurements(
+    device_id: str,
+    metric: list[str] | None = Query(default=None),
+    limit: int = Query(default=30, le=1000),
+):
+    return fetch_device_latest("upat_measurements", device_id, metric, limit)
+
+
+@app.get("/shelly/device/{device_id}/latest")
+def get_latest_shelly_measurements(
+    device_id: str,
+    metric: list[str] | None = Query(default=None),
+    limit: int = Query(default=30, le=1000),
+):
+    return fetch_device_latest("shelly_measurements", device_id, metric, limit)
+
+
+@app.get("/upat/device/{device_id}/history")
+def get_device_history(
+    device_id: str,
+    params: Annotated[HistoryQueryParams, Query()],
+):
+    return fetch_device_history("upat_measurements", device_id, params)
+
+
+@app.get("/shelly/device/{device_id}/history")
+def get_shelly_device_history(
+    device_id: str,
+    params: Annotated[HistoryQueryParams, Query()],
+):
+    return fetch_device_history("shelly_measurements", device_id, params)
+
+
+@app.get("/shelly/hourly-energy")
+def get_shelly_hourly_energy(
+    device_id: list[str] | None = Query(default=None),
+    start: str | None = None,
+    end: str | None = None,
+    working_only: bool = Query(default=False),
+):
+    device_ids = normalize_device_ids(device_id)
+
+    if not device_ids:
+        raise HTTPException(
+            status_code=400,
+            detail="At least one device_id must be provided",
+        )
+
+    start_time, end_time = resolve_energy_time_bounds(start, end)
+    plug_ids, pro3em_ids = split_shelly_device_ids(device_ids)
+
+    items = []
+
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            if plug_ids:
+                cur.execute(
+                    """
                     SELECT
-                        date_bin(
-                            %s::interval,
-                            event_time,
-                            TIMESTAMP '2001-01-01 00:00:00'
-                        ) AS bucket_time,
-                        AVG(CASE WHEN metric = 'a_act_power' THEN value END) AS a_avg,
-                        AVG(CASE WHEN metric = 'b_act_power' THEN value END) AS b_avg,
-                        AVG(CASE WHEN metric = 'c_act_power' THEN value END) AS c_avg
-                    FROM shelly_measurements
-                    WHERE device_id = %s
-                      AND metric = ANY(%s)
-                      AND event_time >= %s
-                      AND event_time <= %s
-                    GROUP BY bucket_time
+                        device_id,
+                        window_start,
+                        window_end,
+                        energy_wh,
+                        is_working_day,
+                        is_working_hour,
+                        created_at
+                    FROM shelly_plug_hourly_energy
+                    WHERE device_id = ANY(%s)
+                      AND window_start >= %s
+                      AND window_end <= %s
+                      AND (%s = FALSE OR (is_working_day = 1 AND is_working_hour = 1))
+                    ORDER BY window_start DESC, device_id ASC;
+                    """,
+                    (plug_ids, start_time, end_time, working_only),
                 )
+                rows = cur.fetchall()
+
+                for row in rows:
+                    items.append({
+                        "device_id": row["device_id"],
+                        "device_type": "plug",
+                        "window_start": row["window_start"],
+                        "window_end": row["window_end"],
+                        "is_working_day": row["is_working_day"],
+                        "is_working_hour": row["is_working_hour"],
+                        "energy_wh": {
+                            "total": round(float(row["energy_wh"] or 0.0), 3),
+                        },
+                        "created_at": row["created_at"],
+                    })
+
+            if pro3em_ids:
+                cur.execute(
+                    """
+                    SELECT
+                        device_id,
+                        window_start,
+                        window_end,
+                        a_energy_wh,
+                        b_energy_wh,
+                        c_energy_wh,
+                        total_energy_wh,
+                        is_working_day,
+                        is_working_hour,
+                        created_at
+                    FROM shelly_pro3em_hourly_energy
+                    WHERE device_id = ANY(%s)
+                      AND window_start >= %s
+                      AND window_end <= %s
+                      AND (%s = FALSE OR (is_working_day = 1 AND is_working_hour = 1))
+                    ORDER BY window_start DESC, device_id ASC;
+                    """,
+                    (pro3em_ids, start_time, end_time, working_only),
+                )
+                rows = cur.fetchall()
+
+                for row in rows:
+                    items.append({
+                        "device_id": row["device_id"],
+                        "device_type": "pro3em",
+                        "window_start": row["window_start"],
+                        "window_end": row["window_end"],
+                        "is_working_day": row["is_working_day"],
+                        "is_working_hour": row["is_working_hour"],
+                        "energy_wh": {
+                            "a": round(float(row["a_energy_wh"] or 0.0), 3),
+                            "b": round(float(row["b_energy_wh"] or 0.0), 3),
+                            "c": round(float(row["c_energy_wh"] or 0.0), 3),
+                            "total": round(float(row["total_energy_wh"] or 0.0), 3),
+                        },
+                        "created_at": row["created_at"],
+                    })
+
+    return {
+        "device_ids": device_ids,
+        "start": start_time,
+        "end": end_time,
+        "working_only": working_only,
+        "count": len(items),
+        "items": items,
+    }
+
+
+@app.get("/shelly/energy")
+def get_shelly_energy(
+    device_id: list[str] | None = Query(default=None),
+    start: str | None = None,
+    end: str | None = None,
+    working_only: bool = Query(default=False),
+):
+    device_ids = normalize_device_ids(device_id)
+
+    if not device_ids:
+        raise HTTPException(
+            status_code=400,
+            detail="At least one device_id must be provided",
+        )
+
+    start_time, end_time = resolve_energy_time_bounds(start, end)
+    plug_ids, pro3em_ids = split_shelly_device_ids(device_ids)
+
+    results = []
+
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            if plug_ids:
+                cur.execute(
+                    """
+                    SELECT
+                        device_id,
+                        COALESCE(SUM(energy_wh), 0) AS total_wh
+                    FROM shelly_plug_hourly_energy
+                    WHERE device_id = ANY(%s)
+                      AND window_start >= %s
+                      AND window_end <= %s
+                      AND (%s = FALSE OR (is_working_day = 1 AND is_working_hour = 1))
+                    GROUP BY device_id
+                    ORDER BY device_id ASC;
+                    """,
+                    (plug_ids, start_time, end_time, working_only),
+                )
+                rows = cur.fetchall()
+
+                for row in rows:
+                    results.append({
+                        "device_id": row["device_id"],
+                        "device_type": "plug",
+                        "energy_wh": {
+                            "total": round(float(row["total_wh"] or 0.0), 3),
+                        },
+                    })
+
+            if pro3em_ids:
+                cur.execute(
+                    """
+                    SELECT
+                        device_id,
+                        COALESCE(SUM(a_energy_wh), 0) AS a_wh,
+                        COALESCE(SUM(b_energy_wh), 0) AS b_wh,
+                        COALESCE(SUM(c_energy_wh), 0) AS c_wh,
+                        COALESCE(SUM(total_energy_wh), 0) AS total_wh
+                    FROM shelly_pro3em_hourly_energy
+                    WHERE device_id = ANY(%s)
+                      AND window_start >= %s
+                      AND window_end <= %s
+                      AND (%s = FALSE OR (is_working_day = 1 AND is_working_hour = 1))
+                    GROUP BY device_id
+                    ORDER BY device_id ASC;
+                    """,
+                    (pro3em_ids, start_time, end_time, working_only),
+                )
+                rows = cur.fetchall()
+
+                for row in rows:
+                    results.append({
+                        "device_id": row["device_id"],
+                        "device_type": "pro3em",
+                        "energy_wh": {
+                            "a": round(float(row["a_wh"] or 0.0), 3),
+                            "b": round(float(row["b_wh"] or 0.0), 3),
+                            "c": round(float(row["c_wh"] or 0.0), 3),
+                            "total": round(float(row["total_wh"] or 0.0), 3),
+                        },
+                    })
+
+    return {
+        "device_ids": device_ids,
+        "start": start_time,
+        "end": end_time,
+        "working_only": working_only,
+        "count": len(results),
+        "items": results,
+    }
+
+
+@app.get("/shelly/device/{device_id}/hourly-energy")
+def get_shelly_device_hourly_energy_history(
+    device_id: str,
+    start: str | None = None,
+    end: str | None = None,
+    working_only: bool = Query(default=False),
+):
+    start_time, end_time = resolve_energy_time_bounds(start, end)
+    spec = get_shelly_energy_table_spec(device_id)
+
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            if spec["device_type"] == "plug":
+                cur.execute(
+                    """
+                    SELECT
+                        device_id,
+                        window_start,
+                        window_end,
+                        energy_wh,
+                        is_working_day,
+                        is_working_hour,
+                        created_at
+                    FROM shelly_plug_hourly_energy
+                    WHERE device_id = %s
+                      AND window_start >= %s
+                      AND window_end <= %s
+                      AND (%s = FALSE OR (is_working_day = 1 AND is_working_hour = 1))
+                    ORDER BY window_start DESC;
+                    """,
+                    (device_id, start_time, end_time, working_only),
+                )
+                rows = cur.fetchall()
+
+                return {
+                    "device_id": device_id,
+                    "device_type": "plug",
+                    "start": start_time,
+                    "end": end_time,
+                    "working_only": working_only,
+                    "count": len(rows),
+                    "items": [
+                        {
+                            "window_start": row["window_start"],
+                            "window_end": row["window_end"],
+                            "is_working_day": row["is_working_day"],
+                            "is_working_hour": row["is_working_hour"],
+                            "energy_wh": {
+                                "total": round(float(row["energy_wh"] or 0.0), 3),
+                            },
+                            "created_at": row["created_at"],
+                        }
+                        for row in rows
+                    ],
+                }
+
+            cur.execute(
+                """
                 SELECT
-                    COALESCE(SUM(a_avg * %s), 0) AS a_wh,
-                    COALESCE(SUM(b_avg * %s), 0) AS b_wh,
-                    COALESCE(SUM(c_avg * %s), 0) AS c_wh
-                FROM bucketed;
-                """,
-                (
-                    bucket_interval,
                     device_id,
-                    ["a_act_power", "b_act_power", "c_act_power"],
-                    start_time,
-                    end_time,
-                    bucket_hours,
-                    bucket_hours,
-                    bucket_hours,
-                ),
+                    window_start,
+                    window_end,
+                    a_energy_wh,
+                    b_energy_wh,
+                    c_energy_wh,
+                    total_energy_wh,
+                    is_working_day,
+                    is_working_hour,
+                    created_at
+                FROM shelly_pro3em_hourly_energy
+                WHERE device_id = %s
+                  AND window_start >= %s
+                  AND window_end <= %s
+                  AND (%s = FALSE OR (is_working_day = 1 AND is_working_hour = 1))
+                ORDER BY window_start DESC;
+                """,
+                (device_id, start_time, end_time, working_only),
+            )
+            rows = cur.fetchall()
+
+    return {
+        "device_id": device_id,
+        "device_type": "pro3em",
+        "start": start_time,
+        "end": end_time,
+        "working_only": working_only,
+        "count": len(rows),
+        "items": [
+            {
+                "window_start": row["window_start"],
+                "window_end": row["window_end"],
+                "is_working_day": row["is_working_day"],
+                "is_working_hour": row["is_working_hour"],
+                "energy_wh": {
+                    "a": round(float(row["a_energy_wh"] or 0.0), 3),
+                    "b": round(float(row["b_energy_wh"] or 0.0), 3),
+                    "c": round(float(row["c_energy_wh"] or 0.0), 3),
+                    "total": round(float(row["total_energy_wh"] or 0.0), 3),
+                },
+                "created_at": row["created_at"],
+            }
+            for row in rows
+        ],
+    }
+
+
+@app.get("/shelly/device/{device_id}/energy")
+def get_shelly_device_energy(
+    device_id: str,
+    start: str | None = None,
+    end: str | None = None,
+    working_only: bool = Query(default=False),
+):
+    start_time, end_time = resolve_energy_time_bounds(start, end)
+    spec = get_shelly_energy_table_spec(device_id)
+
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            if spec["device_type"] == "plug":
+                cur.execute(
+                    """
+                    SELECT COALESCE(SUM(energy_wh), 0) AS total_wh
+                    FROM shelly_plug_hourly_energy
+                    WHERE device_id = %s
+                      AND window_start >= %s
+                      AND window_end <= %s
+                      AND (%s = FALSE OR (is_working_day = 1 AND is_working_hour = 1));
+                    """,
+                    (device_id, start_time, end_time, working_only),
+                )
+                row = cur.fetchone()
+
+                total = round(float(row["total_wh"] or 0.0), 3)
+
+                return {
+                    "device_id": device_id,
+                    "device_type": "plug",
+                    "start": start_time,
+                    "end": end_time,
+                    "working_only": working_only,
+                    "energy_wh": {
+                        "total": total,
+                    },
+                }
+
+            cur.execute(
+                """
+                SELECT
+                    COALESCE(SUM(a_energy_wh), 0) AS a_wh,
+                    COALESCE(SUM(b_energy_wh), 0) AS b_wh,
+                    COALESCE(SUM(c_energy_wh), 0) AS c_wh,
+                    COALESCE(SUM(total_energy_wh), 0) AS total_wh
+                FROM shelly_pro3em_hourly_energy
+                WHERE device_id = %s
+                  AND window_start >= %s
+                  AND window_end <= %s
+                  AND (%s = FALSE OR (is_working_day = 1 AND is_working_hour = 1));
+                """,
+                (device_id, start_time, end_time, working_only),
             )
             row = cur.fetchone()
 
     a = round(float(row["a_wh"] or 0.0), 3)
     b = round(float(row["b_wh"] or 0.0), 3)
     c = round(float(row["c_wh"] or 0.0), 3)
+    total = round(float(row["total_wh"] or 0.0), 3)
 
     return {
         "device_id": device_id,
+        "device_type": "pro3em",
         "start": start_time,
         "end": end_time,
-        "bucket_minutes": bucket_minutes,
+        "working_only": working_only,
         "energy_wh": {
             "a": a,
             "b": b,
             "c": c,
-            "total": round(a + b + c, 3),
+            "total": total,
         },
     }
