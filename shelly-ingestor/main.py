@@ -137,14 +137,6 @@ def resolve_event_time(payload_obj):
 
 def insert_plug_metrics(conn, device_id, payload_obj, event_time):
     maybe_insert_metric(conn, device_id, "apower", payload_obj.get("apower"), "W", event_time)
-    maybe_insert_metric(conn, device_id, "voltage", payload_obj.get("voltage"), "V", event_time)
-    maybe_insert_metric(conn, device_id, "frequency", payload_obj.get("freq"), "Hz", event_time)
-    maybe_insert_metric(conn, device_id, "current", payload_obj.get("current"), "A", event_time)
-
-    temperature = payload_obj.get("temperature", {})
-    if isinstance(temperature, dict):
-        maybe_insert_metric(conn, device_id, "temperature", temperature.get("tC"), "C", event_time)
-        maybe_insert_metric(conn, device_id, "temperature_f", temperature.get("tF"), "F", event_time)
 
     aenergy = payload_obj.get("aenergy", {})
     if isinstance(aenergy, dict):
@@ -157,13 +149,6 @@ def insert_plug_metrics(conn, device_id, payload_obj, event_time):
 
 def insert_pro3em_metrics(conn, device_id, payload_obj, event_time):
     unit_by_metric = {
-        "a_voltage": "V",
-        "b_voltage": "V",
-        "c_voltage": "V",
-        "a_current": "A",
-        "b_current": "A",
-        "c_current": "A",
-        "n_current": "A",
         "total_current": "A",
         "a_act_power": "W",
         "b_act_power": "W",
@@ -173,12 +158,6 @@ def insert_pro3em_metrics(conn, device_id, payload_obj, event_time):
         "b_aprt_power": "VA",
         "c_aprt_power": "VA",
         "total_aprt_power": "VA",
-        "a_pf": None,
-        "b_pf": None,
-        "c_pf": None,
-        "a_freq": "Hz",
-        "b_freq": "Hz",
-        "c_freq": "Hz",
     }
 
     for metric, unit in unit_by_metric.items():

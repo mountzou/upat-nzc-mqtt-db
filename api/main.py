@@ -16,13 +16,7 @@ DB_NAME = os.getenv("POSTGRES_DB")
 DB_USER = os.getenv("POSTGRES_USER")
 DB_PASSWORD = os.getenv("POSTGRES_PASSWORD")
 
-
-def round_numeric(value):
-    if isinstance(value, (int, float)) and value is not None:
-        return round(value, 1)
-    return value
-
-
+# Create and return a new PostgreSQL connection.
 def get_connection():
     return psycopg2.connect(
         host=DB_HOST,
@@ -32,6 +26,12 @@ def get_connection():
         password=DB_PASSWORD,
         cursor_factory=RealDictCursor,
     )
+
+
+def round_numeric(value):
+    if isinstance(value, (int, float)) and value is not None:
+        return round(value, 1)
+    return value
 
 
 def normalize_device_ids(device_ids: list[str] | None):
@@ -57,7 +57,7 @@ def resolve_energy_time_bounds(start: str | None, end: str | None):
     return start_time, end_time
 
 
-def get_shelly_energy_table_spec(device_id: str):
+def get_shelly_device_db_table(device_id: str):
     if device_id.startswith("shellyplug"):
         return {
             "device_type": "plug",
@@ -77,8 +77,8 @@ def get_shelly_energy_table_spec(device_id: str):
 
 
 def split_shelly_device_ids(device_ids: list[str]):
-    plug_ids = [d for d in device_ids if d.startswith("shellyplug")]
-    pro3em_ids = [d for d in device_ids if d.startswith("shellypro3em")]
+    plug_ids    = [d for d in device_ids if d.startswith("shellyplug")]
+    pro3em_ids  = [d for d in device_ids if d.startswith("shellypro3em")]
     unknown_ids = [d for d in device_ids if d not in plug_ids and d not in pro3em_ids]
 
     if unknown_ids:
@@ -526,7 +526,7 @@ def get_shelly_device_hourly_energy_history(
     working_only: bool = Query(default=False),
 ):
     start_time, end_time = resolve_energy_time_bounds(start, end)
-    spec = get_shelly_energy_table_spec(device_id)
+    spec = get_shelly_device_db_table(device_id)
 
     with get_connection() as conn:
         with conn.cursor() as cur:
@@ -632,7 +632,7 @@ def get_shelly_device_energy(
     working_only: bool = Query(default=False),
 ):
     start_time, end_time = resolve_energy_time_bounds(start, end)
-    spec = get_shelly_energy_table_spec(device_id)
+    spec = get_shelly_device_db_table(device_id)
 
     with get_connection() as conn:
         with conn.cursor() as cur:

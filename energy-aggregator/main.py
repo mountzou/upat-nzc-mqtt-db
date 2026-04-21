@@ -4,52 +4,54 @@ from zoneinfo import ZoneInfo
 
 import psycopg2
 
-
 LOCAL_TZ = ZoneInfo("Europe/Athens")
 
+DB_HOST = os.getenv("POSTGRES_HOST", "postgres")
+DB_PORT = int(os.getenv("POSTGRES_INTERNAL_PORT", "5432"))
+DB_NAME = os.getenv("POSTGRES_DB")
+DB_USER = os.getenv("POSTGRES_USER")
+DB_PASSWORD = os.getenv("POSTGRES_PASSWORD")
 
+# Create and return a new PostgreSQL connection.
 def get_connection():
     return psycopg2.connect(
-        host=os.getenv("POSTGRES_HOST", "postgres"),
-        port=os.getenv("POSTGRES_INTERNAL_PORT", "5432"),
-        dbname=os.getenv("POSTGRES_DB"),
-        user=os.getenv("POSTGRES_USER"),
-        password=os.getenv("POSTGRES_PASSWORD"),
+        host=DB_HOST,
+        port=DB_PORT,
+        dbname=DB_NAME,
+        user=DB_USER,
+        password=DB_PASSWORD,
     )
 
-
-def get_work_flags(start_time_utc, end_time_utc):
+# Check whether the CRON execution time falls within working hours (8:00-14:00) on a working day (Monday-Friday).
+def is_working_period(start_time_utc):
     start_local = start_time_utc.astimezone(LOCAL_TZ)
-    end_local = end_time_utc.astimezone(LOCAL_TZ)
 
-    is_working_day = 0
-    is_working_hour = 0
-
-    current_date = start_local.date()
-    last_date = end_local.date()
-
-    while current_date <= last_date:
-        if current_date.weekday() < 5:
-            is_working_day = 1
-
-            work_start = datetime.combine(current_date, time(8, 0), tzinfo=LOCAL_TZ)
-            work_end = datetime.combine(current_date, time(14, 0), tzinfo=LOCAL_TZ)
-
-            if max(start_local, work_start) < min(end_local, work_end):
-                is_working_hour = 1
-                break
-
-        current_date += timedelta(days=1)
+    is_working_day  = 1 if start_local.weekday() < 5 else 0
+    is_working_hour = 1 if is_working_day and 8 <= start_local.hour < 14 else 0
 
     return is_working_day, is_working_hour
 
+# Get the list of Shelly device IDs and split them into plugs and pro3em devices.
+def get_shelly_device_ids(rows):
+    plug_ids = []
+    pro3em_ids = []
+
+    for row in rows:
+        device_id = row[0]
+
+        if device_id.startswith("shellyplug"):
+            plug_ids.append(device_id)
+        elif device_id.startswith("shellypro3em"):
+            pro3em_ids.append(device_id)
+
+    return plug_ids, pro3em_ids
 
 def main():
     now = datetime.now(timezone.utc)
     end_time = now.replace(minute=0, second=0, microsecond=0)
     start_time = end_time - timedelta(hours=1)
 
-    is_working_day, is_working_hour = get_work_flags(start_time, end_time)
+    is_working_day, is_working_hour = is_working_period(start_time)
 
     with get_connection() as conn:
         with conn.cursor() as cur:
@@ -59,16 +61,7 @@ def main():
             """)
             rows = cur.fetchall()
 
-            plug_ids = []
-            pro3em_ids = []
-
-            for row in rows:
-                device_id = row[0]
-
-                if device_id.startswith("shellyplug"):
-                    plug_ids.append(device_id)
-                elif device_id.startswith("shellypro3em"):
-                    pro3em_ids.append(device_id)
+            plug_ids, pro3em_ids = get_shelly_device_ids(rows)
 
             common_window_info = {
                 "start_time": start_time.isoformat(),
@@ -77,12 +70,7 @@ def main():
                 "is_working_hour": is_working_hour,
             }
 
-            print({
-                "shelly_plugs": plug_ids,
-                "shelly_pro3em": pro3em_ids,
-                **common_window_info,
-            })
-
+            # Process Shelly Plug S devices.
             for device_id in plug_ids:
                 cur.execute(
                     """
@@ -115,12 +103,6 @@ def main():
                 last_row = cur.fetchone()
 
                 if not first_row or not last_row:
-                    print({
-                        "device_id": device_id,
-                        **common_window_info,
-                        "delta_wh": None,
-                        "status": "insufficient data in last hour",
-                    })
                     continue
 
                 first_value, first_ts = first_row
@@ -128,16 +110,6 @@ def main():
                 delta_wh = float(last_value) - float(first_value)
 
                 if delta_wh < 0:
-                    print({
-                        "device_id": device_id,
-                        **common_window_info,
-                        "first_ts": first_ts.isoformat(),
-                        "last_ts": last_ts.isoformat(),
-                        "first_value_wh": float(first_value),
-                        "last_value_wh": float(last_value),
-                        "delta_wh": round(delta_wh, 3),
-                        "status": "negative delta skipped",
-                    })
                     continue
 
                 cur.execute(
@@ -168,17 +140,7 @@ def main():
                     ),
                 )
 
-                print({
-                    "device_id": device_id,
-                    **common_window_info,
-                    "first_ts": first_ts.isoformat(),
-                    "last_ts": last_ts.isoformat(),
-                    "first_value_wh": float(first_value),
-                    "last_value_wh": float(last_value),
-                    "delta_wh": round(delta_wh, 3),
-                    "status": "stored",
-                })
-
+            # Process Shelly 3EM Pro devices.
             for device_id in pro3em_ids:
                 cur.execute(
                     """
@@ -203,11 +165,6 @@ def main():
                 timestamps = sorted(by_time.keys())
 
                 if len(timestamps) < 2:
-                    print({
-                        "device_id": device_id,
-                        **common_window_info,
-                        "status": "insufficient data",
-                    })
                     continue
 
                 energy = {"a": 0.0, "b": 0.0, "c": 0.0}
@@ -269,18 +226,6 @@ def main():
                         is_working_hour,
                     ),
                 )
-
-                print({
-                    "device_id": device_id,
-                    **common_window_info,
-                    "energy_wh": {
-                        "a": round(energy["a"], 3),
-                        "b": round(energy["b"], 3),
-                        "c": round(energy["c"], 3),
-                        "total": round(total_energy, 3),
-                    },
-                    "status": "stored",
-                })
 
 
 if __name__ == "__main__":
