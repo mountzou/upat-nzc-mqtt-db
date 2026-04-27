@@ -173,6 +173,31 @@ def format_simulation_recording(row):
     }
 
 
+def format_day_ahead_room_result(row):
+    result = {
+        "room_id": row["room_id"],
+        "room_label": row["room_label"],
+        "status": row["status"],
+    }
+
+    if row["status"] == "success":
+        result["metrics"] = {
+            "average_air_temperature_c": numeric_or_none(row["average_air_temperature_c"]),
+            "thermal_discomfort_hours": numeric_or_none(row["thermal_discomfort_hours"]),
+            "facility_kwh": numeric_or_none(row["facility_kwh"]),
+            "equipment_kwh": numeric_or_none(row["equipment_kwh"]),
+            "lighting_kwh": numeric_or_none(row["lighting_kwh"]),
+            "heating_liters": numeric_or_none(row["heating_liters"]),
+            "cooling_kwh": numeric_or_none(row["cooling_kwh"]),
+            "fans_hvac_kwh": numeric_or_none(row["fans_hvac_kwh"]),
+        }
+
+    if row["error_text"] is not None:
+        result["error"] = row["error_text"]
+
+    return result
+
+
 def fetch_device_latest(table_name, device_id, metrics, limit):
     normalized_metrics = normalize_metrics(metrics)
 
@@ -412,6 +437,115 @@ def get_latest_simulation_recordings(
         "recording_date": rows[0]["recording_date"] if rows else None,
         "count": len(rows),
         "items": [format_simulation_recording(row) for row in rows],
+    }
+
+
+@app.get("/simulations/day-ahead/latest")
+def get_latest_day_ahead_simulation_results(
+    school_id: str = Query(...),
+):
+    normalized_school_id = normalize_required_text(school_id, "school_id")
+
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT
+                    id,
+                    school_id,
+                    recording_date,
+                    request_url,
+                    request_path,
+                    request_body,
+                    http_status,
+                    status,
+                    simulation_engine,
+                    external_run_id,
+                    day_ahead_date,
+                    requested_rooms,
+                    successful_rooms,
+                    failed_rooms,
+                    facility_kwh,
+                    equipment_kwh,
+                    lighting_kwh,
+                    heating_liters,
+                    cooling_kwh,
+                    fans_hvac_kwh,
+                    started_at,
+                    completed_at,
+                    created_at,
+                    updated_at
+                FROM simulation_day_ahead_runs
+                WHERE school_id = %s
+                  AND success = TRUE
+                ORDER BY started_at DESC
+                LIMIT 1;
+                """,
+                (normalized_school_id,),
+            )
+            run = cur.fetchone()
+
+            if not run:
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"No day-ahead simulation results found for school_id={normalized_school_id}",
+                )
+
+            cur.execute(
+                """
+                SELECT
+                    room_id,
+                    room_label,
+                    status,
+                    error_text,
+                    average_air_temperature_c,
+                    thermal_discomfort_hours,
+                    facility_kwh,
+                    equipment_kwh,
+                    lighting_kwh,
+                    heating_liters,
+                    cooling_kwh,
+                    fans_hvac_kwh
+                FROM simulation_day_ahead_room_results
+                WHERE run_id = %s
+                ORDER BY room_id ASC;
+                """,
+                (run["id"],),
+            )
+            rows = cur.fetchall()
+
+    return {
+        "status": run["status"],
+        "simulation_engine": run["simulation_engine"],
+        "run_id": run["external_run_id"],
+        "school_id": run["school_id"],
+        "summary": {
+            "requested_rooms": run["requested_rooms"],
+            "successful_rooms": run["successful_rooms"],
+            "failed_rooms": run["failed_rooms"],
+        },
+        "day_ahead_date": run["day_ahead_date"],
+        "school_totals": {
+            "facility_kwh": numeric_or_none(run["facility_kwh"]),
+            "equipment_kwh": numeric_or_none(run["equipment_kwh"]),
+            "lighting_kwh": numeric_or_none(run["lighting_kwh"]),
+            "heating_liters": numeric_or_none(run["heating_liters"]),
+            "cooling_kwh": numeric_or_none(run["cooling_kwh"]),
+            "fans_hvac_kwh": numeric_or_none(run["fans_hvac_kwh"]),
+        },
+        "room_results": [format_day_ahead_room_result(row) for row in rows],
+        "recording": {
+            "id": run["id"],
+            "recording_date": run["recording_date"],
+            "request_url": run["request_url"],
+            "request_path": run["request_path"],
+            "request_body": run["request_body"],
+            "http_status": run["http_status"],
+            "started_at": run["started_at"],
+            "completed_at": run["completed_at"],
+            "created_at": run["created_at"],
+            "updated_at": run["updated_at"],
+        },
     }
 
 

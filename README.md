@@ -65,7 +65,7 @@ The first version uses constants in `simulation-recorder/main.py`:
 
 ```text
 base URL: https://upat-nzc-energyplus-backend.onrender.com
-path: /rooms
+path: /simulate/day-ahead
 school: school_10
 recording timezone: Europe/Athens
 ```
@@ -76,10 +76,10 @@ Run it manually:
 docker compose run --rm simulation-recorder
 ```
 
-For an existing PostgreSQL volume, apply the idempotent migration before the first run:
+For an existing PostgreSQL volume, apply the idempotent day-ahead result migration before the first run:
 
 ```bash
-docker compose exec -T postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -f /docker-entrypoint-initdb.d/migrations/001_simulation_recordings.sql'
+docker compose exec -T postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -f /docker-entrypoint-initdb.d/migrations/002_simulation_day_ahead_results.sql'
 ```
 
 ## API service
@@ -136,7 +136,7 @@ Example response:
 
 ### `GET /simulations/recordings/latest`
 
-Returns the latest successful stored simulation output for a school.
+Returns the latest successful stored room configuration recording for a school. This endpoint is retained for compatibility; use `/simulations/day-ahead/latest` for actual simulation result metrics.
 
 Query parameters:
 
@@ -163,6 +163,63 @@ Example response:
       "physical_instance_count": 8,
       "zone_name": "Classroom",
       "thermostat_type": "single_heating"
+    }
+  ]
+}
+```
+
+### `GET /simulations/day-ahead/latest`
+
+Returns the latest stored day-ahead EnergyPlus simulation results for a school.
+
+Query parameters:
+
+- `school_id`
+  Required. School identifier, for example `school_10`.
+
+Example:
+
+```bash
+curl -s "http://localhost:8000/simulations/day-ahead/latest?school_id=school_10"
+```
+
+Example response:
+
+```json
+{
+  "status": "success",
+  "simulation_engine": "energyplus",
+  "run_id": "20260425_162646_c373b453",
+  "school_id": "school_10",
+  "summary": {
+    "requested_rooms": 8,
+    "successful_rooms": 8,
+    "failed_rooms": 0
+  },
+  "day_ahead_date": "2026-04-25",
+  "school_totals": {
+    "facility_kwh": 83.7,
+    "equipment_kwh": 20.7,
+    "lighting_kwh": 40.96,
+    "heating_liters": 0,
+    "cooling_kwh": 19.87,
+    "fans_hvac_kwh": 2.16
+  },
+  "room_results": [
+    {
+      "room_id": "classroom",
+      "room_label": "Classroom × 8",
+      "status": "success",
+      "metrics": {
+        "average_air_temperature_c": 24.8,
+        "thermal_discomfort_hours": 3.67,
+        "facility_kwh": 22.5,
+        "equipment_kwh": 0,
+        "lighting_kwh": 22.5,
+        "heating_liters": 0,
+        "cooling_kwh": 0,
+        "fans_hvac_kwh": 0
+      }
     }
   ]
 }

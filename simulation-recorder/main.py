@@ -2,7 +2,7 @@ import json
 import os
 import sys
 import time
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from decimal import Decimal, InvalidOperation
 from urllib.parse import urljoin
 from zoneinfo import ZoneInfo
@@ -21,12 +21,15 @@ DB_CONNECT_RETRIES = int(os.getenv("POSTGRES_CONNECT_RETRIES", "5"))
 DB_CONNECT_DELAY_SECONDS = float(os.getenv("POSTGRES_CONNECT_DELAY_SECONDS", "2"))
 
 SIMULATION_API_BASE_URL = "https://upat-nzc-energyplus-backend.onrender.com"
-SIMULATION_API_PATH = "/rooms"
+SIMULATION_API_PATH = "/simulate/day-ahead"
 SIMULATION_SCHOOL_ID = "school_10"
 SIMULATION_REQUEST_TIMEOUT_SECONDS = 60
 SIMULATION_REQUEST_RETRIES = 3
 SIMULATION_REQUEST_RETRY_DELAY_SECONDS = 5
 SIMULATION_RECORDING_TIMEZONE = "Europe/Athens"
+SIMULATION_REQUEST_BODY = {
+    "school_id": SIMULATION_SCHOOL_ID,
+}
 LOCAL_TZ = ZoneInfo(SIMULATION_RECORDING_TIMEZONE)
 
 
@@ -84,54 +87,118 @@ def int_or_none(value):
         return None
 
 
-def bool_or_none(value):
-    if value is None:
+def date_or_none(value):
+    if not value:
         return None
 
-    if isinstance(value, bool):
+    if isinstance(value, date):
         return value
 
-    return bool(value)
+    try:
+        return date.fromisoformat(value)
+    except (TypeError, ValueError):
+        return None
 
 
-def create_run(conn, school_id, request_url, request_path, started_at):
+def create_day_ahead_run(conn, school_id, recording_date, request_url, request_path, request_body, started_at):
     with conn.cursor() as cur:
         cur.execute(
             """
-            INSERT INTO simulation_runs (
+            INSERT INTO simulation_day_ahead_runs (
                 school_id,
+                recording_date,
                 request_url,
                 request_path,
+                request_body,
                 started_at,
                 success
             )
-            VALUES (%s, %s, %s, %s, FALSE)
+            VALUES (%s, %s, %s, %s, %s, %s, FALSE)
             RETURNING id;
             """,
-            (school_id, request_url, request_path, started_at),
+            (
+                school_id,
+                recording_date,
+                request_url,
+                request_path,
+                Json(request_body),
+                started_at,
+            ),
         )
         return cur.fetchone()[0]
 
 
-def finish_run(conn, run_id, http_status, success, response_json, error_text):
+def finish_failed_day_ahead_run(conn, run_id, http_status, response_json, error_text):
     with conn.cursor() as cur:
         cur.execute(
             """
-            UPDATE simulation_runs
+            UPDATE simulation_day_ahead_runs
             SET
                 completed_at = %s,
                 http_status = %s,
-                success = %s,
+                success = FALSE,
                 response_json = %s,
-                error_text = %s
+                error_text = %s,
+                updated_at = NOW()
             WHERE id = %s;
             """,
             (
                 utc_now(),
                 http_status,
-                success,
                 Json(response_json) if response_json is not None else None,
                 error_text,
+                run_id,
+            ),
+        )
+
+
+def finish_successful_day_ahead_run(conn, run_id, http_status, response_json):
+    summary = response_json.get("summary") if isinstance(response_json.get("summary"), dict) else {}
+    totals = response_json.get("school_totals") if isinstance(response_json.get("school_totals"), dict) else {}
+
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            UPDATE simulation_day_ahead_runs
+            SET
+                completed_at = %s,
+                http_status = %s,
+                status = %s,
+                simulation_engine = %s,
+                external_run_id = %s,
+                day_ahead_date = %s,
+                requested_rooms = %s,
+                successful_rooms = %s,
+                failed_rooms = %s,
+                facility_kwh = %s,
+                equipment_kwh = %s,
+                lighting_kwh = %s,
+                heating_liters = %s,
+                cooling_kwh = %s,
+                fans_hvac_kwh = %s,
+                success = TRUE,
+                error_text = NULL,
+                response_json = %s,
+                updated_at = NOW()
+            WHERE id = %s;
+            """,
+            (
+                utc_now(),
+                http_status,
+                response_json.get("status"),
+                response_json.get("simulation_engine"),
+                response_json.get("run_id"),
+                date_or_none(response_json.get("day_ahead_date")),
+                int_or_none(summary.get("requested_rooms")),
+                int_or_none(summary.get("successful_rooms")),
+                int_or_none(summary.get("failed_rooms")),
+                decimal_or_none(totals.get("facility_kwh")),
+                decimal_or_none(totals.get("equipment_kwh")),
+                decimal_or_none(totals.get("lighting_kwh")),
+                decimal_or_none(totals.get("heating_liters")),
+                decimal_or_none(totals.get("cooling_kwh")),
+                decimal_or_none(totals.get("fans_hvac_kwh")),
+                Json(response_json),
                 run_id,
             ),
         )
@@ -142,9 +209,9 @@ def fetch_simulation_response(request_url):
 
     for attempt in range(1, SIMULATION_REQUEST_RETRIES + 1):
         try:
-            return requests.get(
+            return requests.post(
                 request_url,
-                params={"school_id": SIMULATION_SCHOOL_ID},
+                json=SIMULATION_REQUEST_BODY,
                 timeout=SIMULATION_REQUEST_TIMEOUT_SECONDS,
             )
         except requests.RequestException as exc:
@@ -159,73 +226,78 @@ def fetch_simulation_response(request_url):
     raise last_error
 
 
-def extract_items(response_json):
-    if isinstance(response_json, list):
-        return response_json
+def extract_room_results(response_json):
+    if not isinstance(response_json, dict):
+        raise ValueError("Day-ahead simulation response must be a JSON object")
 
-    if isinstance(response_json, dict):
-        for key in ("items", "rooms", "outputs"):
-            value = response_json.get(key)
-            if isinstance(value, list):
-                return value
+    room_results = response_json.get("room_results")
+    if not isinstance(room_results, list):
+        raise ValueError("Day-ahead simulation response must contain room_results as a list")
 
-    raise ValueError("Simulation response must be a list or contain items, rooms, or outputs")
+    return room_results
 
 
-def insert_recordings(conn, run_id, school_id, recording_date, items):
-    inserted_count = 0
-
+def insert_day_ahead_room_results(conn, run_id, school_id, recording_date, room_results):
     with conn.cursor() as cur:
-        for item in items:
-            if not isinstance(item, dict):
-                raise ValueError("Simulation response items must be objects")
+        cur.execute(
+            """
+            DELETE FROM simulation_day_ahead_room_results
+            WHERE run_id = %s;
+            """,
+            (run_id,),
+        )
 
-            room_id = item.get("id") or item.get("room_id")
+        inserted_count = 0
+        for result in room_results:
+            if not isinstance(result, dict):
+                raise ValueError("Day-ahead room result items must be objects")
+
+            room_id = result.get("room_id")
             if not room_id:
-                raise ValueError("Simulation response item is missing id or room_id")
+                raise ValueError("Day-ahead room result is missing room_id")
 
-            supports = item.get("supports") if isinstance(item.get("supports"), dict) else {}
-            defaults = item.get("defaults") if isinstance(item.get("defaults"), dict) else {}
+            metrics = result.get("metrics") if isinstance(result.get("metrics"), dict) else {}
 
             cur.execute(
                 """
-                INSERT INTO simulation_room_recordings (
+                INSERT INTO simulation_day_ahead_room_results (
                     run_id,
                     school_id,
                     recording_date,
                     room_id,
-                    label,
-                    physical_instance_count,
-                    idf_file,
-                    zone_name,
-                    thermostat_type,
-                    supports_cooling_setpoint,
-                    default_occupancy,
-                    default_heating_setpoint,
-                    default_cooling_setpoint,
-                    default_lighting_w_per_m2,
-                    default_infiltration_ach,
-                    raw_item
+                    room_label,
+                    status,
+                    error_text,
+                    average_air_temperature_c,
+                    thermal_discomfort_hours,
+                    facility_kwh,
+                    equipment_kwh,
+                    lighting_kwh,
+                    heating_liters,
+                    cooling_kwh,
+                    fans_hvac_kwh,
+                    raw_result
                 )
                 VALUES (
                     %s, %s, %s, %s, %s, %s, %s, %s,
                     %s, %s, %s, %s, %s, %s, %s, %s
                 )
-                ON CONFLICT (school_id, recording_date, room_id)
+                ON CONFLICT (run_id, room_id)
                 DO UPDATE SET
-                    run_id = EXCLUDED.run_id,
-                    label = EXCLUDED.label,
-                    physical_instance_count = EXCLUDED.physical_instance_count,
-                    idf_file = EXCLUDED.idf_file,
-                    zone_name = EXCLUDED.zone_name,
-                    thermostat_type = EXCLUDED.thermostat_type,
-                    supports_cooling_setpoint = EXCLUDED.supports_cooling_setpoint,
-                    default_occupancy = EXCLUDED.default_occupancy,
-                    default_heating_setpoint = EXCLUDED.default_heating_setpoint,
-                    default_cooling_setpoint = EXCLUDED.default_cooling_setpoint,
-                    default_lighting_w_per_m2 = EXCLUDED.default_lighting_w_per_m2,
-                    default_infiltration_ach = EXCLUDED.default_infiltration_ach,
-                    raw_item = EXCLUDED.raw_item,
+                    school_id = EXCLUDED.school_id,
+                    recording_date = EXCLUDED.recording_date,
+                    room_label = EXCLUDED.room_label,
+                    status = EXCLUDED.status,
+                    error_text = EXCLUDED.error_text,
+                    average_air_temperature_c = EXCLUDED.average_air_temperature_c,
+                    thermal_discomfort_hours = EXCLUDED.thermal_discomfort_hours,
+                    facility_kwh = EXCLUDED.facility_kwh,
+                    equipment_kwh = EXCLUDED.equipment_kwh,
+                    lighting_kwh = EXCLUDED.lighting_kwh,
+                    heating_liters = EXCLUDED.heating_liters,
+                    cooling_kwh = EXCLUDED.cooling_kwh,
+                    fans_hvac_kwh = EXCLUDED.fans_hvac_kwh,
+                    raw_result = EXCLUDED.raw_result,
                     updated_at = NOW();
                 """,
                 (
@@ -233,18 +305,18 @@ def insert_recordings(conn, run_id, school_id, recording_date, items):
                     school_id,
                     recording_date,
                     room_id,
-                    item.get("label"),
-                    int_or_none(item.get("physical_instance_count")),
-                    item.get("idf_file"),
-                    item.get("zone_name"),
-                    item.get("thermostat_type"),
-                    bool_or_none(supports.get("cooling_setpoint")),
-                    int_or_none(defaults.get("occupancy")),
-                    decimal_or_none(defaults.get("heating_setpoint")),
-                    decimal_or_none(defaults.get("cooling_setpoint")),
-                    decimal_or_none(defaults.get("lighting_w_per_m2")),
-                    decimal_or_none(defaults.get("infiltration_ach")),
-                    Json(item),
+                    result.get("room_label"),
+                    result.get("status"),
+                    result.get("error"),
+                    decimal_or_none(metrics.get("average_air_temperature_c")),
+                    decimal_or_none(metrics.get("thermal_discomfort_hours")),
+                    decimal_or_none(metrics.get("facility_kwh")),
+                    decimal_or_none(metrics.get("equipment_kwh")),
+                    decimal_or_none(metrics.get("lighting_kwh")),
+                    decimal_or_none(metrics.get("heating_liters")),
+                    decimal_or_none(metrics.get("cooling_kwh")),
+                    decimal_or_none(metrics.get("fans_hvac_kwh")),
+                    Json(result),
                 ),
             )
             inserted_count += 1
@@ -262,14 +334,16 @@ def run():
     print("Starting simulation recorder")
     print(f"SIMULATION_API_BASE_URL={SIMULATION_API_BASE_URL}")
     print(f"SIMULATION_API_PATH={SIMULATION_API_PATH}")
-    print(f"SIMULATION_SCHOOL_ID={SIMULATION_SCHOOL_ID}")
+    print(f"SIMULATION_REQUEST_BODY={json.dumps(SIMULATION_REQUEST_BODY, sort_keys=True)}")
 
     with db_connect() as conn:
-        run_id = create_run(
+        run_id = create_day_ahead_run(
             conn,
             SIMULATION_SCHOOL_ID,
+            recording_date,
             request_url,
             SIMULATION_API_PATH,
+            SIMULATION_REQUEST_BODY,
             started_at,
         )
 
@@ -293,21 +367,21 @@ def run():
             if response_json is None:
                 raise ValueError("Simulation response is not valid JSON")
 
-            items = extract_items(response_json)
-            item_count = insert_recordings(
+            room_results = extract_room_results(response_json)
+            finish_successful_day_ahead_run(conn, run_id, http_status, response_json)
+            result_count = insert_day_ahead_room_results(
                 conn,
                 run_id,
                 SIMULATION_SCHOOL_ID,
                 recording_date,
-                items,
+                room_results,
             )
-            finish_run(conn, run_id, http_status, True, response_json, None)
             print(
                 "Simulation recorder completed: "
-                f"run_id={run_id}, recordings={item_count}"
+                f"run_id={run_id}, room_results={result_count}"
             )
         except (ValueError, json.JSONDecodeError, requests.RequestException) as exc:
-            finish_run(conn, run_id, http_status, False, response_json, str(exc))
+            finish_failed_day_ahead_run(conn, run_id, http_status, response_json, str(exc))
             print(f"Simulation recorder failed: run_id={run_id}, error={exc}")
             failure = exc
 
