@@ -134,6 +134,40 @@ Example response:
 ]
 ```
 
+### `GET /simulations/recordings/latest`
+
+Returns the latest successful stored simulation output for a school.
+
+Query parameters:
+
+- `school_id`
+  Required. School identifier, for example `school_10`.
+
+Example:
+
+```bash
+curl -s "http://localhost:8000/simulations/recordings/latest?school_id=school_10"
+```
+
+Example response:
+
+```json
+{
+  "school_id": "school_10",
+  "recording_date": "2026-04-27",
+  "count": 8,
+  "items": [
+    {
+      "room_id": "classroom",
+      "label": "Classroom",
+      "physical_instance_count": 8,
+      "zone_name": "Classroom",
+      "thermostat_type": "single_heating"
+    }
+  ]
+}
+```
+
 ### `GET /upat/device/{device_id}/latest`
 
 Returns the latest 30 one-minute aggregated measurement snapshots for the selected device by default.

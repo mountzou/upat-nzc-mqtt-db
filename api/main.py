@@ -1,5 +1,6 @@
 import os
 from datetime import datetime, timedelta
+from decimal import Decimal
 from typing import Annotated
 
 from fastapi import FastAPI, Query, HTTPException
@@ -38,6 +39,28 @@ def normalize_device_ids(device_ids: list[str] | None):
     if not device_ids:
         return None
     return sorted({d.strip() for d in device_ids if d and d.strip()}) or None
+
+
+def normalize_required_text(value: str, field_name: str):
+    normalized = value.strip() if value else ""
+
+    if not normalized:
+        raise HTTPException(
+            status_code=400,
+            detail=f"{field_name} must be provided",
+        )
+
+    return normalized
+
+
+def numeric_or_none(value):
+    if value is None:
+        return None
+
+    if isinstance(value, Decimal):
+        return float(value)
+
+    return value
 
 
 def resolve_energy_time_bounds(start: str | None, end: str | None):
@@ -119,6 +142,34 @@ def format_response_object(device_id, rows, metrics=None):
         "device_id": device_id,
         "count": len(snapshots),
         "items": snapshots,
+    }
+
+
+def format_simulation_recording(row):
+    return {
+        "id": row["id"],
+        "run_id": row["run_id"],
+        "school_id": row["school_id"],
+        "recording_date": row["recording_date"],
+        "room_id": row["room_id"],
+        "label": row["label"],
+        "physical_instance_count": row["physical_instance_count"],
+        "idf_file": row["idf_file"],
+        "zone_name": row["zone_name"],
+        "thermostat_type": row["thermostat_type"],
+        "supports": {
+            "cooling_setpoint": row["supports_cooling_setpoint"],
+        },
+        "defaults": {
+            "occupancy": row["default_occupancy"],
+            "heating_setpoint": numeric_or_none(row["default_heating_setpoint"]),
+            "cooling_setpoint": numeric_or_none(row["default_cooling_setpoint"]),
+            "lighting_w_per_m2": numeric_or_none(row["default_lighting_w_per_m2"]),
+            "infiltration_ach": numeric_or_none(row["default_infiltration_ach"]),
+        },
+        "raw_item": row["raw_item"],
+        "created_at": row["created_at"],
+        "updated_at": row["updated_at"],
     }
 
 
@@ -280,6 +331,88 @@ def get_all_shelly_devices():
                 """
             )
             return cur.fetchall()
+
+
+@app.get("/simulations/recordings/latest")
+def get_latest_simulation_recordings(
+    school_id: str = Query(...),
+):
+    normalized_school_id = normalize_required_text(school_id, "school_id")
+
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT
+                    id,
+                    school_id,
+                    request_url,
+                    request_path,
+                    http_status,
+                    started_at,
+                    completed_at,
+                    created_at
+                FROM simulation_runs
+                WHERE school_id = %s
+                  AND success = TRUE
+                ORDER BY started_at DESC
+                LIMIT 1;
+                """,
+                (normalized_school_id,),
+            )
+            run = cur.fetchone()
+
+            if not run:
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"No successful simulation recordings found for school_id={normalized_school_id}",
+                )
+
+            cur.execute(
+                """
+                SELECT
+                    id,
+                    run_id,
+                    school_id,
+                    recording_date,
+                    room_id,
+                    label,
+                    physical_instance_count,
+                    idf_file,
+                    zone_name,
+                    thermostat_type,
+                    supports_cooling_setpoint,
+                    default_occupancy,
+                    default_heating_setpoint,
+                    default_cooling_setpoint,
+                    default_lighting_w_per_m2,
+                    default_infiltration_ach,
+                    raw_item,
+                    created_at,
+                    updated_at
+                FROM simulation_room_recordings
+                WHERE run_id = %s
+                ORDER BY room_id ASC;
+                """,
+                (run["id"],),
+            )
+            rows = cur.fetchall()
+
+    return {
+        "school_id": normalized_school_id,
+        "run": {
+            "id": run["id"],
+            "request_url": run["request_url"],
+            "request_path": run["request_path"],
+            "http_status": run["http_status"],
+            "started_at": run["started_at"],
+            "completed_at": run["completed_at"],
+            "created_at": run["created_at"],
+        },
+        "recording_date": rows[0]["recording_date"] if rows else None,
+        "count": len(rows),
+        "items": [format_simulation_recording(row) for row in rows],
+    }
 
 
 @app.get("/upat/device/{device_id}/latest")
