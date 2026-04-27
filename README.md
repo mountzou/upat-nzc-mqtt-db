@@ -4,12 +4,13 @@ Backend service for the SchoolHeroZ Digital Twin that ingests data from UPAT and
 
 ## Project structure
 
-This project is organized into five directories, each implementing a core service of the system.
+This project is organized into six directories, each implementing a core service of the system.
 
 - `/db`: PostgreSQL schema and initialization scripts
 - `/api`: FastAPI retrieval service
 - `/ttn-ingestor`: MQTT ingestor for UPAT environmental devices
 - `/shelly-ingestor`: MQTT ingestor for Shelly energy devices
+- `/simulation-recorder`: one-shot daily simulation recorder
 - `/mosquitto`: Mosquitto broker configuration for Shelly message ingestion
 
 ## Project setup
@@ -54,6 +55,31 @@ docker compose logs --tail=50 postgres
 docker compose logs --tail=50 ttn-ingestor
 docker compose logs --tail=50 shelly-ingestor
 docker compose logs --tail=50 api
+```
+
+## Simulation recorder
+
+The `simulation-recorder` service is a one-shot container intended to be run by VPS cron. It calls the simulation backend, records the raw execution response in PostgreSQL, and stores one extracted room recording per returned item.
+
+The first version uses constants in `simulation-recorder/main.py`:
+
+```text
+base URL: https://upat-nzc-energyplus-backend.onrender.com
+path: /rooms
+school: school_10
+recording timezone: Europe/Athens
+```
+
+Run it manually:
+
+```bash
+docker compose run --rm simulation-recorder
+```
+
+For an existing PostgreSQL volume, apply the idempotent migration before the first run:
+
+```bash
+docker compose exec -T postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -f /docker-entrypoint-initdb.d/migrations/001_simulation_recordings.sql'
 ```
 
 ## API service
