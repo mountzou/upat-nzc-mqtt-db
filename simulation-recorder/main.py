@@ -22,14 +22,18 @@ DB_CONNECT_DELAY_SECONDS = float(os.getenv("POSTGRES_CONNECT_DELAY_SECONDS", "2"
 
 SIMULATION_API_BASE_URL = "https://upat-nzc-energyplus-backend.onrender.com"
 SIMULATION_API_PATH = "/simulate/day-ahead"
-SIMULATION_SCHOOL_ID = "school_10"
+SIMULATION_SCHOOL_IDS = [
+    "school_3",
+    "school_7",
+    "school_10",
+    "school_13",
+    "school_22",
+    "school_23",
+]
 SIMULATION_REQUEST_TIMEOUT_SECONDS = 60
 SIMULATION_REQUEST_RETRIES = 3
 SIMULATION_REQUEST_RETRY_DELAY_SECONDS = 5
 SIMULATION_RECORDING_TIMEZONE = "Europe/Athens"
-SIMULATION_REQUEST_BODY = {
-    "school_id": SIMULATION_SCHOOL_ID,
-}
 LOCAL_TZ = ZoneInfo(SIMULATION_RECORDING_TIMEZONE)
 
 
@@ -204,14 +208,20 @@ def finish_successful_day_ahead_run(conn, run_id, http_status, response_json):
         )
 
 
-def fetch_simulation_response(request_url):
+def build_simulation_request_body(school_id):
+    return {
+        "school_id": school_id,
+    }
+
+
+def fetch_simulation_response(request_url, request_body):
     last_error = None
 
     for attempt in range(1, SIMULATION_REQUEST_RETRIES + 1):
         try:
             return requests.post(
                 request_url,
-                json=SIMULATION_REQUEST_BODY,
+                json=request_body,
                 timeout=SIMULATION_REQUEST_TIMEOUT_SECONDS,
             )
         except requests.RequestException as exc:
@@ -324,69 +334,90 @@ def insert_day_ahead_room_results(conn, run_id, school_id, recording_date, room_
     return inserted_count
 
 
-def run():
-    request_url = build_simulation_url()
+def run_school(conn, request_url, school_id):
+    request_body = build_simulation_request_body(school_id)
     started_at = utc_now()
     recording_date = started_at.astimezone(LOCAL_TZ).date()
     run_id = None
-    failure = None
+
+    print(
+        "Starting day-ahead simulation: "
+        f"school_id={school_id}, request_body={json.dumps(request_body, sort_keys=True)}"
+    )
+
+    run_id = create_day_ahead_run(
+        conn,
+        school_id,
+        recording_date,
+        request_url,
+        SIMULATION_API_PATH,
+        request_body,
+        started_at,
+    )
+
+    response_json = None
+    http_status = None
+
+    try:
+        response = fetch_simulation_response(request_url, request_body)
+        http_status = response.status_code
+        try:
+            response_json = response.json()
+        except ValueError:
+            response_json = None
+
+        if not response.ok:
+            raise requests.HTTPError(
+                f"Simulation API returned HTTP {http_status}",
+                response=response,
+            )
+
+        if response_json is None:
+            raise ValueError("Simulation response is not valid JSON")
+
+        room_results = extract_room_results(response_json)
+        finish_successful_day_ahead_run(conn, run_id, http_status, response_json)
+        result_count = insert_day_ahead_room_results(
+            conn,
+            run_id,
+            school_id,
+            recording_date,
+            room_results,
+        )
+        print(
+            "Day-ahead simulation completed: "
+            f"school_id={school_id}, run_id={run_id}, room_results={result_count}"
+        )
+        return None
+    except (ValueError, json.JSONDecodeError, requests.RequestException) as exc:
+        finish_failed_day_ahead_run(conn, run_id, http_status, response_json, str(exc))
+        print(
+            "Day-ahead simulation failed: "
+            f"school_id={school_id}, run_id={run_id}, error={exc}"
+        )
+        return exc
+
+
+def run():
+    request_url = build_simulation_url()
+    failures = []
 
     print("Starting simulation recorder")
     print(f"SIMULATION_API_BASE_URL={SIMULATION_API_BASE_URL}")
     print(f"SIMULATION_API_PATH={SIMULATION_API_PATH}")
-    print(f"SIMULATION_REQUEST_BODY={json.dumps(SIMULATION_REQUEST_BODY, sort_keys=True)}")
+    print(f"SIMULATION_SCHOOL_IDS={','.join(SIMULATION_SCHOOL_IDS)}")
 
     with db_connect() as conn:
-        run_id = create_day_ahead_run(
-            conn,
-            SIMULATION_SCHOOL_ID,
-            recording_date,
-            request_url,
-            SIMULATION_API_PATH,
-            SIMULATION_REQUEST_BODY,
-            started_at,
-        )
+        for school_id in SIMULATION_SCHOOL_IDS:
+            failure = run_school(conn, request_url, school_id)
+            if failure is not None:
+                failures.append((school_id, failure))
 
-        response_json = None
-        http_status = None
+    if failures:
+        failed_school_ids = ", ".join(school_id for school_id, _ in failures)
+        raise RuntimeError(f"Day-ahead simulations failed for: {failed_school_ids}")
 
-        try:
-            response = fetch_simulation_response(request_url)
-            http_status = response.status_code
-            try:
-                response_json = response.json()
-            except ValueError:
-                response_json = None
-
-            if not response.ok:
-                raise requests.HTTPError(
-                    f"Simulation API returned HTTP {http_status}",
-                    response=response,
-                )
-
-            if response_json is None:
-                raise ValueError("Simulation response is not valid JSON")
-
-            room_results = extract_room_results(response_json)
-            finish_successful_day_ahead_run(conn, run_id, http_status, response_json)
-            result_count = insert_day_ahead_room_results(
-                conn,
-                run_id,
-                SIMULATION_SCHOOL_ID,
-                recording_date,
-                room_results,
-            )
-            print(
-                "Simulation recorder completed: "
-                f"run_id={run_id}, room_results={result_count}"
-            )
-        except (ValueError, json.JSONDecodeError, requests.RequestException) as exc:
-            finish_failed_day_ahead_run(conn, run_id, http_status, response_json, str(exc))
-            print(f"Simulation recorder failed: run_id={run_id}, error={exc}")
-            failure = exc
-
-    if failure is not None:
-        raise failure
+    print("Simulation recorder completed for all configured schools")
 
 
 if __name__ == "__main__":

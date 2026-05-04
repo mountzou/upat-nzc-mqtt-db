@@ -66,7 +66,7 @@ The first version uses constants in `simulation-recorder/main.py`:
 ```text
 base URL: https://upat-nzc-energyplus-backend.onrender.com
 path: /simulate/day-ahead
-school: school_10
+schools: school_3, school_7, school_10, school_13, school_22, school_23
 recording timezone: Europe/Athens
 ```
 
