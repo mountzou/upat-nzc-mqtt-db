@@ -198,6 +198,14 @@ def format_day_ahead_room_result(row):
     return result
 
 
+def format_pv_forecast_hour(row):
+    return {
+        "timestamp": row["forecast_timestamp"],
+        "hour": row["forecast_hour"],
+        "predicted_power_kw": numeric_or_none(row["predicted_power_kw"]),
+    }
+
+
 def fetch_device_latest(table_name, device_id, metrics, limit):
     normalized_metrics = normalize_metrics(metrics)
 
@@ -541,6 +549,69 @@ def get_latest_day_ahead_simulation_results(
             "request_path": run["request_path"],
             "request_body": run["request_body"],
             "http_status": run["http_status"],
+            "started_at": run["started_at"],
+            "completed_at": run["completed_at"],
+            "created_at": run["created_at"],
+            "updated_at": run["updated_at"],
+        },
+    }
+
+
+@app.get("/pv/day-ahead/latest")
+def get_latest_pv_day_ahead_forecast():
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT
+                    id,
+                    forecast_date,
+                    daily_energy_kwh,
+                    source,
+                    model_artifact,
+                    features_artifact,
+                    started_at,
+                    completed_at,
+                    created_at,
+                    updated_at
+                FROM pv_day_ahead_forecast_runs
+                WHERE success = TRUE
+                ORDER BY started_at DESC
+                LIMIT 1;
+                """
+            )
+            run = cur.fetchone()
+
+            if not run:
+                raise HTTPException(
+                    status_code=404,
+                    detail="No PV day-ahead forecast found",
+                )
+
+            cur.execute(
+                """
+                SELECT
+                    forecast_timestamp,
+                    forecast_hour,
+                    predicted_power_kw
+                FROM pv_day_ahead_forecast_hourly
+                WHERE run_id = %s
+                ORDER BY forecast_timestamp ASC;
+                """,
+                (run["id"],),
+            )
+            rows = cur.fetchall()
+
+    return {
+        "run_id": run["id"],
+        "forecast_date": run["forecast_date"],
+        "daily_energy_kwh": numeric_or_none(run["daily_energy_kwh"]),
+        "source": run["source"],
+        "model_artifact": run["model_artifact"],
+        "features_artifact": run["features_artifact"],
+        "count": len(rows),
+        "items": [format_pv_forecast_hour(row) for row in rows],
+        "recording": {
             "started_at": run["started_at"],
             "completed_at": run["completed_at"],
             "created_at": run["created_at"],
