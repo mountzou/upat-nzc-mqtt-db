@@ -112,5 +112,16 @@ services:
       postgres:
         condition: service_healthy
 
+  pv-prediction:
+    build:
+      context: ./pv-prediction
+    container_name: pv_prediction
+    profiles:
+      - jobs
+    environment:
+      PV_LATEST_ACTIVE_POWER_KW: ${PV_LATEST_ACTIVE_POWER_KW:-0.0}
+      PV_LAG_1H_KW: ${PV_LAG_1H_KW:-}
+      PV_NIGHT_GHI_THRESHOLD_WM2: ${PV_NIGHT_GHI_THRESHOLD_WM2:-20.0}
+
 volumes:
   postgres_data:
