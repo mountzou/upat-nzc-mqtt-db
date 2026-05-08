@@ -29,6 +29,13 @@ FEATURES_PATH = DIR / "pv_features.pkl"
 DEFAULT_NIGHT_GHI_THRESHOLD_WM2 = 20.0
 
 
+def parse_env_bool(env_var: str, default: bool = False) -> bool:
+    raw = os.environ.get(env_var)
+    if raw is None or raw == "":
+        return default
+    return raw.strip().lower() in {"1", "true", "yes", "y", "on"}
+
+
 def load_feature_columns(model: object, features_path: Path) -> list[str]:
     if features_path.exists():
         cols = joblib.load(features_path)
@@ -101,6 +108,22 @@ def parse_env_float(env_var: str, default: float) -> float:
         return float(raw)
     except ValueError as e:
         raise ValueError(f"{env_var} must be a float, got {raw!r}") from e
+
+
+def optional_float(value: object) -> float | None:
+    if value is None or pd.isna(value):
+        return None
+    return float(value)
+
+
+def json_safe_value(value: object) -> object:
+    if value is None or pd.isna(value):
+        return None
+    if hasattr(value, "item"):
+        return value.item()
+    if isinstance(value, pd.Timestamp):
+        return value.isoformat()
+    return value
 
 
 def parse_non_negative_env_float(env_var: str, default: float) -> float:
@@ -232,6 +255,156 @@ def print_forecast(forecast_df: pd.DataFrame) -> None:
     print(f"\nPredicted daily energy: {daily_energy:.2f} kWh")
 
 
+def db_connect():
+    import psycopg2
+
+    return psycopg2.connect(
+        host=os.getenv("POSTGRES_HOST", "postgres"),
+        port=int(os.getenv("POSTGRES_INTERNAL_PORT", "5432")),
+        dbname=os.getenv("POSTGRES_DB"),
+        user=os.getenv("POSTGRES_USER"),
+        password=os.getenv("POSTGRES_PASSWORD"),
+    )
+
+
+def save_forecast_to_db(
+    forecast_df: pd.DataFrame,
+    *,
+    latitude: float,
+    longitude: float,
+    forecast_days: int,
+    lag_1h_kw: float,
+    apply_night_ghi_mask: bool,
+    night_ghi_threshold_wm2: float,
+) -> int:
+    from psycopg2.extras import Json
+
+    if forecast_df.empty:
+        raise ValueError("Cannot save an empty PV forecast")
+
+    forecast_date = forecast_df["timestamp"].iloc[0].date()
+    daily_energy_kwh = float(forecast_df["predicted_power_kw"].sum())
+    raw_request = {
+        "latitude": latitude,
+        "longitude": longitude,
+        "forecast_days": forecast_days,
+        "lag_1h_kw": lag_1h_kw,
+        "apply_night_ghi_mask": apply_night_ghi_mask,
+        "night_ghi_threshold_wm2": night_ghi_threshold_wm2,
+    }
+    raw_summary = {
+        "hourly_rows": int(len(forecast_df)),
+        "daily_energy_kwh": daily_energy_kwh,
+    }
+
+    with db_connect() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO pv_day_ahead_forecast_runs (
+                    forecast_date,
+                    latitude,
+                    longitude,
+                    forecast_days,
+                    lag_1h_kw,
+                    night_ghi_threshold_wm2,
+                    daily_energy_kwh,
+                    source,
+                    model_artifact,
+                    features_artifact,
+                    success,
+                    error_text,
+                    raw_request,
+                    raw_summary,
+                    completed_at
+                )
+                VALUES (
+                    %s, %s, %s, %s, %s, %s, %s,
+                    'open-meteo',
+                    %s, %s,
+                    TRUE,
+                    NULL,
+                    %s,
+                    %s,
+                    NOW()
+                )
+                RETURNING id;
+                """,
+                (
+                    forecast_date,
+                    latitude,
+                    longitude,
+                    forecast_days,
+                    lag_1h_kw,
+                    night_ghi_threshold_wm2,
+                    daily_energy_kwh,
+                    MODEL_PATH.name,
+                    FEATURES_PATH.name,
+                    Json(raw_request),
+                    Json(raw_summary),
+                ),
+            )
+            run_id = cur.fetchone()[0]
+
+            for _, row in forecast_df.iterrows():
+                ts = row["timestamp"]
+                raw_features = {
+                    key: json_safe_value(row.get(key))
+                    for key in (
+                        "shortwave_radiation",
+                        "direct_normal_irradiance",
+                        "diffuse_radiation",
+                        "temperature_2m",
+                        "cloud_cover",
+                        "wind_speed_10m",
+                        "hour_sin",
+                        "hour_cos",
+                        "lag_1h",
+                    )
+                }
+
+                cur.execute(
+                    """
+                    INSERT INTO pv_day_ahead_forecast_hourly (
+                        run_id,
+                        forecast_timestamp,
+                        forecast_date,
+                        forecast_hour,
+                        predicted_power_kw,
+                        shortwave_radiation_w_m2,
+                        direct_normal_irradiance_w_m2,
+                        diffuse_radiation_w_m2,
+                        temperature_2m_c,
+                        cloud_cover_percent,
+                        wind_speed_10m,
+                        lag_1h_kw,
+                        raw_features
+                    )
+                    VALUES (
+                        %s, %s, %s, %s, %s, %s, %s,
+                        %s, %s, %s, %s, %s, %s
+                    );
+                    """,
+                    (
+                        run_id,
+                        ts.to_pydatetime(),
+                        ts.date(),
+                        int(ts.hour),
+                        float(row["predicted_power_kw"]),
+                        optional_float(row.get("shortwave_radiation")),
+                        optional_float(row.get("direct_normal_irradiance")),
+                        optional_float(row.get("diffuse_radiation")),
+                        optional_float(row.get("temperature_2m")),
+                        optional_float(row.get("cloud_cover")),
+                        optional_float(row.get("wind_speed_10m")),
+                        optional_float(row.get("lag_1h")),
+                        Json(raw_features),
+                    ),
+                )
+
+    return run_id
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Day-ahead PV forecast from Open-Meteo + XGBoost model.")
     parser.add_argument(
@@ -285,18 +458,32 @@ def main() -> int:
             f"default {DEFAULT_NIGHT_GHI_THRESHOLD_WM2} or PV_NIGHT_GHI_THRESHOLD_WM2"
         ),
     )
+    parser.add_argument(
+        "--save-to-db",
+        action="store_true",
+        default=None,
+        help="Persist the successful forecast to Postgres",
+    )
+    parser.add_argument(
+        "--no-save-to-db",
+        action="store_false",
+        dest="save_to_db",
+        help="Do not persist the forecast even if PV_SAVE_TO_DB=true",
+    )
     args = parser.parse_args()
 
     try:
         lag_resolved = resolve_lag_1h_kw(args.lag_1h_kw, args.latest_power_kw)
+        apply_night_ghi_mask = not args.no_night_ghi_mask
+        night_ghi_threshold = resolve_night_ghi_threshold_wm2(args.night_ghi_threshold)
         out = run_forecast(
             lag_1h_kw=lag_resolved,
             latitude=args.latitude,
             longitude=args.longitude,
             forecast_days=args.forecast_days,
             verbose=args.verbose,
-            apply_night_ghi_mask=not args.no_night_ghi_mask,
-            night_ghi_threshold_wm2=args.night_ghi_threshold,
+            apply_night_ghi_mask=apply_night_ghi_mask,
+            night_ghi_threshold_wm2=night_ghi_threshold,
         )
     except (
         urllib.error.HTTPError,
@@ -312,6 +499,26 @@ def main() -> int:
         return 1
 
     print_forecast(out)
+    save_to_db = (
+        args.save_to_db
+        if args.save_to_db is not None
+        else parse_env_bool("PV_SAVE_TO_DB", False)
+    )
+    if save_to_db:
+        try:
+            run_id = save_forecast_to_db(
+                out,
+                latitude=args.latitude,
+                longitude=args.longitude,
+                forecast_days=args.forecast_days,
+                lag_1h_kw=lag_resolved,
+                apply_night_ghi_mask=apply_night_ghi_mask,
+                night_ghi_threshold_wm2=night_ghi_threshold,
+            )
+        except Exception as e:
+            print(f"Failed to save PV forecast to database: {e}", file=sys.stderr)
+            return 1
+        print(f"\nSaved PV forecast run_id={run_id}")
     return 0
 
 

@@ -127,6 +127,15 @@ services:
       PV_LATEST_ACTIVE_POWER_KW: ${PV_LATEST_ACTIVE_POWER_KW:-0.0}
       PV_LAG_1H_KW: ${PV_LAG_1H_KW:-}
       PV_NIGHT_GHI_THRESHOLD_WM2: ${PV_NIGHT_GHI_THRESHOLD_WM2:-20.0}
+      PV_SAVE_TO_DB: ${PV_SAVE_TO_DB:-true}
+      POSTGRES_HOST: ${POSTGRES_HOST}
+      POSTGRES_INTERNAL_PORT: ${POSTGRES_INTERNAL_PORT}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    depends_on:
+      postgres:
+        condition: service_healthy
 
 volumes:
   postgres_data:
