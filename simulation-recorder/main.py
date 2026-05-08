@@ -1,5 +1,6 @@
 import json
 import os
+import random
 import sys
 import time
 from datetime import date, datetime, timezone
@@ -31,9 +32,18 @@ SIMULATION_SCHOOL_IDS = [
     "school_23",
 ]
 SIMULATION_REQUEST_TIMEOUT_SECONDS = 60
-SIMULATION_REQUEST_RETRIES = 3
-SIMULATION_REQUEST_RETRY_DELAY_SECONDS = 5
+SIMULATION_REQUEST_RETRIES = int(os.getenv("SIMULATION_REQUEST_RETRIES", "5"))
+SIMULATION_REQUEST_RETRY_DELAY_SECONDS = float(
+    os.getenv("SIMULATION_REQUEST_RETRY_DELAY_SECONDS", "10")
+)
+SIMULATION_REQUEST_MAX_RETRY_DELAY_SECONDS = float(
+    os.getenv("SIMULATION_REQUEST_MAX_RETRY_DELAY_SECONDS", "120")
+)
+SIMULATION_BETWEEN_SCHOOLS_DELAY_SECONDS = float(
+    os.getenv("SIMULATION_BETWEEN_SCHOOLS_DELAY_SECONDS", "15")
+)
 SIMULATION_RECORDING_TIMEZONE = "Europe/Athens"
+SIMULATION_RETRYABLE_HTTP_STATUSES = {408, 425, 429, 500, 502, 503, 504}
 LOCAL_TZ = ZoneInfo(SIMULATION_RECORDING_TIMEZONE)
 
 
@@ -214,16 +224,73 @@ def build_simulation_request_body(school_id):
     }
 
 
+def get_retry_after_seconds(response):
+    retry_after = response.headers.get("Retry-After")
+    if not retry_after:
+        return None
+
+    try:
+        retry_after_seconds = float(retry_after)
+    except ValueError:
+        return None
+
+    if retry_after_seconds < 0:
+        return None
+
+    return min(retry_after_seconds, SIMULATION_REQUEST_MAX_RETRY_DELAY_SECONDS)
+
+
+def get_retry_delay_seconds(attempt, response=None):
+    if response is not None:
+        retry_after_seconds = get_retry_after_seconds(response)
+        if retry_after_seconds is not None:
+            return retry_after_seconds
+
+    exponential_delay = SIMULATION_REQUEST_RETRY_DELAY_SECONDS * (2 ** (attempt - 1))
+    capped_delay = min(exponential_delay, SIMULATION_REQUEST_MAX_RETRY_DELAY_SECONDS)
+    jitter = random.uniform(0, min(3, capped_delay * 0.2))
+    return capped_delay + jitter
+
+
+def log_response_trace(response):
+    trace_headers = []
+    for header_name in ("rndr-id", "cf-ray", "x-render-origin-server"):
+        header_value = response.headers.get(header_name)
+        if header_value:
+            trace_headers.append(f"{header_name}={header_value}")
+
+    if trace_headers:
+        return ", ".join(trace_headers)
+
+    return "no upstream trace headers"
+
+
 def fetch_simulation_response(request_url, request_body):
     last_error = None
 
     for attempt in range(1, SIMULATION_REQUEST_RETRIES + 1):
         try:
-            return requests.post(
+            response = requests.post(
                 request_url,
                 json=request_body,
                 timeout=SIMULATION_REQUEST_TIMEOUT_SECONDS,
             )
+
+            if response.status_code not in SIMULATION_RETRYABLE_HTTP_STATUSES:
+                return response
+
+            if attempt >= SIMULATION_REQUEST_RETRIES:
+                return response
+
+            retry_delay = get_retry_delay_seconds(attempt, response)
+            print(
+                "Simulation API returned retryable HTTP status "
+                f"(attempt {attempt}/{SIMULATION_REQUEST_RETRIES}, "
+                f"http_status={response.status_code}, "
+                f"retry_delay_seconds={retry_delay:.1f}, "
+                f"{log_response_trace(response)})"
+            )
+            time.sleep(retry_delay)
         except requests.RequestException as exc:
             last_error = exc
             print(
@@ -231,7 +298,9 @@ def fetch_simulation_response(request_url, request_body):
                 f"(attempt {attempt}/{SIMULATION_REQUEST_RETRIES}): {exc}"
             )
             if attempt < SIMULATION_REQUEST_RETRIES:
-                time.sleep(SIMULATION_REQUEST_RETRY_DELAY_SECONDS)
+                retry_delay = get_retry_delay_seconds(attempt)
+                print(f"Retrying simulation request in {retry_delay:.1f} seconds")
+                time.sleep(retry_delay)
 
     raise last_error
 
@@ -406,12 +475,24 @@ def run():
     print(f"SIMULATION_API_BASE_URL={SIMULATION_API_BASE_URL}")
     print(f"SIMULATION_API_PATH={SIMULATION_API_PATH}")
     print(f"SIMULATION_SCHOOL_IDS={','.join(SIMULATION_SCHOOL_IDS)}")
+    print(
+        "SIMULATION_BETWEEN_SCHOOLS_DELAY_SECONDS="
+        f"{SIMULATION_BETWEEN_SCHOOLS_DELAY_SECONDS}"
+    )
 
     with db_connect() as conn:
-        for school_id in SIMULATION_SCHOOL_IDS:
+        for index, school_id in enumerate(SIMULATION_SCHOOL_IDS):
             failure = run_school(conn, request_url, school_id)
             if failure is not None:
                 failures.append((school_id, failure))
+
+            is_last_school = index == len(SIMULATION_SCHOOL_IDS) - 1
+            if not is_last_school and SIMULATION_BETWEEN_SCHOOLS_DELAY_SECONDS > 0:
+                print(
+                    "Waiting before next school simulation: "
+                    f"delay_seconds={SIMULATION_BETWEEN_SCHOOLS_DELAY_SECONDS}"
+                )
+                time.sleep(SIMULATION_BETWEEN_SCHOOLS_DELAY_SECONDS)
 
     if failures:
         failed_school_ids = ", ".join(school_id for school_id, _ in failures)
