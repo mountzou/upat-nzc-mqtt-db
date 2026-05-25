@@ -136,5 +136,26 @@ services:
       postgres:
         condition: service_healthy
 
+  weather-collector:
+    build:
+      context: ./weather-collector
+    container_name: weather_collector
+    profiles:
+      - jobs
+    environment:
+      OPEN_METEO_LATITUDE: ${OPEN_METEO_LATITUDE:-37.068}
+      OPEN_METEO_LONGITUDE: ${OPEN_METEO_LONGITUDE:-22.026}
+      OPEN_METEO_TIMEZONE: ${OPEN_METEO_TIMEZONE:-Europe/Athens}
+      OPEN_METEO_WIND_SPEED_UNIT: ${OPEN_METEO_WIND_SPEED_UNIT:-ms}
+      OPEN_METEO_FORECAST_DAYS: ${OPEN_METEO_FORECAST_DAYS:-7}
+      POSTGRES_HOST: ${POSTGRES_HOST}
+      POSTGRES_INTERNAL_PORT: ${POSTGRES_INTERNAL_PORT}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    depends_on:
+      postgres:
+        condition: service_healthy
+
 volumes:
   postgres_data:

@@ -1,7 +1,8 @@
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, time
 from decimal import Decimal
 from typing import Annotated
+from zoneinfo import ZoneInfo
 
 from fastapi import FastAPI, Query, HTTPException
 import psycopg2
@@ -16,6 +17,24 @@ DB_PORT = int(os.getenv("POSTGRES_INTERNAL_PORT", "5432"))
 DB_NAME = os.getenv("POSTGRES_DB")
 DB_USER = os.getenv("POSTGRES_USER")
 DB_PASSWORD = os.getenv("POSTGRES_PASSWORD")
+WEATHER_TIMEZONE = os.getenv("OPEN_METEO_TIMEZONE", "Europe/Athens")
+WEATHER_LOCAL_TZ = ZoneInfo(WEATHER_TIMEZONE)
+
+WEATHER_FIELDS = [
+    "temperature_2m_c",
+    "dew_point_2m_c",
+    "relative_humidity_2m_percent",
+    "surface_pressure_hpa",
+    "shortwave_radiation_w_m2",
+    "direct_normal_irradiance_w_m2",
+    "diffuse_radiation_w_m2",
+    "wind_direction_10m_degrees",
+    "wind_speed_10m_ms",
+    "weather_code",
+    "snow_depth_m",
+    "precipitation_mm",
+    "cloud_cover_percent",
+]
 
 # Create and return a new PostgreSQL connection.
 def get_connection():
@@ -61,6 +80,47 @@ def numeric_or_none(value):
         return float(value)
 
     return value
+
+
+def format_weather_forecast_hour(row):
+    return {
+        "timestamp": row["forecast_timestamp"],
+        "date": row["forecast_date"],
+        "hour": row["forecast_hour"],
+        "values": {
+            field: numeric_or_none(row[field])
+            for field in WEATHER_FIELDS
+        },
+        "source": row["source"],
+        "latitude": numeric_or_none(row["latitude"]),
+        "longitude": numeric_or_none(row["longitude"]),
+        "timezone": row["timezone"],
+        "fetched_at": row["fetched_at"],
+    }
+
+
+def resolve_weather_time_bounds(start: str | None, end: str | None):
+    if (start is None) != (end is None):
+        raise HTTPException(
+            status_code=400,
+            detail="start and end must either both be provided or both be omitted",
+        )
+
+    if start is not None and end is not None:
+        start_time = parse_datetime_bound(start, "start")
+        end_time = parse_datetime_bound(end, "end")
+    else:
+        today = datetime.now(WEATHER_LOCAL_TZ).date()
+        start_time = datetime.combine(today, time.min)
+        end_time = datetime.combine(today + timedelta(days=6), time.max)
+
+    if start_time > end_time:
+        raise HTTPException(
+            status_code=400,
+            detail="start must be earlier than or equal to end",
+        )
+
+    return start_time, end_time
 
 
 def resolve_energy_time_bounds(start: str | None, end: str | None):
@@ -618,6 +678,109 @@ def get_latest_pv_day_ahead_forecast():
             "updated_at": run["updated_at"],
         },
     }
+
+
+@app.get("/weather/hourly/forecast")
+def get_weather_hourly_forecast(
+    start: str | None = Query(default=None),
+    end: str | None = Query(default=None),
+):
+    start_time, end_time = resolve_weather_time_bounds(start, end)
+
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT
+                    source,
+                    latitude,
+                    longitude,
+                    timezone,
+                    forecast_timestamp,
+                    forecast_date,
+                    forecast_hour,
+                    temperature_2m_c,
+                    dew_point_2m_c,
+                    relative_humidity_2m_percent,
+                    surface_pressure_hpa,
+                    shortwave_radiation_w_m2,
+                    direct_normal_irradiance_w_m2,
+                    diffuse_radiation_w_m2,
+                    wind_direction_10m_degrees,
+                    wind_speed_10m_ms,
+                    weather_code,
+                    snow_depth_m,
+                    precipitation_mm,
+                    cloud_cover_percent,
+                    fetched_at
+                FROM weather_hourly_forecasts
+                WHERE forecast_timestamp >= %s
+                  AND forecast_timestamp <= %s
+                ORDER BY forecast_timestamp ASC;
+                """,
+                (start_time, end_time),
+            )
+            rows = cur.fetchall()
+
+    return {
+        "start": start_time,
+        "end": end_time,
+        "count": len(rows),
+        "items": [format_weather_forecast_hour(row) for row in rows],
+    }
+
+
+@app.get("/weather/hourly/latest")
+def get_latest_weather_forecast_hour():
+    local_now = datetime.now(WEATHER_LOCAL_TZ).replace(
+        minute=0,
+        second=0,
+        microsecond=0,
+        tzinfo=None,
+    )
+
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT
+                    source,
+                    latitude,
+                    longitude,
+                    timezone,
+                    forecast_timestamp,
+                    forecast_date,
+                    forecast_hour,
+                    temperature_2m_c,
+                    dew_point_2m_c,
+                    relative_humidity_2m_percent,
+                    surface_pressure_hpa,
+                    shortwave_radiation_w_m2,
+                    direct_normal_irradiance_w_m2,
+                    diffuse_radiation_w_m2,
+                    wind_direction_10m_degrees,
+                    wind_speed_10m_ms,
+                    weather_code,
+                    snow_depth_m,
+                    precipitation_mm,
+                    cloud_cover_percent,
+                    fetched_at
+                FROM weather_hourly_forecasts
+                WHERE forecast_timestamp >= %s
+                ORDER BY forecast_timestamp ASC
+                LIMIT 1;
+                """,
+                (local_now,),
+            )
+            row = cur.fetchone()
+
+    if not row:
+        raise HTTPException(
+            status_code=404,
+            detail="No current or future hourly weather forecast found",
+        )
+
+    return format_weather_forecast_hour(row)
 
 
 @app.get("/upat/device/{device_id}/latest")

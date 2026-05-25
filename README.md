@@ -4,13 +4,14 @@ Backend service for the SchoolHeroZ Digital Twin that ingests data from UPAT and
 
 ## Project structure
 
-This project is organized into six directories, each implementing a core service of the system.
+This project is organized into service directories, each implementing a core part of the system.
 
 - `/db`: PostgreSQL schema and initialization scripts
 - `/api`: FastAPI retrieval service
 - `/ttn-ingestor`: MQTT ingestor for UPAT environmental devices
 - `/shelly-ingestor`: MQTT ingestor for Shelly energy devices
 - `/simulation-recorder`: one-shot daily simulation recorder
+- `/weather-collector`: one-shot Open-Meteo hourly weather forecast collector
 - `/mosquitto`: Mosquitto broker configuration for Shelly message ingestion
 
 ## Project setup
@@ -80,6 +81,38 @@ For an existing PostgreSQL volume, apply the idempotent day-ahead result migrati
 
 ```bash
 docker compose exec -T postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -f /docker-entrypoint-initdb.d/migrations/002_simulation_day_ahead_results.sql'
+```
+
+## Weather collector
+
+The `weather-collector` service is a one-shot container intended to be run by VPS cron. It fetches a 7-day hourly forecast from Open-Meteo for the configured latitude/longitude and permanently upserts the rows into `weather_hourly_forecasts`.
+
+Default configuration:
+
+```text
+latitude: 37.068
+longitude: 22.026
+timezone: Europe/Athens
+wind speed unit: ms
+forecast window: 7 local dates, from today through today + 6 days
+```
+
+Run it manually:
+
+```bash
+docker compose --profile jobs run --rm weather-collector
+```
+
+For an existing PostgreSQL volume, apply the idempotent weather forecast migration before the first run:
+
+```bash
+docker compose exec -T postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -f /docker-entrypoint-initdb.d/migrations/004_weather_hourly_forecasts.sql'
+```
+
+Example daily VPS cron entry:
+
+```cron
+15 3 * * * cd /path/to/upat-nzc-mqtt-db && docker compose --profile jobs run --rm weather-collector
 ```
 
 ## API service
@@ -223,6 +256,33 @@ Example response:
     }
   ]
 }
+```
+
+### `GET /weather/hourly/forecast`
+
+Returns stored Open-Meteo hourly forecasts. If `start` and `end` are omitted, the endpoint returns the default 7-day local forecast window from today through today + 6 days.
+
+Query parameters:
+
+- `start`
+  Optional. `YYYY-MM-DD` or `YYYY-MM-DDTHH:MM`.
+- `end`
+  Optional. `YYYY-MM-DD` or `YYYY-MM-DDTHH:MM`.
+
+Example:
+
+```bash
+curl -s "http://localhost:8000/weather/hourly/forecast?start=2026-05-25&end=2026-05-31"
+```
+
+### `GET /weather/hourly/latest`
+
+Returns the nearest stored current or future hourly weather forecast row.
+
+Example:
+
+```bash
+curl -s http://localhost:8000/weather/hourly/latest
 ```
 
 ### `GET /upat/device/{device_id}/latest`
