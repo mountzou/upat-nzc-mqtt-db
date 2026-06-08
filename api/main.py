@@ -386,6 +386,97 @@ def fetch_device_history(table_name, device_id, params):
     return format_response_object(device_id, rows, metrics)
 
 
+def resolve_upat_rollup_table(params):
+    if params.aggregate != "avg" or params.resolved_bucket_unit is None:
+        return None
+
+    bucket_unit = params.resolved_bucket_unit
+    bucket_size = params.resolved_bucket_size
+
+    if bucket_unit == "minute" and bucket_size >= 5:
+        return "upat_measurements_5min"
+
+    if bucket_unit in {"hour", "day"}:
+        return "upat_measurements_hourly"
+
+    return None
+
+
+def fetch_upat_rollup_history(table_name, device_id, params):
+    metrics = params.resolved_metrics
+    end_time = params.resolved_end_time or datetime.now()
+    start_time = params.resolved_start_time or (end_time - timedelta(days=1))
+    bucket_interval = params.resolved_bucket_interval
+
+    query_parts = [f"""
+        WITH aggregated AS (
+            SELECT
+                device_id,
+                metric,
+                SUM(value_avg * sample_count) / NULLIF(SUM(sample_count), 0) AS value,
+                unit,
+                date_bin(
+                    %s::interval,
+                    bucket_start,
+                    TIMESTAMP '2001-01-01 00:00:00'
+                ) AS bucket_time
+            FROM {table_name}
+            WHERE device_id = %s
+    """]
+    query_params = [bucket_interval, device_id]
+
+    if start_time and end_time:
+        query_parts.append(" AND bucket_start >= %s")
+        query_params.append(start_time)
+        query_parts.append(" AND bucket_start <= %s")
+        query_params.append(end_time)
+
+    if metrics:
+        query_parts.append(" AND metric = ANY(%s)")
+        query_params.append(metrics)
+
+    if params.start is not None and params.end is not None:
+        query_parts.append("""
+                GROUP BY device_id, metric, unit, bucket_time
+            )
+            SELECT device_id, metric, value, unit, bucket_time AS event_time
+            FROM aggregated
+            ORDER BY bucket_time DESC, metric ASC;
+        """)
+    else:
+        query_parts.append("""
+                GROUP BY device_id, metric, unit, bucket_time
+            ),
+            selected_times AS (
+                SELECT DISTINCT bucket_time
+                FROM aggregated
+                ORDER BY bucket_time DESC
+                LIMIT %s
+            )
+            SELECT device_id, metric, value, unit, bucket_time AS event_time
+            FROM aggregated
+            WHERE bucket_time IN (SELECT bucket_time FROM selected_times)
+            ORDER BY bucket_time DESC, metric ASC;
+        """)
+        query_params.append(params.limit)
+
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("".join(query_parts), query_params)
+            rows = cur.fetchall()
+
+    return format_response_object(device_id, rows, metrics)
+
+
+def fetch_upat_device_history(device_id, params):
+    rollup_table = resolve_upat_rollup_table(params)
+
+    if rollup_table:
+        return fetch_upat_rollup_history(rollup_table, device_id, params)
+
+    return fetch_device_history("upat_measurements", device_id, params)
+
+
 @app.get("/health")
 def health():
     try:
@@ -806,7 +897,7 @@ def get_device_history(
     device_id: str,
     params: Annotated[HistoryQueryParams, Query()],
 ):
-    return fetch_device_history("upat_measurements", device_id, params)
+    return fetch_upat_device_history(device_id, params)
 
 
 @app.get("/shelly/device/{device_id}/history")

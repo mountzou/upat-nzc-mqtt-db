@@ -17,6 +17,12 @@ DB_USER = os.getenv("POSTGRES_USER")
 DB_PASSWORD = os.getenv("POSTGRES_PASSWORD")
 DB_CONNECT_RETRIES = int(os.getenv("POSTGRES_CONNECT_RETRIES", "5"))
 DB_CONNECT_DELAY_SECONDS = float(os.getenv("POSTGRES_CONNECT_DELAY_SECONDS", "2"))
+VERBOSE_LOGGING = os.getenv("VERBOSE_LOGGING", "false").strip().lower() == "true"
+
+
+def log_verbose(message):
+    if VERBOSE_LOGGING:
+        print(message)
 
 
 # Establish connection to the PostgreSQL database
@@ -87,7 +93,7 @@ def insert_measurement(conn, device_id, metric, value, unit=None, event_time=Non
 def maybe_insert_metric(conn, device_id, metric, value, unit, event_time):
     if value is not None:
         insert_measurement(conn, device_id, metric, value, unit, event_time)
-        print(f"Inserted measurement: {device_id} | {metric}={value} {unit or ''}")
+        log_verbose(f"Inserted measurement: {device_id} | {metric}={value} {unit or ''}")
 
 
 # Connect to the MQTT broker and subscribe to the topic
@@ -104,7 +110,7 @@ def on_connect(client, userdata, flags, rc):
 # Process incoming MQTT messages, extract relevant data, and store it in the database
 def on_message(client, userdata, msg):
     payload_text = msg.payload.decode()
-    print(f"Received TTN message on {msg.topic}")
+    log_verbose(f"Received TTN message on {msg.topic}")
 
     payload_obj = json.loads(payload_text)
 
@@ -120,7 +126,7 @@ def on_message(client, userdata, msg):
     with db_connect() as conn:
         # Upsert UPAT device information in the database to ensure we have a record of this device
         upsert_device(conn, source="ttn", device_id=device_id, dev_eui=dev_eui, name=device_id)
-        print(f"Upserted device: {device_id} ({dev_eui})")
+        log_verbose(f"Upserted device: {device_id} ({dev_eui})")
 
         insert_raw_message(
             conn,
@@ -130,7 +136,7 @@ def on_message(client, userdata, msg):
             payload_obj=payload_obj,
             event_time=event_time
         )
-        print("Inserted raw TTN message")
+        log_verbose("Inserted raw TTN message")
 
         decoded = payload_obj.get("uplink_message", {}).get("decoded_payload", {})
         environmental = decoded.get("environmental", {})
@@ -159,6 +165,7 @@ print(f"TTN_MQTT_HOST={TTN_MQTT_HOST}")
 print(f"TTN_MQTT_PORT={TTN_MQTT_PORT}")
 print(f"TTN_USERNAME={TTN_USERNAME}")
 print(f"TTN_TOPIC={TTN_TOPIC}")
+print(f"VERBOSE_LOGGING={VERBOSE_LOGGING}")
 
 # Connect to the MQTT broker and start the loop to process messages
 client.connect(TTN_MQTT_HOST, TTN_MQTT_PORT, 60)

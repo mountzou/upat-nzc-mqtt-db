@@ -19,6 +19,12 @@ DB_USER = os.getenv("POSTGRES_USER")
 DB_PASSWORD = os.getenv("POSTGRES_PASSWORD")
 DB_CONNECT_RETRIES = int(os.getenv("POSTGRES_CONNECT_RETRIES", "5"))
 DB_CONNECT_DELAY_SECONDS = float(os.getenv("POSTGRES_CONNECT_DELAY_SECONDS", "2"))
+VERBOSE_LOGGING = os.getenv("VERBOSE_LOGGING", "false").strip().lower() == "true"
+
+
+def log_verbose(message):
+    if VERBOSE_LOGGING:
+        print(message)
 
 
 # Establish connection to the Postgres database
@@ -100,7 +106,7 @@ def on_connect(client, userdata, flags, rc):
 def maybe_insert_metric(conn, device_id, metric, value, unit, event_time):
     if isinstance(value, (int, float)) and not isinstance(value, bool):
         insert_measurement(conn, device_id, metric, float(value), unit, event_time)
-        print(f"Inserted measurement: {device_id} | {metric}={value} {unit or ''}")
+        log_verbose(f"Inserted measurement: {device_id} | {metric}={value} {unit or ''}")
 
 
 def parse_device_id(topic):
@@ -166,7 +172,7 @@ def insert_pro3em_metrics(conn, device_id, payload_obj, event_time):
 # Process incoming MQTT messages, extract relevant data, and store it in the database
 def on_message(client, userdata, msg):
     payload_text = msg.payload.decode()
-    print(f"Received message on {msg.topic}: {payload_text}")
+    log_verbose(f"Received message on {msg.topic}: {payload_text}")
 
     try:
         payload_obj = json.loads(payload_text)
@@ -185,7 +191,7 @@ def on_message(client, userdata, msg):
     with get_connection() as conn:
         # Upsert Shelly device information in the PostgreSQL database to ensure we have a record of this device
         upsert_device(conn, device_id=device_id, name=device_id)
-        print(f"Upserted device: {device_id}")
+        log_verbose(f"Upserted device: {device_id}")
 
         # Insert the raw Shelly message into the `shelly_raw_messages` table for auditing and debugging purposes
         insert_raw_message(
@@ -216,6 +222,7 @@ print(f"MQTT_INTERNAL_PORT={BROKER_PORT}")
 print(f"MQTT_USERNAME={'set' if MQTT_USERNAME else 'not set'}")
 print(f"MQTT_USE_TLS={MQTT_USE_TLS}")
 print(f"SHELLY_TOPIC={SHELLY_TOPIC}")
+print(f"VERBOSE_LOGGING={VERBOSE_LOGGING}")
 
 # Connect to the MQTT broker and start the loop to process messages
 client.connect(BROKER_HOST, BROKER_PORT, 60)

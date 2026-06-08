@@ -1,7 +1,14 @@
+x-json-logging: &json-logging
+  driver: json-file
+  options:
+    max-size: "50m"
+    max-file: "3"
+
 services:
   postgres:
     image: postgres:15
     container_name: iot_postgres
+    logging: *json-logging
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -20,6 +27,7 @@ services:
   mosquitto:
     image: eclipse-mosquitto:2
     container_name: iot_mosquitto
+    logging: *json-logging
     ports:
       - "${MQTT_PORT}:1883"
     volumes:
@@ -29,6 +37,7 @@ services:
     build:
       context: ./shelly-ingestor
     container_name: shelly_ingestor
+    logging: *json-logging
     restart: on-failure
     environment:
       POSTGRES_HOST: ${POSTGRES_HOST}
@@ -52,6 +61,7 @@ services:
     build:
       context: ./ttn-ingestor
     container_name: ttn_ingestor
+    logging: *json-logging
     restart: on-failure
     environment:
       POSTGRES_HOST: ${POSTGRES_HOST}
@@ -72,6 +82,7 @@ services:
     build:
       context: ./api
     container_name: iot_api
+    logging: *json-logging
     environment:
       POSTGRES_HOST: ${POSTGRES_HOST}
       POSTGRES_INTERNAL_PORT: ${POSTGRES_INTERNAL_PORT}
@@ -88,6 +99,7 @@ services:
     build:
       context: ./energy-aggregator
     container_name: energy_aggregator
+    logging: *json-logging
     environment:
       POSTGRES_HOST: ${POSTGRES_HOST}
       POSTGRES_INTERNAL_PORT: ${POSTGRES_INTERNAL_PORT}
@@ -102,6 +114,7 @@ services:
     build:
       context: ./simulation-recorder
     container_name: simulation_recorder
+    logging: *json-logging
     environment:
       POSTGRES_HOST: ${POSTGRES_HOST}
       POSTGRES_INTERNAL_PORT: ${POSTGRES_INTERNAL_PORT}
@@ -120,6 +133,7 @@ services:
     build:
       context: ./pv-prediction
     container_name: pv_prediction
+    logging: *json-logging
     profiles:
       - jobs
     environment:
@@ -140,6 +154,7 @@ services:
     build:
       context: ./weather-collector
     container_name: weather_collector
+    logging: *json-logging
     profiles:
       - jobs
     environment:
