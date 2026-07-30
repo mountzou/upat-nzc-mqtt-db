@@ -366,6 +366,9 @@ Query parameters:
 Notes:
 
 - If `start` or `end` is provided as `YYYY-MM-DD`, the API expands it to the full day.
+- Explicit timestamp ranges use a half-open interval: `start` is included and
+  `end` is excluded. This prevents the first bucket of the following period
+  from being returned as a partial bucket.
 - If aggregation parameters are used, `aggregate=avg` must also be provided.
 - `limit` applies only when no explicit `start` and `end` range is provided.
 - If no time range is provided, the default history view is the last 1 day aggregated at 1-minute resolution.

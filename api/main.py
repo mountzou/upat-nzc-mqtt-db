@@ -346,7 +346,7 @@ def fetch_device_history(table_name, device_id, params):
     if start_time and end_time:
         query_parts.append(" AND event_time >= %s")
         query_params.append(start_time)
-        query_parts.append(" AND event_time <= %s")
+        query_parts.append(" AND event_time < %s")
         query_params.append(end_time)
 
     if metrics:
@@ -440,7 +440,7 @@ def fetch_upat_rollup_history(table_name, device_id, params):
             WHERE measurement.id > state.last_measurement_id
               AND measurement.device_id = %s
               AND measurement.event_time >= %s
-              AND measurement.event_time <= %s
+              AND measurement.event_time < %s
     """]
     query_params = [
         source_bucket_interval,
@@ -470,7 +470,7 @@ def fetch_upat_rollup_history(table_name, device_id, params):
             FROM {table_name} AS rollup
             WHERE rollup.device_id = %s
               AND rollup.bucket_start >= %s
-              AND rollup.bucket_start <= %s
+              AND rollup.bucket_start < %s
     """)
     query_params.extend([device_id, start_time, end_time])
 

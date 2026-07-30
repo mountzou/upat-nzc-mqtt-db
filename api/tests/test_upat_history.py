@@ -5,7 +5,11 @@ from datetime import datetime, timedelta
 from unittest.mock import patch
 
 import main
-from main import fetch_upat_rollup_history, resolve_upat_rollup_table
+from main import (
+    fetch_device_history,
+    fetch_upat_rollup_history,
+    resolve_upat_rollup_table,
+)
 from psycopg2 import sql
 from schemas import HistoryQueryParams
 
@@ -110,6 +114,25 @@ class UpatHistoryTests(unittest.TestCase):
                 self.assertEqual(resolve_upat_rollup_table(params), expected)
 
     @patch("main.get_connection")
+    def test_raw_history_uses_exclusive_end_bound(self, mock_get_connection):
+        cursor = _FakeCursor([])
+        mock_get_connection.return_value = _FakeConnection(cursor)
+        params = HistoryQueryParams(
+            metric=["temperature"],
+            start="2026-07-29T10:00",
+            end="2026-07-29T11:00",
+            aggregate="avg",
+            bucket_unit="minute",
+            bucket_size=1,
+        )
+
+        fetch_device_history("upat_measurements", "portable-test", params)
+
+        self.assertIn("event_time >= %s", cursor.query)
+        self.assertIn("event_time < %s", cursor.query)
+        self.assertNotIn("event_time <= %s", cursor.query)
+
+    @patch("main.get_connection")
     def test_rollup_history_combines_raw_and_rollup_sources(self, mock_get_connection):
         cursor = _FakeCursor(
             [
@@ -147,6 +170,10 @@ class UpatHistoryTests(unittest.TestCase):
             "measurement.id > state.last_measurement_id",
             cursor.query,
         )
+        self.assertIn("measurement.event_time < %s", cursor.query)
+        self.assertIn("rollup.bucket_start < %s", cursor.query)
+        self.assertNotIn("measurement.event_time <= %s", cursor.query)
+        self.assertNotIn("rollup.bucket_start <= %s", cursor.query)
         self.assertNotIn("NOT EXISTS", cursor.query)
         self.assertIn("UNION ALL", cursor.query)
         self.assertEqual(cursor.params[0], "5 minutes")
@@ -423,6 +450,68 @@ class UpatHistoryDatabaseTests(unittest.TestCase):
                 for item in response["items"]
             ],
             [10.0, 7.0, 4.0, 1.0],
+        )
+
+    def test_daily_history_excludes_bucket_at_end_bound(self):
+        with main.get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    INSERT INTO upat_measurements_hourly (
+                        device_id,
+                        metric,
+                        unit,
+                        bucket_start,
+                        value_avg,
+                        value_min,
+                        value_max,
+                        sample_count
+                    )
+                    VALUES
+                        (
+                            'portable-test',
+                            'temperature',
+                            'C',
+                            TIMESTAMP '2026-07-29 00:00:00',
+                            20,
+                            20,
+                            20,
+                            1
+                        ),
+                        (
+                            'portable-test',
+                            'temperature',
+                            'C',
+                            TIMESTAMP '2026-07-30 00:00:00',
+                            30,
+                            30,
+                            30,
+                            1
+                        );
+                """)
+
+        params = HistoryQueryParams(
+            metric=["temperature"],
+            start="2026-07-29T00:00",
+            end="2026-07-30T00:00",
+            aggregate="avg",
+            bucket_unit="day",
+            bucket_size=1,
+        )
+
+        response = fetch_upat_rollup_history(
+            "upat_measurements_hourly",
+            "portable-test",
+            params,
+        )
+
+        self.assertEqual(response["count"], 1)
+        self.assertEqual(
+            response["items"][0]["event_time"],
+            datetime(2026, 7, 29, 0, 0),
+        )
+        self.assertEqual(
+            response["items"][0]["measurements"]["temperature"]["value"],
+            20.0,
         )
 
 
