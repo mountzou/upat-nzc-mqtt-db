@@ -369,8 +369,28 @@ Notes:
 - If aggregation parameters are used, `aggregate=avg` must also be provided.
 - `limit` applies only when no explicit `start` and `end` range is provided.
 - If no time range is provided, the default history view is the last 1 day aggregated at 1-minute resolution.
+- UPAT minute buckets that are exact multiples of five use persisted five-minute
+  rollups. Minute buckets that are exact multiples of 60, plus hourly and daily
+  buckets, use persisted hourly rollups.
+- Rollup-backed UPAT queries add only measurements newer than the atomic rollup
+  watermark, so results remain current between rollup jobs without
+  double-counting processed measurements.
+- Other minute bucket sizes use retained raw measurements and are therefore
+  limited to the high-resolution retention window.
 
 #### Aggregated history examples
+
+Latest twelve five-minute averages:
+
+```bash
+curl -s "http://localhost:8000/upat/device/portable-112/history?aggregate=avg&bucket_unit=minute&bucket_size=5&limit=12"
+```
+
+Latest four fifteen-minute averages:
+
+```bash
+curl -s "http://localhost:8000/upat/device/portable-112/history?aggregate=avg&bucket_unit=minute&bucket_size=15&limit=4"
+```
 
 Hourly averages:
 

@@ -393,8 +393,12 @@ def resolve_upat_rollup_table(params):
     bucket_unit = params.resolved_bucket_unit
     bucket_size = params.resolved_bucket_size
 
-    if bucket_unit == "minute" and bucket_size >= 5:
-        return "upat_measurements_5min"
+    if bucket_unit == "minute":
+        if bucket_size % 60 == 0:
+            return "upat_measurements_hourly"
+        if bucket_size >= 5 and bucket_size % 5 == 0:
+            return "upat_measurements_5min"
+        return None
 
     if bucket_unit in {"hour", "day"}:
         return "upat_measurements_hourly"
@@ -407,47 +411,108 @@ def fetch_upat_rollup_history(table_name, device_id, params):
     end_time = params.resolved_end_time or datetime.now()
     start_time = params.resolved_start_time or (end_time - timedelta(days=1))
     bucket_interval = params.resolved_bucket_interval
+    source_bucket_interval = (
+        "5 minutes"
+        if table_name == "upat_measurements_5min"
+        else "1 hour"
+    )
 
     query_parts = [f"""
-        WITH aggregated AS (
+        WITH rollup_state AS (
+            SELECT last_measurement_id
+            FROM upat_rollup_state
+            WHERE pipeline_name = 'upat'
+        ),
+        raw_source AS (
+            SELECT
+                measurement.device_id,
+                measurement.metric,
+                MAX(measurement.unit) AS unit,
+                SUM(measurement.value) AS value_sum,
+                COUNT(*)::BIGINT AS sample_count,
+                date_bin(
+                    %s::interval,
+                    measurement.event_time,
+                    TIMESTAMP '2001-01-01 00:00:00'
+                ) AS source_bucket
+            FROM upat_measurements AS measurement
+            CROSS JOIN rollup_state AS state
+            WHERE measurement.id > state.last_measurement_id
+              AND measurement.device_id = %s
+              AND measurement.event_time >= %s
+              AND measurement.event_time <= %s
+    """]
+    query_params = [
+        source_bucket_interval,
+        device_id,
+        start_time,
+        end_time,
+    ]
+
+    if metrics:
+        query_parts.append(" AND measurement.metric = ANY(%s)")
+        query_params.append(metrics)
+
+    query_parts.append(f"""
+            GROUP BY
+                measurement.device_id,
+                measurement.metric,
+                source_bucket
+        ),
+        rollup_source AS (
+            SELECT
+                rollup.device_id,
+                rollup.metric,
+                rollup.unit,
+                rollup.value_avg * rollup.sample_count AS value_sum,
+                rollup.sample_count::BIGINT AS sample_count,
+                rollup.bucket_start AS source_bucket
+            FROM {table_name} AS rollup
+            WHERE rollup.device_id = %s
+              AND rollup.bucket_start >= %s
+              AND rollup.bucket_start <= %s
+    """)
+    query_params.extend([device_id, start_time, end_time])
+
+    if metrics:
+        query_parts.append(" AND rollup.metric = ANY(%s)")
+        query_params.append(metrics)
+
+    query_parts.append("""
+        ),
+        combined_source AS (
+            SELECT device_id, metric, unit, value_sum, sample_count, source_bucket
+            FROM raw_source
+            UNION ALL
+            SELECT device_id, metric, unit, value_sum, sample_count, source_bucket
+            FROM rollup_source
+        ),
+        aggregated AS (
             SELECT
                 device_id,
                 metric,
-                SUM(value_avg * sample_count) / NULLIF(SUM(sample_count), 0) AS value,
-                unit,
+                SUM(value_sum) / NULLIF(SUM(sample_count), 0) AS value,
+                MAX(unit) AS unit,
                 date_bin(
                     %s::interval,
-                    bucket_start,
+                    source_bucket,
                     TIMESTAMP '2001-01-01 00:00:00'
                 ) AS bucket_time
-            FROM {table_name}
-            WHERE device_id = %s
-    """]
-    query_params = [bucket_interval, device_id]
-
-    if start_time and end_time:
-        query_parts.append(" AND bucket_start >= %s")
-        query_params.append(start_time)
-        query_parts.append(" AND bucket_start <= %s")
-        query_params.append(end_time)
-
-    if metrics:
-        query_parts.append(" AND metric = ANY(%s)")
-        query_params.append(metrics)
+            FROM combined_source
+            GROUP BY device_id, metric, bucket_time
+        )
+    """)
+    query_params.append(bucket_interval)
 
     if params.start is not None and params.end is not None:
         query_parts.append("""
-                GROUP BY device_id, metric, unit, bucket_time
-            )
             SELECT device_id, metric, value, unit, bucket_time AS event_time
             FROM aggregated
             ORDER BY bucket_time DESC, metric ASC;
         """)
     else:
         query_parts.append("""
-                GROUP BY device_id, metric, unit, bucket_time
-            ),
-            selected_times AS (
+            , selected_times AS (
                 SELECT DISTINCT bucket_time
                 FROM aggregated
                 ORDER BY bucket_time DESC
