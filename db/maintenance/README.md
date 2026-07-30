@@ -12,13 +12,12 @@ and never deletes an ID newer than the watermark.
 ## First production activation
 
 1. Apply `db/migrations/006_upat_rollup_state.sql`.
-2. Stop the TTN ingestor briefly.
-3. Recompute all still-open 5-minute and hourly buckets from raw measurements.
-4. Seed `upat_rollup_state.last_measurement_id` with the current maximum
-   `upat_measurements.id`.
-5. Run `upat_incremental_rollups.sql` once and confirm `processed_rows = 0`.
-6. Restart the TTN ingestor.
-7. Install the cron entries below.
+2. Run `upat_initialize_rollup_state.sql`. It briefly blocks measurement
+   inserts while it recomputes recent buckets and seeds the watermark in one
+   transaction; API reads remain available.
+3. Run `upat_incremental_rollups.sql` once and confirm `processed_rows` is
+   either zero or a small number of rows inserted after initialization.
+4. Install the cron entries below.
 
 Do not seed the watermark before the existing rollups are fully caught up.
 Doing so would mark measurements as processed without preserving their
