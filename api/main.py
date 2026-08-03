@@ -1,5 +1,6 @@
 import os
-from datetime import datetime, timedelta, time
+import shutil
+from datetime import datetime, timedelta, time, timezone
 from decimal import Decimal
 from typing import Annotated
 from zoneinfo import ZoneInfo
@@ -542,6 +543,189 @@ def fetch_upat_device_history(device_id, params):
     return fetch_device_history("upat_measurements", device_id, params)
 
 
+def _safe_percent(used, total):
+    if not total or total <= 0:
+        return None
+    return round(max(0.0, min(float(used) / float(total) * 100.0, 100.0)), 1)
+
+
+def _read_runtime_memory():
+    """Return cgroup-aware memory counters without exposing host details."""
+    try:
+        with open("/sys/fs/cgroup/memory.current", encoding="utf-8") as current_file:
+            current = int(current_file.read().strip())
+        with open("/sys/fs/cgroup/memory.max", encoding="utf-8") as maximum_file:
+            maximum_value = maximum_file.read().strip()
+        if maximum_value != "max":
+            maximum = int(maximum_value)
+            if maximum > 0:
+                return current, maximum
+    except (OSError, ValueError):
+        pass
+
+    try:
+        values = {}
+        with open("/proc/meminfo", encoding="utf-8") as meminfo:
+            for line in meminfo:
+                key, value = line.split(":", 1)
+                values[key] = int(value.strip().split()[0]) * 1024
+        total = values.get("MemTotal")
+        available = values.get("MemAvailable")
+        if total and available is not None:
+            return total - available, total
+    except (OSError, ValueError, IndexError):
+        pass
+
+    return None, None
+
+
+def get_runtime_metrics():
+    """Collect coarse runtime metrics using only local, sanitized counters."""
+    cpu_count = os.cpu_count() or 1
+    try:
+        cpu_load_percent = round(
+            max(0.0, min(os.getloadavg()[0] / cpu_count * 100.0, 100.0)),
+            1,
+        )
+    except (AttributeError, OSError):
+        cpu_load_percent = None
+
+    memory_used, memory_total = _read_runtime_memory()
+
+    try:
+        disk = shutil.disk_usage("/")
+        disk_used_percent = _safe_percent(disk.used, disk.total)
+    except OSError:
+        disk_used_percent = None
+
+    try:
+        with open("/proc/uptime", encoding="utf-8") as uptime_file:
+            uptime_seconds = int(float(uptime_file.read().split()[0]))
+    except (OSError, ValueError, IndexError):
+        uptime_seconds = None
+
+    return {
+        "cpu_load_1m_percent": cpu_load_percent,
+        "memory_used_percent": _safe_percent(memory_used, memory_total),
+        "disk_used_percent": disk_used_percent,
+        "uptime_seconds": uptime_seconds,
+    }
+
+
+def fetch_operational_telemetry():
+    """Return one indexed fleet aggregate plus coarse database/runtime metrics."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                WITH device_last_readings AS (
+                    SELECT
+                        'upat' AS device_type,
+                        devices.device_id,
+                        latest.event_time AS last_reading_at
+                    FROM (SELECT DISTINCT device_id FROM upat_devices) AS devices
+                    LEFT JOIN LATERAL (
+                        SELECT messages.event_time
+                        FROM upat_raw_messages AS messages
+                        WHERE messages.device_id = devices.device_id
+                          AND messages.event_time IS NOT NULL
+                        ORDER BY messages.event_time DESC
+                        LIMIT 1
+                    ) AS latest ON TRUE
+
+                    UNION ALL
+
+                    SELECT
+                        'shelly' AS device_type,
+                        devices.device_id,
+                        latest.event_time AS last_reading_at
+                    FROM (SELECT DISTINCT device_id FROM shelly_devices) AS devices
+                    LEFT JOIN LATERAL (
+                        SELECT messages.event_time
+                        FROM shelly_raw_messages AS messages
+                        WHERE messages.device_id = devices.device_id
+                          AND messages.event_time IS NOT NULL
+                        ORDER BY messages.event_time DESC
+                        LIMIT 1
+                    ) AS latest ON TRUE
+                )
+                SELECT
+                    COUNT(*)::integer AS total_devices,
+                    COUNT(*) FILTER (
+                        WHERE last_reading_at >=
+                            (CURRENT_TIMESTAMP AT TIME ZONE 'UTC')
+                            - INTERVAL '15 minutes'
+                    )::integer AS live_devices,
+                    COUNT(*) FILTER (
+                        WHERE last_reading_at <
+                                (CURRENT_TIMESTAMP AT TIME ZONE 'UTC')
+                                - INTERVAL '15 minutes'
+                          AND last_reading_at >=
+                                (CURRENT_TIMESTAMP AT TIME ZONE 'UTC')
+                                - INTERVAL '24 hours'
+                    )::integer AS stale_devices,
+                    COUNT(*) FILTER (
+                        WHERE last_reading_at <
+                                (CURRENT_TIMESTAMP AT TIME ZONE 'UTC')
+                                - INTERVAL '24 hours'
+                           OR last_reading_at IS NULL
+                    )::integer AS offline_devices,
+                    COUNT(*) FILTER (WHERE device_type = 'upat')::integer AS upat_devices,
+                    COUNT(*) FILTER (WHERE device_type = 'shelly')::integer AS shelly_devices,
+                    MAX(last_reading_at) AS latest_reading_at,
+                    pg_database_size(current_database())::bigint AS database_size_bytes,
+                    (
+                        SELECT COUNT(*)::integer
+                        FROM pg_stat_activity
+                        WHERE datname = current_database()
+                    ) AS active_connections,
+                    current_setting('max_connections')::integer AS max_connections
+                FROM device_last_readings;
+                """
+            )
+            row = cur.fetchone()
+
+    total_devices = int(row["total_devices"] or 0)
+    live_devices = int(row["live_devices"] or 0)
+    active_connections = int(row["active_connections"] or 0)
+    max_connections = int(row["max_connections"] or 0)
+    runtime_metrics = get_runtime_metrics()
+
+    return {
+        "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds").replace(
+            "+00:00",
+            "Z",
+        ),
+        "fleet": {
+            "total_devices": total_devices,
+            "live_devices": live_devices,
+            "stale_devices": int(row["stale_devices"] or 0),
+            "offline_devices": int(row["offline_devices"] or 0),
+            "upat_devices": int(row["upat_devices"] or 0),
+            "shelly_devices": int(row["shelly_devices"] or 0),
+            "availability_percent": _safe_percent(live_devices, total_devices),
+            "latest_reading_at": row["latest_reading_at"],
+            "live_threshold_minutes": 15,
+            "offline_threshold_hours": 24,
+        },
+        "infrastructure": {
+            "cpu_load_1m_percent": runtime_metrics.get("cpu_load_1m_percent"),
+            "memory_used_percent": runtime_metrics.get("memory_used_percent"),
+            "disk_used_percent": runtime_metrics.get("disk_used_percent"),
+            "uptime_seconds": runtime_metrics.get("uptime_seconds"),
+        },
+        "database": {
+            "size_bytes": int(row["database_size_bytes"] or 0),
+            "active_connections": active_connections,
+            "max_connections": max_connections,
+            "connections_used_percent": _safe_percent(
+                active_connections,
+                max_connections,
+            ),
+        },
+    }
+
+
 @app.get("/health")
 def health():
     try:
@@ -552,6 +736,17 @@ def health():
         return {"status": "ok", "database": "connected"}
     except Exception as e:
         return {"status": "error", "details": str(e)}
+
+
+@app.get("/ops/telemetry")
+def operational_telemetry():
+    try:
+        return fetch_operational_telemetry()
+    except Exception:
+        raise HTTPException(
+            status_code=503,
+            detail="Operational telemetry is temporarily unavailable",
+        ) from None
 
 
 @app.get("/upat/devices")
