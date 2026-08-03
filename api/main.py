@@ -1,14 +1,14 @@
+import hmac
 import os
 import shutil
-from datetime import datetime, timedelta, time, timezone
+from datetime import datetime, time, timedelta, timezone
 from decimal import Decimal
 from typing import Annotated
 from zoneinfo import ZoneInfo
 
-from fastapi import FastAPI, Query, HTTPException
 import psycopg2
+from fastapi import Depends, FastAPI, Header, HTTPException, Query
 from psycopg2.extras import RealDictCursor
-
 from schemas import HistoryQueryParams, normalize_metrics, parse_datetime_bound
 
 app = FastAPI()
@@ -18,6 +18,7 @@ DB_PORT = int(os.getenv("POSTGRES_INTERNAL_PORT", "5432"))
 DB_NAME = os.getenv("POSTGRES_DB")
 DB_USER = os.getenv("POSTGRES_USER")
 DB_PASSWORD = os.getenv("POSTGRES_PASSWORD")
+OPS_TELEMETRY_TOKEN = os.getenv("OPS_TELEMETRY_TOKEN", "").strip()
 WEATHER_TIMEZONE = os.getenv("OPEN_METEO_TIMEZONE", "Europe/Athens")
 WEATHER_LOCAL_TZ = ZoneInfo(WEATHER_TIMEZONE)
 
@@ -738,7 +739,35 @@ def health():
         return {"status": "error", "details": str(e)}
 
 
-@app.get("/ops/telemetry")
+def require_ops_telemetry_token(
+    authorization: Annotated[
+        str | None,
+        Header(alias="Authorization"),
+    ] = None,
+):
+    if len(OPS_TELEMETRY_TOKEN) < 32:
+        raise HTTPException(
+            status_code=503,
+            detail="Operational telemetry authentication is not configured",
+        )
+
+    scheme, separator, credentials = (authorization or "").partition(" ")
+    if (
+        not separator
+        or scheme.lower() != "bearer"
+        or not hmac.compare_digest(credentials, OPS_TELEMETRY_TOKEN)
+    ):
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid or missing bearer token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+
+@app.get(
+    "/ops/telemetry",
+    dependencies=[Depends(require_ops_telemetry_token)],
+)
 def operational_telemetry():
     try:
         return fetch_operational_telemetry()

@@ -4,10 +4,12 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from unittest.mock import patch
 
+import main
 from fastapi import HTTPException
 from psycopg2 import sql
 
-import main
+VALID_TEST_TOKEN = "test-" + "a" * 40
+WRONG_TEST_TOKEN = "test-" + "b" * 40
 
 
 class _FakeCursor:
@@ -204,6 +206,64 @@ class OperationsTelemetryTests(unittest.TestCase):
             "Operational telemetry is temporarily unavailable",
         )
         self.assertNotIn("do-not-expose", str(context.exception.detail))
+
+
+class OperationsTelemetryAuthTests(unittest.TestCase):
+    @patch.object(main, "OPS_TELEMETRY_TOKEN", VALID_TEST_TOKEN)
+    def test_missing_bearer_token_is_rejected(self):
+        with self.assertRaises(HTTPException) as context:
+            main.require_ops_telemetry_token(None)
+
+        self.assertEqual(context.exception.status_code, 401)
+        self.assertEqual(context.exception.detail, "Invalid or missing bearer token")
+        self.assertEqual(
+            context.exception.headers,
+            {"WWW-Authenticate": "Bearer"},
+        )
+
+    @patch.object(main, "OPS_TELEMETRY_TOKEN", VALID_TEST_TOKEN)
+    def test_wrong_bearer_token_is_rejected(self):
+        with self.assertRaises(HTTPException) as context:
+            main.require_ops_telemetry_token(f"Bearer {WRONG_TEST_TOKEN}")
+
+        self.assertEqual(context.exception.status_code, 401)
+        self.assertNotIn(VALID_TEST_TOKEN, str(context.exception.detail))
+
+    @patch.object(main, "OPS_TELEMETRY_TOKEN", VALID_TEST_TOKEN)
+    def test_correct_bearer_token_is_accepted(self):
+        self.assertIsNone(
+            main.require_ops_telemetry_token(f"Bearer {VALID_TEST_TOKEN}")
+        )
+
+    @patch.object(main, "OPS_TELEMETRY_TOKEN", "")
+    def test_unconfigured_server_token_fails_closed(self):
+        with self.assertRaises(HTTPException) as context:
+            main.require_ops_telemetry_token("Bearer any-test-token")
+
+        self.assertEqual(context.exception.status_code, 503)
+        self.assertEqual(
+            context.exception.detail,
+            "Operational telemetry authentication is not configured",
+        )
+
+    @patch.object(main, "OPS_TELEMETRY_TOKEN", "short-test-token")
+    def test_short_server_token_fails_closed(self):
+        with self.assertRaises(HTTPException) as context:
+            main.require_ops_telemetry_token("Bearer short-test-token")
+
+        self.assertEqual(context.exception.status_code, 503)
+
+    def test_route_registers_auth_dependency(self):
+        route = next(
+            route
+            for route in main.app.routes
+            if getattr(route, "path", None) == "/ops/telemetry"
+        )
+
+        self.assertEqual(
+            [dependency.call for dependency in route.dependant.dependencies],
+            [main.require_ops_telemetry_token],
+        )
 
 
 @unittest.skipUnless(
