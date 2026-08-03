@@ -5,6 +5,22 @@ x-json-logging: &json-logging
     max-file: "3"
 
 services:
+  caddy:
+    image: caddy:2.11.4-alpine
+    container_name: iot_caddy
+    logging: *json-logging
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      api:
+        condition: service_started
+
   postgres:
     image: postgres:15
     container_name: iot_postgres
@@ -90,6 +106,8 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
     ports:
+      # Staged rollout: remove this public binding only after HTTPS and all
+      # downstream callers have been validated through the reverse proxy.
       - "8000:8000"
     depends_on:
       postgres:
@@ -174,3 +192,5 @@ services:
 
 volumes:
   postgres_data:
+  caddy_data:
+  caddy_config:

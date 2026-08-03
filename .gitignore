@@ -1,5 +1,7 @@
 .vscode/
 .env
+/.env.backup*
+/backups/
 .venv/
 __pycache__/
 *.pyc

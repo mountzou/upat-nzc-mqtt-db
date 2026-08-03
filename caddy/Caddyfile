@@ -1,0 +1,9 @@
+telemetry.schoolheroz.com {
+	handle /ops/telemetry {
+		reverse_proxy api:8000
+	}
+
+	handle {
+		respond "Not Found" 404
+	}
+}
