@@ -919,6 +919,7 @@ def get_latest_day_ahead_simulation_results(
                     heating_liters,
                     cooling_kwh,
                     fans_hvac_kwh,
+                    response_json,
                     started_at,
                     completed_at,
                     created_at,
@@ -962,6 +963,14 @@ def get_latest_day_ahead_simulation_results(
             )
             rows = cur.fetchall()
 
+    response_json = run.get("response_json")
+    hourly_load = (
+        response_json.get("hourly_load")
+        if isinstance(response_json, dict)
+        and isinstance(response_json.get("hourly_load"), dict)
+        else None
+    )
+
     return {
         "status": run["status"],
         "simulation_engine": run["simulation_engine"],
@@ -973,6 +982,7 @@ def get_latest_day_ahead_simulation_results(
             "failed_rooms": run["failed_rooms"],
         },
         "day_ahead_date": run["day_ahead_date"],
+        "hourly_load": hourly_load,
         "school_totals": {
             "facility_kwh": numeric_or_none(run["facility_kwh"]),
             "equipment_kwh": numeric_or_none(run["equipment_kwh"]),
