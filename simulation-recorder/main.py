@@ -3,7 +3,7 @@ import os
 import random
 import sys
 import time
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal, InvalidOperation
 from urllib.parse import urljoin
 from zoneinfo import ZoneInfo
@@ -11,7 +11,6 @@ from zoneinfo import ZoneInfo
 import psycopg2
 import requests
 from psycopg2.extras import Json
-
 
 DB_HOST = os.getenv("POSTGRES_HOST", "postgres")
 DB_PORT = int(os.getenv("POSTGRES_INTERNAL_PORT", "5432"))
@@ -22,8 +21,11 @@ DB_CONNECT_RETRIES = int(os.getenv("POSTGRES_CONNECT_RETRIES", "5"))
 DB_CONNECT_DELAY_SECONDS = float(os.getenv("POSTGRES_CONNECT_DELAY_SECONDS", "2"))
 
 SIMULATION_API_BASE_URL = "https://upat-nzc-energyplus-backend.onrender.com"
+SIMULATION_API_AUTH_PATH = "/auth/login"
 SIMULATION_API_PATH = "/simulate/day-ahead"
-SIMULATION_SCHOOL_IDS = [
+SIMULATION_API_USERNAME = os.getenv("SIMULATION_API_USERNAME", "").strip()
+SIMULATION_API_PASSWORD = os.getenv("SIMULATION_API_PASSWORD", "")
+DEFAULT_SIMULATION_SCHOOL_IDS = [
     "school_3",
     "school_7",
     "school_10",
@@ -45,6 +47,40 @@ SIMULATION_BETWEEN_SCHOOLS_DELAY_SECONDS = float(
 SIMULATION_RECORDING_TIMEZONE = "Europe/Athens"
 SIMULATION_RETRYABLE_HTTP_STATUSES = {408, 425, 429, 500, 502, 503, 504}
 LOCAL_TZ = ZoneInfo(SIMULATION_RECORDING_TIMEZONE)
+
+
+class SimulationAuthenticationError(RuntimeError):
+    """Raised when the recorder cannot obtain a simulation API bearer token."""
+
+
+def parse_simulation_school_ids(raw_value):
+    if raw_value is None:
+        return list(DEFAULT_SIMULATION_SCHOOL_IDS)
+
+    school_ids = []
+    for value in raw_value.split(","):
+        school_id = value.strip()
+        if school_id and school_id not in school_ids:
+            school_ids.append(school_id)
+
+    if not school_ids:
+        raise ValueError(
+            "SIMULATION_SCHOOL_IDS must contain at least one school id"
+        )
+
+    unsupported = sorted(set(school_ids) - set(DEFAULT_SIMULATION_SCHOOL_IDS))
+    if unsupported:
+        raise ValueError(
+            "SIMULATION_SCHOOL_IDS contains unsupported school ids: "
+            + ", ".join(unsupported)
+        )
+
+    return school_ids
+
+
+SIMULATION_SCHOOL_IDS = parse_simulation_school_ids(
+    os.getenv("SIMULATION_SCHOOL_IDS")
+)
 
 
 def db_connect():
@@ -75,6 +111,58 @@ def build_simulation_url():
     base_url = SIMULATION_API_BASE_URL.rstrip("/") + "/"
     path = SIMULATION_API_PATH.lstrip("/")
     return urljoin(base_url, path)
+
+
+def build_simulation_auth_url():
+    base_url = SIMULATION_API_BASE_URL.rstrip("/") + "/"
+    path = SIMULATION_API_AUTH_PATH.lstrip("/")
+    return urljoin(base_url, path)
+
+
+def fetch_simulation_access_token(auth_url, username, password):
+    if not username:
+        raise SimulationAuthenticationError(
+            "SIMULATION_API_USERNAME is required"
+        )
+    if not password:
+        raise SimulationAuthenticationError(
+            "SIMULATION_API_PASSWORD is required"
+        )
+
+    try:
+        response = requests.post(
+            auth_url,
+            json={"username": username, "password": password},
+            timeout=SIMULATION_REQUEST_TIMEOUT_SECONDS,
+        )
+    except requests.RequestException as exc:
+        raise SimulationAuthenticationError(
+            "Simulation API login request failed"
+        ) from exc
+
+    if not response.ok:
+        raise SimulationAuthenticationError(
+            f"Simulation API login returned HTTP {response.status_code}"
+        )
+
+    try:
+        payload = response.json()
+    except ValueError as exc:
+        raise SimulationAuthenticationError(
+            "Simulation API login response is not valid JSON"
+        ) from exc
+
+    access_token = payload.get("access_token") if isinstance(payload, dict) else None
+    token_type = payload.get("token_type") if isinstance(payload, dict) else None
+    if not isinstance(access_token, str) or not access_token.strip():
+        raise SimulationAuthenticationError(
+            "Simulation API login response is missing access_token"
+        )
+    if not isinstance(token_type, str) or token_type.lower() != "bearer":
+        raise SimulationAuthenticationError(
+            "Simulation API login response has an unsupported token_type"
+        )
+    return access_token.strip()
 
 
 def utc_now():
@@ -218,9 +306,13 @@ def finish_successful_day_ahead_run(conn, run_id, http_status, response_json):
         )
 
 
-def build_simulation_request_body(school_id):
+def build_simulation_request_body(school_id, target_date=None):
+    resolved_target_date = target_date or (
+        datetime.now(LOCAL_TZ).date() + timedelta(days=1)
+    )
     return {
         "school_id": school_id,
+        "target_date": resolved_target_date.isoformat(),
     }
 
 
@@ -265,7 +357,7 @@ def log_response_trace(response):
     return "no upstream trace headers"
 
 
-def fetch_simulation_response(request_url, request_body):
+def fetch_simulation_response(request_url, request_body, access_token):
     last_error = None
 
     for attempt in range(1, SIMULATION_REQUEST_RETRIES + 1):
@@ -273,6 +365,7 @@ def fetch_simulation_response(request_url, request_body):
             response = requests.post(
                 request_url,
                 json=request_body,
+                headers={"Authorization": f"Bearer {access_token}"},
                 timeout=SIMULATION_REQUEST_TIMEOUT_SECONDS,
             )
 
@@ -403,10 +496,11 @@ def insert_day_ahead_room_results(conn, run_id, school_id, recording_date, room_
     return inserted_count
 
 
-def run_school(conn, request_url, school_id):
-    request_body = build_simulation_request_body(school_id)
+def run_school(conn, request_url, school_id, access_token):
     started_at = utc_now()
     recording_date = started_at.astimezone(LOCAL_TZ).date()
+    target_date = recording_date + timedelta(days=1)
+    request_body = build_simulation_request_body(school_id, target_date)
     run_id = None
 
     print(
@@ -428,7 +522,11 @@ def run_school(conn, request_url, school_id):
     http_status = None
 
     try:
-        response = fetch_simulation_response(request_url, request_body)
+        response = fetch_simulation_response(
+            request_url,
+            request_body,
+            access_token,
+        )
         http_status = response.status_code
         try:
             response_json = response.json()
@@ -469,6 +567,7 @@ def run_school(conn, request_url, school_id):
 
 def run():
     request_url = build_simulation_url()
+    auth_url = build_simulation_auth_url()
     failures = []
 
     print("Starting simulation recorder")
@@ -480,9 +579,21 @@ def run():
         f"{SIMULATION_BETWEEN_SCHOOLS_DELAY_SECONDS}"
     )
 
+    try:
+        access_token = fetch_simulation_access_token(
+            auth_url,
+            SIMULATION_API_USERNAME,
+            SIMULATION_API_PASSWORD,
+        )
+    except SimulationAuthenticationError as exc:
+        print(f"Simulation recorder authentication failed: {exc}")
+        raise
+
+    print("Simulation recorder authenticated successfully")
+
     with db_connect() as conn:
         for index, school_id in enumerate(SIMULATION_SCHOOL_IDS):
-            failure = run_school(conn, request_url, school_id)
+            failure = run_school(conn, request_url, school_id, access_token)
             if failure is not None:
                 failures.append((school_id, failure))
 
