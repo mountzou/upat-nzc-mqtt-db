@@ -230,6 +230,24 @@ def create_day_ahead_run(conn, school_id, recording_date, request_url, request_p
         return cur.fetchone()[0]
 
 
+def find_successful_day_ahead_run_id(conn, school_id, target_date):
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT id
+            FROM simulation_day_ahead_runs
+            WHERE school_id = %s
+              AND day_ahead_date = %s
+              AND success IS TRUE
+            ORDER BY completed_at DESC NULLS LAST, id DESC
+            LIMIT 1;
+            """,
+            (school_id, target_date),
+        )
+        row = cur.fetchone()
+        return row[0] if row else None
+
+
 def finish_failed_day_ahead_run(conn, run_id, http_status, response_json, error_text):
     with conn.cursor() as cur:
         cur.execute(
@@ -501,7 +519,19 @@ def run_school(conn, request_url, school_id, access_token):
     recording_date = started_at.astimezone(LOCAL_TZ).date()
     target_date = recording_date + timedelta(days=1)
     request_body = build_simulation_request_body(school_id, target_date)
-    run_id = None
+
+    existing_run_id = find_successful_day_ahead_run_id(
+        conn,
+        school_id,
+        target_date,
+    )
+    if existing_run_id is not None:
+        print(
+            "Skipping day-ahead simulation: "
+            f"school_id={school_id}, target_date={target_date.isoformat()}, "
+            f"existing_successful_run_id={existing_run_id}"
+        )
+        return None
 
     print(
         "Starting day-ahead simulation: "

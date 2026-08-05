@@ -1,6 +1,6 @@
 import unittest
 from contextlib import redirect_stdout
-from datetime import date
+from datetime import date, datetime, timezone
 from io import StringIO
 from unittest.mock import Mock, patch
 
@@ -47,6 +47,46 @@ class SimulationRecorderRequestContractTests(unittest.TestCase):
                 "target_date": "2026-08-06",
             },
         )
+
+    @patch.object(main, "fetch_simulation_response")
+    @patch.object(main, "create_day_ahead_run")
+    @patch.object(
+        main,
+        "find_successful_day_ahead_run_id",
+        return_value=543,
+    )
+    @patch.object(
+        main,
+        "utc_now",
+        return_value=datetime(2026, 8, 5, 9, 0, tzinfo=timezone.utc),
+    )
+    def test_existing_successful_target_is_skipped_before_insert_and_http(
+        self,
+        _utc_now,
+        find_existing,
+        create_run,
+        fetch_response,
+    ):
+        connection = Mock()
+        output = StringIO()
+
+        with redirect_stdout(output):
+            result = main.run_school(
+                connection,
+                "https://backend.example/simulate/day-ahead",
+                "school_10",
+                "temporary-token",
+            )
+
+        self.assertIsNone(result)
+        find_existing.assert_called_once_with(
+            connection,
+            "school_10",
+            date(2026, 8, 6),
+        )
+        create_run.assert_not_called()
+        fetch_response.assert_not_called()
+        self.assertIn("existing_successful_run_id=543", output.getvalue())
 
     @patch("main.requests.post")
     def test_login_returns_temporary_bearer_token(self, post):
