@@ -85,7 +85,7 @@ docker compose exec -T postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB
 
 ## Weather collector
 
-The `weather-collector` service is a one-shot container intended to be run by VPS cron. It fetches a 7-day hourly forecast from Open-Meteo for the configured latitude/longitude and permanently upserts the rows into `weather_hourly_forecasts`.
+The `weather-collector` service is a one-shot container intended to be run by VPS cron. It fetches an 8-day hourly forecast from Open-Meteo for the configured latitude/longitude and permanently upserts the rows into `weather_hourly_forecasts`. The extra day keeps the API's current 7-day simulation window complete after midnight and before the next nightly collector run.
 
 Default configuration:
 
@@ -94,7 +94,7 @@ latitude: 37.068
 longitude: 22.026
 timezone: Europe/Athens
 wind speed unit: ms
-forecast window: 7 local dates, from today through today + 6 days
+forecast window: 8 local dates, from today through today + 7 days
 ```
 
 Run it manually:
