@@ -1,0 +1,60 @@
+{
+  "model_version": "rf_operational_20260806",
+  "created_at_utc": "2026-08-05T22:28:09.480805+00:00",
+  "estimator": "sklearn.ensemble.RandomForestRegressor",
+  "purpose": "Operational D+1 PV forecast observation and later evaluation.",
+  "feature_contract": [
+    "temperature_2m",
+    "shortwave_radiation",
+    "direct_normal_irradiance",
+    "diffuse_radiation",
+    "cloud_cover",
+    "wind_speed_10m",
+    "hour_sin",
+    "hour_cos",
+    "doy_sin",
+    "doy_cos"
+  ],
+  "hyperparameters": {
+    "n_estimators": 300,
+    "min_samples_leaf": 2,
+    "max_features": 0.8,
+    "random_state": 42
+  },
+  "training": {
+    "source_dataset": "pv_operational_aligned_2026-05-25_2026-08-04.csv",
+    "source_dataset_sha256": "faf2616b429d2dd2f6d360301f8e635cfd42fcf84327d522d1485ee306630add",
+    "eligible_daily_sample_threshold": 170,
+    "dates": 39,
+    "start": "2026-06-03",
+    "end": "2026-08-04",
+    "rows": 903,
+    "daylight_rows": 529,
+    "full_aligned_rows_available": 1656
+  },
+  "predeployment_evidence": {
+    "protocol": "Six leakage-safe rolling daily origins, 2026-06-26 through 2026-07-01.",
+    "mae_kw": 1.41196,
+    "wape_percent": 6.844287,
+    "energy_bias_percent": -1.048235,
+    "daily_energy_mae_kwh": 10.862113,
+    "warning": "Short summer-only screening window; production monitoring is required."
+  },
+  "runtime": {
+    "python_target": "3.12",
+    "scikit_learn": "1.6.1",
+    "numpy": "2.0.2",
+    "pandas": "2.3.3",
+    "joblib": "1.5.3"
+  },
+  "artifacts": {
+    "pv_forecasting_model_rf_operational_20260806.pkl": {
+      "bytes": 2362707,
+      "sha256": "9af48b930b67c640cbdd6814b97c05d70f69f3e9624bc02650abb60e80a51a13"
+    },
+    "pv_features_rf_operational_20260806.pkl": {
+      "bytes": 144,
+      "sha256": "96e7a7ef2a93f0e4d14ea863387b3cbf806dde940de3e09a6670beea3f7bb9d2"
+    }
+  }
+}

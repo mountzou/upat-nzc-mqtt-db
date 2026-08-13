@@ -22,8 +22,8 @@ from fetch_open_meteo_forecast import (
 )
 
 DIR = Path(__file__).resolve().parent
-MODEL_PATH = DIR / "pv_forecasting_model.pkl"
-FEATURES_PATH = DIR / "pv_features.pkl"
+MODEL_PATH = DIR / "pv_forecasting_model_rf_operational_20260806.pkl"
+FEATURES_PATH = DIR / "pv_features_rf_operational_20260806.pkl"
 
 # Below this global horizontal irradiance (W/m²), treat the hour as dark and force 0 kW.
 DEFAULT_NIGHT_GHI_THRESHOLD_WM2 = 20.0
@@ -77,8 +77,11 @@ def engineer_features(forecast_df: pd.DataFrame, *, lag_1h_kw: float) -> pd.Data
     out = forecast_df.copy()
     out["timestamp"] = pd.to_datetime(out["time"])
     hour = out["timestamp"].dt.hour
+    day_of_year = out["timestamp"].dt.dayofyear
     out["hour_sin"] = np.sin(2 * np.pi * hour / 24)
     out["hour_cos"] = np.cos(2 * np.pi * hour / 24)
+    out["doy_sin"] = np.sin(2 * np.pi * day_of_year / 365.25)
+    out["doy_cos"] = np.cos(2 * np.pi * day_of_year / 365.25)
     out["lag_1h"] = float(lag_1h_kw)
     # No reliable 1h-ago reading at local midnight for the forecast horizon → 0 by convention.
     out.loc[hour == 0, "lag_1h"] = 0.0
