@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import sys
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -22,6 +23,10 @@ DEFAULT_LAT = 37.04
 DEFAULT_LON = 22.11
 FORECAST_DAYS = 1
 TIMEZONE = "auto"
+DEFAULT_MAX_ATTEMPTS = 4
+DEFAULT_BACKOFF_BASE_SECONDS = 10.0
+DEFAULT_BACKOFF_MAX_SECONDS = 40.0
+RETRYABLE_HTTP_STATUS_CODES = {408, 425, 429, 500, 502, 503, 504}
 
 
 def build_forecast_url(
@@ -41,10 +46,60 @@ def build_forecast_url(
     return f"{BASE}?{urllib.parse.urlencode(params)}"
 
 
-def fetch_forecast_json(url: str, timeout_s: float = 30.0) -> dict:
+def _retry_delay_seconds(
+    attempt: int,
+    *,
+    backoff_base_s: float,
+    backoff_max_s: float,
+) -> float:
+    return min(backoff_base_s * (2 ** (attempt - 1)), backoff_max_s)
+
+
+def fetch_forecast_json(
+    url: str,
+    timeout_s: float = 30.0,
+    *,
+    max_attempts: int = DEFAULT_MAX_ATTEMPTS,
+    backoff_base_s: float = DEFAULT_BACKOFF_BASE_SECONDS,
+    backoff_max_s: float = DEFAULT_BACKOFF_MAX_SECONDS,
+    sleep_fn=time.sleep,
+) -> dict:
+    if max_attempts < 1:
+        raise ValueError("max_attempts must be at least 1")
+    if backoff_base_s < 0 or backoff_max_s < 0:
+        raise ValueError("backoff delays must be non-negative")
+
     req = urllib.request.Request(url, headers={"User-Agent": "pv-prediction/1.0"})
-    with urllib.request.urlopen(req, timeout=timeout_s) as resp:
-        return json.loads(resp.read().decode("utf-8"))
+    for attempt in range(1, max_attempts + 1):
+        try:
+            with urllib.request.urlopen(req, timeout=timeout_s) as resp:
+                return json.loads(resp.read().decode("utf-8"))
+        except urllib.error.HTTPError as exc:
+            if (
+                exc.code not in RETRYABLE_HTTP_STATUS_CODES
+                or attempt == max_attempts
+            ):
+                raise
+            reason = f"HTTP {exc.code} {exc.reason}"
+        except (urllib.error.URLError, TimeoutError) as exc:
+            if attempt == max_attempts:
+                raise
+            reason = f"network error: {exc}"
+
+        delay_s = _retry_delay_seconds(
+            attempt,
+            backoff_base_s=backoff_base_s,
+            backoff_max_s=backoff_max_s,
+        )
+        print(
+            "Open-Meteo request failed "
+            f"({reason}); retrying in {delay_s:.1f}s "
+            f"(attempt {attempt + 1}/{max_attempts})",
+            file=sys.stderr,
+        )
+        sleep_fn(delay_s)
+
+    raise RuntimeError("Open-Meteo retry loop exited unexpectedly")
 
 
 def validate_hourly_payload(data: dict) -> None:
