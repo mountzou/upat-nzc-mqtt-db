@@ -1,0 +1,321 @@
+{
+  "schema_version": "pv-champion-freeze.v1",
+  "freeze_id": "rf_operational_20260806__prospective_10d",
+  "created_at_utc": "2026-08-20T05:58:06.744231+00:00",
+  "champion": {
+    "model_version": "rf_operational_20260806",
+    "estimator": "sklearn.ensemble.RandomForestRegressor",
+    "model": {
+      "path": "pv_forecasting_model_rf_operational_20260806.pkl",
+      "bytes": 2362707,
+      "sha256": "9af48b930b67c640cbdd6814b97c05d70f69f3e9624bc02650abb60e80a51a13"
+    },
+    "features": {
+      "path": "pv_features_rf_operational_20260806.pkl",
+      "bytes": 144,
+      "sha256": "96e7a7ef2a93f0e4d14ea863387b3cbf806dde940de3e09a6670beea3f7bb9d2"
+    },
+    "training_manifest": {
+      "path": "pv_model_manifest_rf_operational_20260806.json",
+      "bytes": 1833,
+      "sha256": "3be7657a07647e991d4577b6c34c34d7dd671d408c3a44b74c7b23ceb81ac38e"
+    }
+  },
+  "production_provenance": {
+    "observed_at_utc": "2026-08-20T05:58:01Z",
+    "checkout_path": "/opt/upat-nzc-mqtt-db",
+    "checkout_git_head": "dc439dfc6205ece6cee8cdb890ffc0cedbefb95f",
+    "checkout_worktree_clean": false,
+    "checkout_git_status_porcelain": [
+      " M pv-prediction/Dockerfile",
+      " M pv-prediction/day_ahead_forecast.py",
+      " M pv-prediction/fetch_open_meteo_forecast.py",
+      "?? pv-prediction/pv_features_rf_operational_20260806.pkl",
+      "?? pv-prediction/pv_forecasting_model_rf_operational_20260806.pkl",
+      "?? pv-prediction/pv_model_manifest_rf_operational_20260806.json"
+    ],
+    "image": {
+      "repository": "upat-nzc-mqtt-db-pv-prediction",
+      "tag": "latest",
+      "id": "sha256:b29d8043773e5f6c858bac19c5f839aef9889da7f1ebecd2408421679d5e2c36",
+      "repo_digests": [
+        "upat-nzc-mqtt-db-pv-prediction@sha256:b29d8043773e5f6c858bac19c5f839aef9889da7f1ebecd2408421679d5e2c36"
+      ],
+      "created_at_utc": "2026-08-13T23:36:49.300496958Z"
+    },
+    "image_source_fully_attributable_to_checkout_git_head": false,
+    "provenance_warning": "The Docker image ID is the authoritative deployed artifact. The observed production checkout was dirty, so its Git HEAD is context only and does not uniquely identify the image contents."
+  },
+  "inference_contract": {
+    "feature_contract": [
+      "temperature_2m",
+      "shortwave_radiation",
+      "direct_normal_irradiance",
+      "diffuse_radiation",
+      "cloud_cover",
+      "wind_speed_10m",
+      "hour_sin",
+      "hour_cos",
+      "doy_sin",
+      "doy_cos"
+    ],
+    "weather_source": "open-meteo",
+    "latitude": 37.04,
+    "longitude": 22.11,
+    "timezone": "Europe/Athens",
+    "issue_time_local": "23:00",
+    "target_horizon": "D+1",
+    "hours_per_target": 24,
+    "forecast_power_unit": "kW",
+    "night_ghi_threshold_wm2": 20.0,
+    "negative_prediction_policy": "clip_to_zero",
+    "lag_1h_policy": "legacy_metadata_not_model_input"
+  },
+  "baseline": {
+    "protocol_version": "prospective-d1-v1",
+    "as_of_utc": "2026-08-20T05:58:06.744231+00:00",
+    "target_dates": [
+      "2026-08-07",
+      "2026-08-08",
+      "2026-08-09",
+      "2026-08-11",
+      "2026-08-12",
+      "2026-08-13",
+      "2026-08-15",
+      "2026-08-16",
+      "2026-08-17",
+      "2026-08-18"
+    ],
+    "runs": [
+      {
+        "run_id": 89,
+        "target_date": "2026-08-07",
+        "issued_at_utc": "2026-08-06T20:00:07.752512+00:00",
+        "issued_at_local": "2026-08-06T23:00:07.752512+03:00"
+      },
+      {
+        "run_id": 90,
+        "target_date": "2026-08-08",
+        "issued_at_utc": "2026-08-07T20:00:07.595083+00:00",
+        "issued_at_local": "2026-08-07T23:00:07.595083+03:00"
+      },
+      {
+        "run_id": 91,
+        "target_date": "2026-08-09",
+        "issued_at_utc": "2026-08-08T20:00:08.320930+00:00",
+        "issued_at_local": "2026-08-08T23:00:08.320930+03:00"
+      },
+      {
+        "run_id": 92,
+        "target_date": "2026-08-11",
+        "issued_at_utc": "2026-08-10T20:00:08.587916+00:00",
+        "issued_at_local": "2026-08-10T23:00:08.587916+03:00"
+      },
+      {
+        "run_id": 93,
+        "target_date": "2026-08-12",
+        "issued_at_utc": "2026-08-11T20:00:08.282827+00:00",
+        "issued_at_local": "2026-08-11T23:00:08.282827+03:00"
+      },
+      {
+        "run_id": 94,
+        "target_date": "2026-08-13",
+        "issued_at_utc": "2026-08-12T20:00:08.177880+00:00",
+        "issued_at_local": "2026-08-12T23:00:08.177880+03:00"
+      },
+      {
+        "run_id": 95,
+        "target_date": "2026-08-15",
+        "issued_at_utc": "2026-08-14T20:00:17.815182+00:00",
+        "issued_at_local": "2026-08-14T23:00:17.815182+03:00"
+      },
+      {
+        "run_id": 96,
+        "target_date": "2026-08-16",
+        "issued_at_utc": "2026-08-15T20:00:17.463116+00:00",
+        "issued_at_local": "2026-08-15T23:00:17.463116+03:00"
+      },
+      {
+        "run_id": 97,
+        "target_date": "2026-08-17",
+        "issued_at_utc": "2026-08-16T20:00:07.998837+00:00",
+        "issued_at_local": "2026-08-16T23:00:07.998837+03:00"
+      },
+      {
+        "run_id": 98,
+        "target_date": "2026-08-18",
+        "issued_at_utc": "2026-08-17T20:00:07.669422+00:00",
+        "issued_at_local": "2026-08-17T23:00:07.669422+03:00"
+      }
+    ],
+    "excluded": [
+      {
+        "target_date": "2026-08-06",
+        "run_id": 88,
+        "reason": "same_day_0158_local_not_scheduled_d_minus_1_run"
+      },
+      {
+        "target_date": "2026-08-10",
+        "reason": "no_scheduled_forecast_run"
+      },
+      {
+        "target_date": "2026-08-14",
+        "reason": "no_scheduled_forecast_run"
+      }
+    ],
+    "hourly_snapshot": {
+      "path": "pv_champion_baseline_hourly_20260807_20260818.csv",
+      "rows": 240,
+      "sha256": "24a9e0c55547884a9536deb79bb9c5ba8c2ef5e305ab45065eb9e1f0ae59ed4b",
+      "actual_power_decimal_places": 15
+    },
+    "forecast_source": "VPS PostgreSQL pv_day_ahead_forecast_runs and pv_day_ahead_forecast_hourly",
+    "actual_source": "Firestore solar_production.readings.active_power",
+    "actual_document_update_times_utc": {
+      "2026-08-07": "2026-08-08T19:27:00.954245+00:00",
+      "2026-08-08": "2026-08-09T19:30:25.805054+00:00",
+      "2026-08-09": "2026-08-10T19:53:17.501687+00:00",
+      "2026-08-11": "2026-08-12T19:59:03.843221+00:00",
+      "2026-08-12": "2026-08-13T19:54:17.031648+00:00",
+      "2026-08-13": "2026-08-14T19:45:13.994556+00:00",
+      "2026-08-15": "2026-08-16T19:19:11.011751+00:00",
+      "2026-08-16": "2026-08-17T19:25:06.146871+00:00",
+      "2026-08-17": "2026-08-18T19:24:41.673400+00:00",
+      "2026-08-18": "2026-08-19T19:22:09.917446+00:00"
+    },
+    "actual_interval_minutes": 5,
+    "eligibility": {
+      "forecast_hours_per_target": 24,
+      "forecast_daylight_rule": "saved_ghi_wm2 >= 20",
+      "required_observed_5m_per_forecast_daylight_hour": 12,
+      "strict_forecast_daylight_complete": false,
+      "forecast_daylight_expected_5m_points": 1560,
+      "forecast_daylight_observed_5m_points": 1557,
+      "incomplete_forecast_daylight_hours": [
+        {
+          "target_date": "2026-08-16",
+          "forecast_hour": 20,
+          "observed_5m_count": 11,
+          "expected_5m_count": 12,
+          "saved_ghi_wm2": 98.0
+        },
+        {
+          "target_date": "2026-08-17",
+          "forecast_hour": 20,
+          "observed_5m_count": 11,
+          "expected_5m_count": 12,
+          "saved_ghi_wm2": 91.0
+        },
+        {
+          "target_date": "2026-08-18",
+          "forecast_hour": 20,
+          "observed_5m_count": 11,
+          "expected_5m_count": 12,
+          "saved_ghi_wm2": 94.0
+        }
+      ],
+      "actual_quality_by_date": {
+        "2026-08-07": {
+          "valid_5m_points": 177,
+          "duplicate_timestamps": 0,
+          "invalid_timestamps": 0,
+          "off_grid_timestamps": 0,
+          "invalid_active_power_values": 0,
+          "negative_active_power_values": 0
+        },
+        "2026-08-08": {
+          "valid_5m_points": 177,
+          "duplicate_timestamps": 0,
+          "invalid_timestamps": 0,
+          "off_grid_timestamps": 0,
+          "invalid_active_power_values": 0,
+          "negative_active_power_values": 0
+        },
+        "2026-08-09": {
+          "valid_5m_points": 177,
+          "duplicate_timestamps": 0,
+          "invalid_timestamps": 0,
+          "off_grid_timestamps": 0,
+          "invalid_active_power_values": 0,
+          "negative_active_power_values": 0
+        },
+        "2026-08-11": {
+          "valid_5m_points": 176,
+          "duplicate_timestamps": 0,
+          "invalid_timestamps": 0,
+          "off_grid_timestamps": 0,
+          "invalid_active_power_values": 0,
+          "negative_active_power_values": 0
+        },
+        "2026-08-12": {
+          "valid_5m_points": 175,
+          "duplicate_timestamps": 0,
+          "invalid_timestamps": 0,
+          "off_grid_timestamps": 0,
+          "invalid_active_power_values": 0,
+          "negative_active_power_values": 0
+        },
+        "2026-08-13": {
+          "valid_5m_points": 175,
+          "duplicate_timestamps": 0,
+          "invalid_timestamps": 0,
+          "off_grid_timestamps": 0,
+          "invalid_active_power_values": 0,
+          "negative_active_power_values": 0
+        },
+        "2026-08-15": {
+          "valid_5m_points": 175,
+          "duplicate_timestamps": 0,
+          "invalid_timestamps": 0,
+          "off_grid_timestamps": 0,
+          "invalid_active_power_values": 0,
+          "negative_active_power_values": 0
+        },
+        "2026-08-16": {
+          "valid_5m_points": 173,
+          "duplicate_timestamps": 0,
+          "invalid_timestamps": 0,
+          "off_grid_timestamps": 0,
+          "invalid_active_power_values": 0,
+          "negative_active_power_values": 0
+        },
+        "2026-08-17": {
+          "valid_5m_points": 173,
+          "duplicate_timestamps": 0,
+          "invalid_timestamps": 0,
+          "off_grid_timestamps": 0,
+          "invalid_active_power_values": 0,
+          "negative_active_power_values": 0
+        },
+        "2026-08-18": {
+          "valid_5m_points": 173,
+          "duplicate_timestamps": 0,
+          "invalid_timestamps": 0,
+          "off_grid_timestamps": 0,
+          "invalid_active_power_values": 0,
+          "negative_active_power_values": 0
+        }
+      },
+      "scoring_missing_interval_policy": "Use the observed raw 5-minute sum; an absent interval contributes zero and remains visible through observed_5m_count."
+    },
+    "metrics": {
+      "actual_energy_kwh": 4351.562833333333,
+      "forecast_energy_kwh": 4279.841538009422,
+      "energy_error_kwh": -71.72129532391148,
+      "energy_bias_percent": -1.6481732671885234,
+      "hourly_mae_kw": 2.025126249732246,
+      "hourly_rmse_kw": 3.9378983865913426,
+      "hourly_wape_percent": 11.169097598975398
+    }
+  },
+  "metric_definitions": {
+    "actual_hourly_kw": "For each local hour, sum raw 5-minute active_power kW values and divide by 12; an absent interval contributes zero and is retained in observed_5m_count.",
+    "actual_energy_kwh": "Sum actual_hourly_kw across the 240 one-hour rows.",
+    "forecast_energy_kwh": "Sum stored forecast_power_kw across the 240 one-hour rows.",
+    "energy_error_kwh": "forecast_energy_kwh - actual_energy_kwh.",
+    "energy_bias_percent": "100 * sum(forecast_power_kw - actual_power_kw) / sum(actual_power_kw).",
+    "hourly_mae_kw": "Mean absolute forecast_power_kw - actual_power_kw over 240 rows.",
+    "hourly_rmse_kw": "Square root of mean squared forecast_power_kw - actual_power_kw over 240 rows.",
+    "hourly_wape_percent": "100 * sum(abs(forecast_power_kw - actual_power_kw)) / sum(actual_power_kw)."
+  }
+}
