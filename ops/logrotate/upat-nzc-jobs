@@ -1,0 +1,17 @@
+/var/log/energy_aggregator.log
+/var/log/raw_cleanup.log
+/var/log/upat_rollups.log
+/var/log/upat_retention.log
+/var/log/weather-collector.log
+/var/log/pv_prediction.log
+/var/log/simulation_recorder.log {
+    daily
+    rotate 14
+    maxage 14
+    maxsize 50M
+    missingok
+    notifempty
+    compress
+    delaycompress
+    create 0644 root root
+}

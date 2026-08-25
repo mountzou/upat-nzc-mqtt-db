@@ -1,0 +1,9 @@
+[Unit]
+Description=Apply UPAT system journal age and size retention
+Documentation=man:journalctl(1)
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/journalctl --rotate
+ExecStart=/usr/bin/journalctl --vacuum-time=14d
+ExecStart=/usr/bin/journalctl --vacuum-size=500M

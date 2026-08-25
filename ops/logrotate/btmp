@@ -1,0 +1,9 @@
+# no packages own btmp -- rotate it here
+/var/log/btmp {
+    missingok
+    weekly
+    rotate 2
+    maxage 14
+    maxsize 50M
+    create 0660 root utmp
+}
