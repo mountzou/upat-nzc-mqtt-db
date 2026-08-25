@@ -160,6 +160,25 @@ For an existing PostgreSQL volume, apply the idempotent weather forecast migrati
 docker compose exec -T postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -f /docker-entrypoint-initdb.d/migrations/004_weather_hourly_forecasts.sql'
 ```
 
+## Persistence-free PV ingestion preview
+
+The `pv-ingestor` service is available in both Compose files only through the
+explicit `pv-ingestor-preview` profile. It performs sequential FusionSolar read
+calls, validates and post-processes the returned device data, and stops before
+persistence. It has no PostgreSQL or Firestore configuration, dependency,
+volume, or exposed port.
+
+On the production host, build and execute one completed Athens-local day
+manually with:
+
+```bash
+docker compose -f docker-compose.prod.yml --profile pv-ingestor-preview build pv-ingestor
+docker compose -f docker-compose.prod.yml --profile pv-ingestor-preview run --rm --no-deps pv-ingestor --live --lookback-days 1
+```
+
+This preview is intentionally absent from the production cron entries. Do not
+schedule it while the existing GitHub Actions FusionSolar caller is active.
+
 ## Production day-ahead schedule
 
 A recommended production order for the day-ahead jobs is below, using `Europe/Athens` wall-clock time throughout the year:

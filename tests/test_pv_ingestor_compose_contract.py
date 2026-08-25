@@ -1,4 +1,4 @@
-"""Contract checks for the persistence-free local PV ingestor preview."""
+"""Contract checks for the persistence-free PV ingestor previews."""
 
 from __future__ import annotations
 
@@ -50,41 +50,44 @@ class PvIngestorComposeContractTests(unittest.TestCase):
         cls.local = resolved_compose(LOCAL_COMPOSE)
         cls.production = resolved_compose(PRODUCTION_COMPOSE)
 
-    def preview(self):
-        service = self.local.get("services", {}).get(SERVICE)
+    def preview(self, compose):
+        service = compose.get("services", {}).get(SERVICE)
         self.assertIsNotNone(service)
         return service
 
-    def test_preview_is_local_only_and_requires_explicit_profile(self):
-        self.assertNotIn(SERVICE, self.production.get("services", {}))
-        self.assertEqual(
-            ["pv-ingestor-preview"],
-            self.preview().get("profiles"),
-        )
+    def test_previews_require_the_same_explicit_profile(self):
+        for compose in (self.local, self.production):
+            self.assertEqual(
+                ["pv-ingestor-preview"],
+                self.preview(compose).get("profiles"),
+            )
 
-    def test_preview_has_no_database_or_firestore_integration(self):
-        service = self.preview()
-        rendered = json.dumps(service, sort_keys=True).lower()
-        for forbidden in (
-            "postgres_",
-            "firebase",
-            "firestore",
-            "google_application_credentials",
-        ):
-            self.assertNotIn(forbidden, rendered)
-        self.assertNotIn("depends_on", service)
-        self.assertNotIn("volumes", service)
+    def test_previews_have_no_database_or_firestore_integration(self):
+        for compose in (self.local, self.production):
+            service = self.preview(compose)
+            rendered = json.dumps(service, sort_keys=True).lower()
+            for forbidden in (
+                "postgres_",
+                "firebase",
+                "firestore",
+                "google_application_credentials",
+            ):
+                self.assertNotIn(forbidden, rendered)
+            self.assertNotIn("depends_on", service)
+            self.assertNotIn("volumes", service)
 
-    def test_preview_exposes_no_host_surface_and_is_read_only(self):
-        service = self.preview()
-        self.assertNotIn("ports", service)
-        self.assertNotIn("container_name", service)
-        self.assertTrue(service.get("read_only"))
-        self.assertIn("ALL", service.get("cap_drop", []))
-        self.assertIn("no-new-privileges:true", service.get("security_opt", []))
+    def test_previews_expose_no_host_surface_and_are_read_only(self):
+        for compose in (self.local, self.production):
+            service = self.preview(compose)
+            self.assertNotIn("ports", service)
+            self.assertNotIn("container_name", service)
+            self.assertTrue(service.get("read_only"))
+            self.assertIn("ALL", service.get("cap_drop", []))
+            self.assertIn("no-new-privileges:true", service.get("security_opt", []))
 
-    def test_preview_requires_explicit_live_cli_mode(self):
-        self.assertEqual(["--live"], self.preview().get("command"))
+    def test_previews_require_explicit_live_cli_mode(self):
+        for compose in (self.local, self.production):
+            self.assertEqual(["--live"], self.preview(compose).get("command"))
 
 
 if __name__ == "__main__":

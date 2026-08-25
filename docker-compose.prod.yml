@@ -151,6 +151,33 @@ services:
       postgres:
         condition: service_healthy
 
+  # Explicit, persistence-free production-host preview. It performs live read
+  # calls only when the profile is selected and has no database integration.
+  pv-ingestor:
+    build:
+      context: ./pv-ingestor
+    profiles:
+      - pv-ingestor-preview
+    logging: *json-logging
+    init: true
+    restart: "no"
+    command: ["--live"]
+    environment:
+      FUSIONSOLAR_BASE_URL: ${FUSIONSOLAR_BASE_URL:-}
+      FUSIONSOLAR_USERNAME: ${FUSIONSOLAR_USERNAME:-}
+      FUSIONSOLAR_SYSTEM_CODE: ${FUSIONSOLAR_SYSTEM_CODE:-}
+      FUSIONSOLAR_PLANT_CODE: ${FUSIONSOLAR_PLANT_CODE:-}
+      FUSIONSOLAR_LOOKBACK_DAYS: ${FUSIONSOLAR_LOOKBACK_DAYS:-3}
+      FUSIONSOLAR_INCLUDE_METER: ${FUSIONSOLAR_INCLUDE_METER:-true}
+      PYTHONDONTWRITEBYTECODE: "1"
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=32m
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+
   pv-prediction:
     build:
       context: ./pv-prediction
