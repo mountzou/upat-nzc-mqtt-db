@@ -321,3 +321,6 @@ CREATE INDEX IF NOT EXISTS idx_weather_hourly_forecasts_time
 
 CREATE INDEX IF NOT EXISTS idx_weather_hourly_forecasts_date_time
     ON weather_hourly_forecasts (forecast_date DESC, forecast_timestamp ASC);
+
+-- Keep fresh database initialization aligned with the additive shadow migration.
+\ir migrations/007_pv_shadow_forecasts.sql
