@@ -1,4 +1,3 @@
-import json
 import os
 import sys
 import time
@@ -10,7 +9,6 @@ from zoneinfo import ZoneInfo
 import psycopg2
 import requests
 from psycopg2.extras import Json
-
 
 DB_HOST = os.getenv("POSTGRES_HOST", "postgres")
 DB_PORT = int(os.getenv("POSTGRES_INTERNAL_PORT", "5432"))
@@ -269,6 +267,6 @@ def main():
 if __name__ == "__main__":
     try:
         raise SystemExit(main())
-    except (requests.RequestException, psycopg2.Error, ValueError, json.JSONDecodeError) as exc:
+    except (requests.RequestException, psycopg2.Error, ValueError) as exc:
         print(f"weather-collector failed: {exc}", file=sys.stderr)
         raise SystemExit(1)

@@ -586,7 +586,7 @@ def run_school(conn, request_url, school_id, access_token):
             f"school_id={school_id}, run_id={run_id}, room_results={result_count}"
         )
         return None
-    except (ValueError, json.JSONDecodeError, requests.RequestException) as exc:
+    except (ValueError, requests.RequestException) as exc:
         finish_failed_day_ahead_run(conn, run_id, http_status, response_json, str(exc))
         print(
             "Day-ahead simulation failed: "

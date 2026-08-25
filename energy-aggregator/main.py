@@ -1,5 +1,5 @@
 import os
-from datetime import datetime, timedelta, timezone, time
+from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
 import psycopg2
@@ -63,13 +63,6 @@ def main():
 
             plug_ids, pro3em_ids = get_shelly_device_ids(rows)
 
-            common_window_info = {
-                "start_time": start_time.isoformat(),
-                "end_time": end_time.isoformat(),
-                "is_working_day": is_working_day,
-                "is_working_hour": is_working_hour,
-            }
-
             # Process Shelly Plug S devices.
             for device_id in plug_ids:
                 cur.execute(
@@ -105,8 +98,8 @@ def main():
                 if not first_row or not last_row:
                     continue
 
-                first_value, first_ts = first_row
-                last_value, last_ts = last_row
+                first_value = first_row[0]
+                last_value = last_row[0]
                 delta_wh = float(last_value) - float(first_value)
 
                 if delta_wh < 0:
