@@ -324,3 +324,6 @@ CREATE INDEX IF NOT EXISTS idx_weather_hourly_forecasts_date_time
 
 -- Keep fresh database initialization aligned with the additive shadow migration.
 \ir migrations/007_pv_shadow_forecasts.sql
+
+-- Keep fresh database initialization aligned with actual PV telemetry.
+\ir migrations/010_pv_actual_telemetry.sql
