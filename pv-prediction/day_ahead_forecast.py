@@ -2,17 +2,14 @@
 from __future__ import annotations
 
 import argparse
-import json
+import math
 import os
 import sys
-import urllib.error
-import warnings
 from pathlib import Path
 
 import joblib
 import numpy as np
 import pandas as pd
-
 from fetch_open_meteo_forecast import (
     DEFAULT_LAT,
     DEFAULT_LON,
@@ -27,6 +24,21 @@ FEATURES_PATH = DIR / "pv_features_rf_operational_20260806.pkl"
 
 # Below this global horizontal irradiance (W/m²), treat the hour as dark and force 0 kW.
 DEFAULT_NIGHT_GHI_THRESHOLD_WM2 = 20.0
+
+PERSISTED_RAW_FEATURE_COLUMNS = (
+    "temperature_2m",
+    "shortwave_radiation",
+    "direct_normal_irradiance",
+    "diffuse_radiation",
+    "cloud_cover",
+    "wind_speed_10m",
+    "hour_sin",
+    "hour_cos",
+    "doy_sin",
+    "doy_cos",
+    # Retained for schema compatibility; the current RF excludes it.
+    "lag_1h",
+)
 
 
 def parse_env_bool(env_var: str, default: bool = False) -> bool:
@@ -43,15 +55,13 @@ def load_feature_columns(model: object, features_path: Path) -> list[str]:
             return [str(x) for x in cols.tolist()]
         if isinstance(cols, (list, tuple)):
             return [str(x) for x in cols]
-        raise TypeError(f"pv_features.pkl must be a list or array, got {type(cols)}")
+        raise TypeError(
+            f"{features_path.name} must be a list or array, got {type(cols)}"
+        )
     if hasattr(model, "feature_names_in_") and model.feature_names_in_ is not None:
         return [str(x) for x in model.feature_names_in_]
-    if hasattr(model, "get_booster"):
-        fn = model.get_booster().feature_names
-        if fn:
-            return [str(x) for x in fn]
     raise FileNotFoundError(
-        "Could not determine feature columns. Place pv_features.pkl next to the model "
+        f"Could not determine feature columns. Provide {features_path.name} "
         "(column names in prediction order), or train the estimator with feature names."
     )
 
@@ -72,8 +82,12 @@ def fetch_hourly_payload(
     return data["hourly"]
 
 
-def engineer_features(forecast_df: pd.DataFrame, *, lag_1h_kw: float) -> pd.DataFrame:
-    """Add only derived columns needed for inference (see pv_features.pkl)."""
+def engineer_features(
+    forecast_df: pd.DataFrame,
+    *,
+    lag_1h_kw: float | None,
+) -> pd.DataFrame:
+    """Add derived columns used by the tracked model and persisted provenance."""
     out = forecast_df.copy()
     out["timestamp"] = pd.to_datetime(out["time"])
     hour = out["timestamp"].dt.hour
@@ -82,9 +96,16 @@ def engineer_features(forecast_df: pd.DataFrame, *, lag_1h_kw: float) -> pd.Data
     out["hour_cos"] = np.cos(2 * np.pi * hour / 24)
     out["doy_sin"] = np.sin(2 * np.pi * day_of_year / 365.25)
     out["doy_cos"] = np.cos(2 * np.pi * day_of_year / 365.25)
-    out["lag_1h"] = float(lag_1h_kw)
-    # No reliable 1h-ago reading at local midnight for the forecast horizon → 0 by convention.
-    out.loc[hour == 0, "lag_1h"] = 0.0
+    lag_1h_kw = normalize_optional_legacy_float(lag_1h_kw, label="lag_1h_kw")
+    # Keep an explicitly supplied legacy value for schema/CLI compatibility. It
+    # is not part of the current Random Forest feature contract. Missing legacy
+    # metadata stays NULL in persistence instead of becoming a synthetic zero.
+    if lag_1h_kw is None:
+        out["lag_1h"] = np.nan
+    else:
+        out["lag_1h"] = float(lag_1h_kw)
+        # Preserve the historical convention for explicitly supplied metadata.
+        out.loc[hour == 0, "lag_1h"] = 0.0
     return out
 
 
@@ -113,6 +134,33 @@ def parse_env_float(env_var: str, default: float) -> float:
         raise ValueError(f"{env_var} must be a float, got {raw!r}") from e
 
 
+def parse_optional_env_float(env_var: str) -> float | None:
+    raw = os.environ.get(env_var)
+    if raw is None or raw == "":
+        return None
+    try:
+        value = float(raw)
+    except ValueError as e:
+        raise ValueError(f"{env_var} must be a float, got {raw!r}") from e
+    return normalize_optional_legacy_float(value, label=env_var)
+
+
+def normalize_optional_legacy_float(
+    value: object,
+    *,
+    label: str,
+) -> float | None:
+    """Map missing/NaN legacy metadata to NULL and reject infinities."""
+    if value is None:
+        return None
+    numeric = float(value)
+    if math.isnan(numeric):
+        return None
+    if not math.isfinite(numeric):
+        raise ValueError(f"{label} must be finite or empty, got {value!r}")
+    return numeric
+
+
 def optional_float(value: object) -> float | None:
     if value is None or pd.isna(value):
         return None
@@ -129,6 +177,14 @@ def json_safe_value(value: object) -> object:
     return value
 
 
+def build_raw_features(row) -> dict[str, object]:
+    """Return persisted feature provenance for the current RF plus legacy lag."""
+    return {
+        key: json_safe_value(row.get(key))
+        for key in PERSISTED_RAW_FEATURE_COLUMNS
+    }
+
+
 def parse_non_negative_env_float(env_var: str, default: float) -> float:
     value = parse_env_float(env_var, default)
     if value < 0:
@@ -136,14 +192,29 @@ def parse_non_negative_env_float(env_var: str, default: float) -> float:
     return value
 
 
-def resolve_lag_1h_kw(cli_lag_1h: float | None, cli_latest: float | None) -> float:
-    """Telemetry for lag_1h: CLI overrides env; default 0.0 when unset."""
+def resolve_lag_1h_kw(
+    cli_lag_1h: float | None,
+    cli_latest: float | None,
+) -> float | None:
+    """Resolve optional legacy metadata retained for schema/CLI compatibility."""
     if cli_lag_1h is not None:
-        return float(cli_lag_1h)
+        normalized = normalize_optional_legacy_float(
+            cli_lag_1h,
+            label="--lag-1h-kw",
+        )
+        if normalized is not None:
+            return normalized
     if cli_latest is not None:
-        return float(cli_latest)
-    latest_kw = parse_env_float("PV_LATEST_ACTIVE_POWER_KW", 0.0)
-    return parse_env_float("PV_LAG_1H_KW", latest_kw)
+        normalized = normalize_optional_legacy_float(
+            cli_latest,
+            label="--latest-power-kw",
+        )
+        if normalized is not None:
+            return normalized
+    env_lag_1h = parse_optional_env_float("PV_LAG_1H_KW")
+    if env_lag_1h is not None:
+        return env_lag_1h
+    return parse_optional_env_float("PV_LATEST_ACTIVE_POWER_KW")
 
 
 def parse_night_ghi_threshold_wm2() -> float:
@@ -176,7 +247,7 @@ def mask_power_below_ghi_threshold(
 
 def run_forecast(
     *,
-    lag_1h_kw: float,
+    lag_1h_kw: float | None,
     latitude: float = DEFAULT_LAT,
     longitude: float = DEFAULT_LON,
     forecast_days: int = 2,
@@ -195,10 +266,8 @@ def run_forecast(
     full_df = engineer_features(raw_df, lag_1h_kw=lag_1h_kw)
     day_df = slice_day_ahead_local(full_df)
 
-    with warnings.catch_warnings():
-        warnings.filterwarnings("ignore", category=UserWarning, module="xgboost.core")
-        model = joblib.load(MODEL_PATH)
-        features = load_feature_columns(model, FEATURES_PATH)
+    model = joblib.load(MODEL_PATH)
+    features = load_feature_columns(model, FEATURES_PATH)
     missing = [c for c in features if c not in day_df.columns]
     if missing:
         raise KeyError(
@@ -208,7 +277,11 @@ def run_forecast(
     X = day_df[features]
     if verbose:
         print("Feature columns (order):", features, file=sys.stderr)
-        print("lag_1h_kw (scalar before midnight override):", lag_1h_kw, file=sys.stderr)
+        print(
+            "legacy lag_1h_kw metadata (not an RF input):",
+            lag_1h_kw,
+            file=sys.stderr,
+        )
         noon = day_df["timestamp"].dt.hour == 12
         if noon.any():
             print("Sample X (noon):\n", X.loc[noon].iloc[0], file=sys.stderr)
@@ -228,9 +301,9 @@ def run_forecast(
 
     if np.all(raw_pred <= 0.0):
         print(
-            "WARNING: XGBoost returned non-positive values for every hour before clipping. "
-            "Check lag_1h / PV_LAG_1H_KW / PV_LATEST_ACTIVE_POWER_KW and that the model "
-            "matches pv_features.pkl.",
+            "WARNING: The loaded model returned non-positive values for every hour "
+            f"before clipping. Check the weather inputs and that {MODEL_PATH.name} "
+            f"matches {FEATURES_PATH.name}.",
             file=sys.stderr,
         )
 
@@ -276,7 +349,7 @@ def save_forecast_to_db(
     latitude: float,
     longitude: float,
     forecast_days: int,
-    lag_1h_kw: float,
+    lag_1h_kw: float | None,
     apply_night_ghi_mask: bool,
     night_ghi_threshold_wm2: float,
 ) -> int:
@@ -285,6 +358,7 @@ def save_forecast_to_db(
     if forecast_df.empty:
         raise ValueError("Cannot save an empty PV forecast")
 
+    lag_1h_kw = normalize_optional_legacy_float(lag_1h_kw, label="lag_1h_kw")
     forecast_date = forecast_df["timestamp"].iloc[0].date()
     daily_energy_kwh = float(forecast_df["predicted_power_kw"].sum())
     raw_request = {
@@ -296,7 +370,7 @@ def save_forecast_to_db(
         "night_ghi_threshold_wm2": night_ghi_threshold_wm2,
     }
     raw_summary = {
-        "hourly_rows": int(len(forecast_df)),
+        "hourly_rows": len(forecast_df),
         "daily_energy_kwh": daily_energy_kwh,
     }
 
@@ -351,20 +425,7 @@ def save_forecast_to_db(
 
             for _, row in forecast_df.iterrows():
                 ts = row["timestamp"]
-                raw_features = {
-                    key: json_safe_value(row.get(key))
-                    for key in (
-                        "shortwave_radiation",
-                        "direct_normal_irradiance",
-                        "diffuse_radiation",
-                        "temperature_2m",
-                        "cloud_cover",
-                        "wind_speed_10m",
-                        "hour_sin",
-                        "hour_cos",
-                        "lag_1h",
-                    )
-                }
+                raw_features = build_raw_features(row)
 
                 cur.execute(
                     """
@@ -409,18 +470,26 @@ def save_forecast_to_db(
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Day-ahead PV forecast from Open-Meteo + XGBoost model.")
+    parser = argparse.ArgumentParser(
+        description="Day-ahead PV forecast from Open-Meteo + tracked Random Forest model."
+    )
     parser.add_argument(
         "--latest-power-kw",
         type=float,
         default=None,
-        help="Alias for --lag-1h-kw when the latter is omitted (measured kW ~1h ago).",
+        help=(
+            "Legacy alias for --lag-1h-kw. Retained as persisted metadata; "
+            "the current Random Forest does not use it for inference."
+        ),
     )
     parser.add_argument(
         "--lag-1h-kw",
         type=float,
         default=None,
-        help="Measured active power ~1h ago (kW); overrides PV_LAG_1H_KW. Hour 00:00 uses lag_1h=0.",
+        help=(
+            "Legacy measured-power metadata; overrides PV_LAG_1H_KW. "
+            "The current Random Forest does not use it for inference."
+        ),
     )
     parser.add_argument(
         "--forecast-days",
@@ -489,14 +558,10 @@ def main() -> int:
             night_ghi_threshold_wm2=night_ghi_threshold,
         )
     except (
-        urllib.error.HTTPError,
-        urllib.error.URLError,
         OSError,
         ValueError,
         KeyError,
-        FileNotFoundError,
         TypeError,
-        json.JSONDecodeError,
     ) as e:
         print(e, file=sys.stderr)
         return 1
