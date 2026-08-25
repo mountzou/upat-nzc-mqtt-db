@@ -176,8 +176,11 @@ docker compose -f docker-compose.prod.yml --profile pv-ingestor-preview build pv
 docker compose -f docker-compose.prod.yml --profile pv-ingestor-preview run --rm --no-deps pv-ingestor --live --lookback-days 1
 ```
 
-This preview is intentionally absent from the production cron entries. Do not
-schedule it while the existing GitHub Actions FusionSolar caller is active.
+This preview remains intentionally absent from the production cron entries.
+The separate persistent production path uses the reviewed
+`upat-pv-ingestor.service` and `upat-pv-ingestor.timer` units under
+`ops/systemd/`; see `ops/README.md`. Do not enable that timer while any legacy
+FusionSolar scheduler is active.
 
 ## Production day-ahead schedule
 

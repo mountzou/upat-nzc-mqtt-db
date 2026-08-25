@@ -1,4 +1,4 @@
-# PV ingestor preview
+# PV ingestor
 
 This service performs a bounded FusionSolar fetch, validates the response, keeps
 per-device provenance, derives plant-level readings, and emits either a concise
@@ -85,3 +85,11 @@ upserted, each execution gets a distinct audit run, and the device/plant
 five-minute primary keys make rolling-window re-fetches idempotent. Any failed
 statement rolls back the whole batch. The existing preview Compose profile does
 not enable persistence or receive database credentials.
+
+## Production schedule
+
+Production scheduling is deliberately separate from the persistence-free
+Compose preview. The reviewed systemd service and timer live under
+`ops/systemd/`; their install, credential, validation, monitoring, and rollback
+procedure is documented in `ops/README.md`. Do not enable that timer while any
+legacy FusionSolar scheduler is active.

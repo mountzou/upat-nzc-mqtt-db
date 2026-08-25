@@ -1,0 +1,65 @@
+[Unit]
+Description=Collect and persist UPAT FusionSolar telemetry
+Requires=docker.service
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+EnvironmentFile=/etc/upat-nzc/pv-ingestor.env
+UMask=0077
+Restart=no
+TimeoutStartSec=20min
+TimeoutStopSec=30s
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=upat-pv-ingestor
+
+# The digest pins the exact production-validated a1aa0b8 image. Environment
+# values are inherited by name; no secret value is embedded in this unit or in
+# the process command line.
+ExecStart=/usr/bin/docker run --rm \
+    --name=upat-pv-ingestor-scheduled \
+    --pull=never \
+    --init \
+    --network=upat-nzc-mqtt-db_default \
+    --read-only \
+    --tmpfs=/tmp:rw,noexec,nosuid,nodev,size=32m \
+    --user=65534:65534 \
+    --cap-drop=ALL \
+    --security-opt=no-new-privileges:true \
+    --memory=384m \
+    --memory-swap=384m \
+    --cpus=0.50 \
+    --pids-limit=128 \
+    --stop-timeout=30 \
+    --env=FUSIONSOLAR_BASE_URL \
+    --env=FUSIONSOLAR_USERNAME \
+    --env=FUSIONSOLAR_SYSTEM_CODE \
+    --env=FUSIONSOLAR_PLANT_CODE \
+    --env=FUSIONSOLAR_INCLUDE_METER=true \
+    --env=POSTGRES_HOST \
+    --env=POSTGRES_INTERNAL_PORT \
+    --env=POSTGRES_DB \
+    --env=POSTGRES_USER \
+    --env=POSTGRES_PASSWORD \
+    --env=POSTGRES_CONNECT_TIMEOUT_SECONDS=10 \
+    --env=PV_INGESTOR_CODE_VERSION=a1aa0b8 \
+    --env=PYTHONDONTWRITEBYTECODE=1 \
+    upat-nzc-mqtt-db-pv-ingestor@sha256:8e3d500ec004a9cfb3114475d80f47aac8647e332de944bd0ac122495dfec6b9 \
+    --live \
+    --lookback-days=3 \
+    --save-to-db \
+    --site-key=upat-pv \
+    --trigger-kind=scheduled
+
+# If systemd stops or times out the attached Docker client, remove only this
+# job's fixed-name container. A normally completed --rm run is already absent.
+ExecStopPost=-/usr/bin/docker rm --force upat-pv-ingestor-scheduled
+
+# Harden the host-side Docker client. The container has its own controls above.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+RestrictSUIDSGID=true
