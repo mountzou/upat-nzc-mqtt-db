@@ -1,0 +1,17 @@
+{
+  "schema_version": "pv-shadow-registry.v1",
+  "candidates": {
+    "champion-replay": {
+      "candidate_version": "rf_operational_20260806-replay-v1",
+      "purpose": "Local Batch 1 pipeline control only; not a promotion candidate.",
+      "baseline_control": true,
+      "model_artifact": "pv_forecasting_model_rf_operational_20260806.pkl",
+      "model_sha256": "9af48b930b67c640cbdd6814b97c05d70f69f3e9624bc02650abb60e80a51a13",
+      "features_artifact": "pv_features_rf_operational_20260806.pkl",
+      "features_sha256": "96e7a7ef2a93f0e4d14ea863387b3cbf806dde940de3e09a6670beea3f7bb9d2",
+      "manifest_artifact": "pv_model_manifest_rf_operational_20260806.json",
+      "manifest_sha256": "3be7657a07647e991d4577b6c34c34d7dd671d408c3a44b74c7b23ceb81ac38e",
+      "night_ghi_threshold_wm2": 20.0
+    }
+  }
+}

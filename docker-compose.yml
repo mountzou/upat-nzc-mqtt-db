@@ -161,6 +161,63 @@ services:
       postgres:
         condition: service_healthy
 
+  # Local-only shadow lane. It reuses one persisted champion snapshot and
+  # defaults to read-only preview mode; production Compose remains unchanged.
+  pv-shadow-prediction:
+    build:
+      context: ./pv-shadow-prediction
+    profiles:
+      - shadow
+    logging: *json-logging
+    init: true
+    restart: "no"
+    command: ["--candidate-id", "champion-replay", "--no-save-to-db"]
+    environment:
+      PV_SHADOW_SAVE_TO_DB: "false"
+      PV_SHADOW_ARTIFACT_DIR: /models
+      PV_CHAMPION_FREEZE_PATH: /contracts/pv_champion_freeze_v1.json
+      PYTHONDONTWRITEBYTECODE: "1"
+      POSTGRES_HOST: ${POSTGRES_HOST}
+      POSTGRES_INTERNAL_PORT: ${POSTGRES_INTERNAL_PORT}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - type: bind
+        source: ./pv-prediction/pv_forecasting_model_rf_operational_20260806.pkl
+        target: /models/pv_forecasting_model_rf_operational_20260806.pkl
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./pv-prediction/pv_features_rf_operational_20260806.pkl
+        target: /models/pv_features_rf_operational_20260806.pkl
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./pv-prediction/pv_model_manifest_rf_operational_20260806.json
+        target: /models/pv_model_manifest_rf_operational_20260806.json
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./pv-prediction/pv_champion_freeze_v1.json
+        target: /contracts/pv_champion_freeze_v1.json
+        read_only: true
+        bind:
+          create_host_path: false
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    depends_on:
+      postgres:
+        condition: service_healthy
+
   weather-collector:
     build:
       context: ./weather-collector
