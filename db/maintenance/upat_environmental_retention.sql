@@ -38,9 +38,6 @@ CREATE TABLE IF NOT EXISTS upat_measurements_5min (
     PRIMARY KEY (device_id, metric, bucket_start)
 );
 
-CREATE INDEX IF NOT EXISTS idx_upat_measurements_5min_device_metric_time
-    ON upat_measurements_5min (device_id, metric, bucket_start DESC);
-
 CREATE TABLE IF NOT EXISTS upat_measurements_hourly (
     device_id TEXT NOT NULL,
     metric TEXT NOT NULL,
@@ -55,9 +52,6 @@ CREATE TABLE IF NOT EXISTS upat_measurements_hourly (
 
     PRIMARY KEY (device_id, metric, bucket_start)
 );
-
-CREATE INDEX IF NOT EXISTS idx_upat_measurements_hourly_device_metric_time
-    ON upat_measurements_hourly (device_id, metric, bucket_start DESC);
 
 INSERT INTO upat_measurements_5min (
     device_id,
