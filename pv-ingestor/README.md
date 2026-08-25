@@ -1,17 +1,18 @@
 # PV ingestor preview
 
-This first-stage service stops immediately before persistence. It performs a
-bounded FusionSolar fetch, validates the response, keeps per-device provenance,
-derives plant-level readings, and emits either a concise summary or the complete
-`pv-ingestion-batch-v1` JSON document to stdout.
+This service performs a bounded FusionSolar fetch, validates the response, keeps
+per-device provenance, derives plant-level readings, and emits either a concise
+summary or the complete `pv-ingestion-batch-v1` JSON document to stdout.
+PostgreSQL persistence exists as a separate, explicit opt-in step and is off by
+default.
 
 Live and fixture executions carry distinct provenance in `source_kind` and in
 the deterministic run key; fixture validation can therefore never masquerade
 as a live collection.
 
-It deliberately has:
+The default preview deliberately has:
 
-- no PostgreSQL or Firebase client;
+- no PostgreSQL writes;
 - no scheduled execution or production Compose entry;
 - no automatic retries;
 - no `/stations` discovery call (the plant code is explicit);
@@ -43,6 +44,7 @@ python main.py --fixture tests/fixtures/fusionsolar_sample.json \
 ```
 
 Use `--emit-json` to inspect the entire persistence-ready batch on stdout.
+Fixture mode is permanently read-only and rejects `--save-to-db`.
 
 ## Explicit live preview
 
@@ -65,5 +67,21 @@ docker compose --profile pv-ingestor-preview run --rm --no-deps pv-ingestor
 ```
 
 The command makes live read calls, but the resulting batch is not written to a
-file, Firestore, or PostgreSQL. A future, separately reviewed batch will add the
-PostgreSQL schema and persistence adapter.
+file, Firestore, or PostgreSQL.
+
+## Explicit local PostgreSQL persistence
+
+Persistence requires all of the following:
+
+- a live run (`--fixture` is rejected);
+- `--save-to-db` or `PV_INGESTOR_SAVE_TO_DB=true`;
+- a stable `--site-key` or `PV_SITE_KEY`;
+- the standard `POSTGRES_HOST`, `POSTGRES_INTERNAL_PORT`, `POSTGRES_DB`,
+  `POSTGRES_USER`, and `POSTGRES_PASSWORD` variables;
+- migration `010_pv_actual_telemetry.sql` already applied.
+
+One batch is committed in one transaction. Plant and device metadata are
+upserted, each execution gets a distinct audit run, and the device/plant
+five-minute primary keys make rolling-window re-fetches idempotent. Any failed
+statement rolls back the whole batch. The existing preview Compose profile does
+not enable persistence or receive database credentials.

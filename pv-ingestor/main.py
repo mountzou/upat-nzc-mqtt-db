@@ -1,4 +1,4 @@
-"""Build a validated PV ingestion batch without persisting it."""
+"""Build a validated PV ingestion batch and optionally persist a live run."""
 
 from __future__ import annotations
 
@@ -22,6 +22,7 @@ from pipeline import (
     device_ids_by_type,
     normalize_devices,
 )
+from persistence import PersistenceError, persist_batch
 
 
 def _positive_lookback(value: str) -> int:
@@ -49,7 +50,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
             "Fetch and post-process FusionSolar telemetry into a validated, "
-            "persistence-ready batch without writing to any database."
+            "persistence-ready batch. PostgreSQL writes are explicit opt-in."
         )
     )
     mode = parser.add_mutually_exclusive_group(required=True)
@@ -84,6 +85,31 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--emit-json",
         action="store_true",
         help="emit the full persistence-ready batch to stdout",
+    )
+    save_mode = parser.add_mutually_exclusive_group()
+    save_mode.add_argument(
+        "--save-to-db",
+        action="store_true",
+        dest="save_to_db",
+        help="persist a live batch to PostgreSQL in one transaction",
+    )
+    save_mode.add_argument(
+        "--no-save-to-db",
+        action="store_false",
+        dest="save_to_db",
+        help="disable persistence even if PV_INGESTOR_SAVE_TO_DB=true",
+    )
+    parser.set_defaults(save_to_db=None)
+    parser.add_argument(
+        "--site-key",
+        default=os.getenv("PV_SITE_KEY", ""),
+        help="stable local site identifier; required only with --save-to-db",
+    )
+    parser.add_argument(
+        "--trigger-kind",
+        choices=("scheduled", "manual", "backfill", "migration"),
+        default=os.getenv("PV_INGESTOR_TRIGGER_KIND", "manual"),
+        help="audit provenance for a persisted ingestion run",
     )
     return parser.parse_args(argv)
 
@@ -195,6 +221,20 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     batch = run(args)
+    save_to_db = (
+        args.save_to_db
+        if args.save_to_db is not None
+        else _env_bool("PV_INGESTOR_SAVE_TO_DB", False)
+    )
+    if save_to_db:
+        if args.fixture is not None:
+            raise ValueError("fixture mode cannot persist to PostgreSQL")
+        batch["persistence"] = persist_batch(
+            batch,
+            site_key=args.site_key,
+            trigger_kind=args.trigger_kind,
+            code_version=os.getenv("PV_INGESTOR_CODE_VERSION") or None,
+        )
     output = batch if args.emit_json else batch_summary(batch)
     print(json.dumps(output, indent=2, sort_keys=True))
     return 0
@@ -206,6 +246,7 @@ if __name__ == "__main__":
     except (
         FusionSolarError,
         PipelineValidationError,
+        PersistenceError,
         OSError,
         ValueError,
         json.JSONDecodeError,

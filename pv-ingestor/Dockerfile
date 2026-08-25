@@ -5,6 +5,6 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY fusionsolar.py pipeline.py main.py ./
+COPY fusionsolar.py pipeline.py persistence.py main.py ./
 
 ENTRYPOINT ["python", "-u", "main.py"]
