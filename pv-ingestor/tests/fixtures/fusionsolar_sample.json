@@ -1,0 +1,169 @@
+{
+  "plant_code": "NE=152203734",
+  "target_date": "2026-08-24",
+  "api_calls": [
+    {"endpoint": "login", "automatic_retries": 0},
+    {"endpoint": "getDevList", "automatic_retries": 0},
+    {"endpoint": "getDevHistoryKpi", "device_type": 1, "automatic_retries": 0},
+    {"endpoint": "getDevHistoryKpi", "device_type": 17, "automatic_retries": 0}
+  ],
+  "device_list": {
+    "success": true,
+    "failCode": 0,
+    "data": [
+      {
+        "id": 101,
+        "devDn": "NE=152203739",
+        "devName": "Inverter(COM2-2)",
+        "devTypeId": 1,
+        "invType": "SUN2000-15KTL-M2",
+        "softwareVersion": "V100R001C00SPC144",
+        "esnCode": "must-not-leak",
+        "longitude": 22.0
+      },
+      {
+        "id": 102,
+        "devDn": "NE=152203740",
+        "devName": "Inverter(COM2-1)",
+        "devTypeId": 1,
+        "invType": "SUN2000-60KTL-M0",
+        "softwareVersion": "V300R001C00SPC127"
+      },
+      {
+        "id": 201,
+        "devDn": "NE=152203741",
+        "devName": "Meter-AM00102325920233",
+        "devTypeId": 17,
+        "invType": "V100R001C01AM001"
+      },
+      {
+        "id": 301,
+        "devDn": "NE=152203742",
+        "devName": "Logger-102325920233",
+        "devTypeId": 63,
+        "softwareVersion": "V300R023C10SPC551"
+      }
+    ]
+  },
+  "history_by_device_type": {
+    "1": {
+      "success": true,
+      "failCode": 0,
+      "data": [
+        {
+          "devId": 101,
+          "collectTime": 1787547600000,
+          "dataItemMap": {
+            "active_power": 10.0,
+            "reactive_power": 1.0,
+            "mppt_power": 11.0,
+            "power_factor": 0.995,
+            "temperature": 40.0,
+            "efficiency": 98.2,
+            "elec_freq": 50.0,
+            "inverter_state": 512,
+            "day_cap": 0.8,
+            "total_cap": 1000.0,
+            "pv1_u": 500.0,
+            "unused_null": null
+          }
+        },
+        {
+          "devId": 102,
+          "collectTime": 1787547600000,
+          "dataItemMap": {
+            "active_power": 20.0,
+            "reactive_power": 2.0,
+            "mppt_power": 22.0,
+            "power_factor": 0.995,
+            "temperature": 39.0,
+            "efficiency": 98.5,
+            "elec_freq": 50.0,
+            "inverter_state": 512,
+            "day_cap": 1.6,
+            "total_cap": 2000.0,
+            "pv1_u": 510.0
+          }
+        },
+        {
+          "devId": 101,
+          "collectTime": 1787547900000,
+          "dataItemMap": {
+            "active_power": 12.0,
+            "reactive_power": 1.5,
+            "mppt_power": 13.0,
+            "power_factor": 0.992,
+            "temperature": 41.0,
+            "efficiency": 98.1,
+            "elec_freq": 50.0,
+            "inverter_state": 512,
+            "day_cap": 0.9,
+            "total_cap": 1000.1
+          }
+        },
+        {
+          "devId": 102,
+          "collectTime": 1787547900000,
+          "dataItemMap": {
+            "active_power": 22.0,
+            "reactive_power": 2.0,
+            "mppt_power": 24.0,
+            "power_factor": 0.996,
+            "temperature": 40.0,
+            "efficiency": 98.6,
+            "elec_freq": 50.0,
+            "inverter_state": 512,
+            "day_cap": 1.8,
+            "total_cap": 2000.2
+          }
+        },
+        {
+          "devId": 102,
+          "collectTime": 1787548200000,
+          "dataItemMap": {
+            "active_power": 16.0,
+            "reactive_power": 1.2,
+            "mppt_power": 17.0,
+            "power_factor": 0.997,
+            "temperature": 40.0,
+            "efficiency": 98.4,
+            "elec_freq": 50.0,
+            "inverter_state": 512,
+            "day_cap": 2.0,
+            "total_cap": 2000.4
+          }
+        }
+      ]
+    },
+    "17": {
+      "success": true,
+      "failCode": 0,
+      "data": [
+        {
+          "devId": 201,
+          "collectTime": 1787547600000,
+          "dataItemMap": {
+            "active_power": -5.0,
+            "reactive_power": 0.5,
+            "power_factor": -0.995,
+            "positive_active_cap": 10.0,
+            "reverse_active_cap": 30.0,
+            "a_u": 230.0
+          }
+        },
+        {
+          "devId": 201,
+          "collectTime": 1787547900000,
+          "dataItemMap": {
+            "active_power": -6.0,
+            "reactive_power": 0.6,
+            "power_factor": -0.995,
+            "positive_active_cap": 10.0,
+            "reverse_active_cap": 30.1,
+            "a_u": 231.0
+          }
+        }
+      ]
+    }
+  }
+}

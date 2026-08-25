@@ -161,6 +161,33 @@ services:
       postgres:
         condition: service_healthy
 
+  # Local-only, persistence-free FusionSolar preview. This profile performs
+  # live read calls only when explicitly selected and has no database adapter.
+  pv-ingestor:
+    build:
+      context: ./pv-ingestor
+    profiles:
+      - pv-ingestor-preview
+    logging: *json-logging
+    init: true
+    restart: "no"
+    command: ["--live"]
+    environment:
+      FUSIONSOLAR_BASE_URL: ${FUSIONSOLAR_BASE_URL:-}
+      FUSIONSOLAR_USERNAME: ${FUSIONSOLAR_USERNAME:-}
+      FUSIONSOLAR_SYSTEM_CODE: ${FUSIONSOLAR_SYSTEM_CODE:-}
+      FUSIONSOLAR_PLANT_CODE: ${FUSIONSOLAR_PLANT_CODE:-}
+      FUSIONSOLAR_LOOKBACK_DAYS: ${FUSIONSOLAR_LOOKBACK_DAYS:-3}
+      FUSIONSOLAR_INCLUDE_METER: ${FUSIONSOLAR_INCLUDE_METER:-true}
+      PYTHONDONTWRITEBYTECODE: "1"
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=32m
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+
   # Local-only shadow lane. It reuses one persisted champion snapshot and
   # defaults to read-only preview mode; production Compose remains unchanged.
   pv-shadow-prediction:
