@@ -3,7 +3,8 @@ import hashlib
 import json
 import unittest
 from asyncio import run
-from unittest.mock import patch
+from concurrent.futures import ThreadPoolExecutor
+from unittest.mock import Mock, patch
 
 import auth_service
 import main
@@ -77,7 +78,24 @@ class _FakeConnection:
         return self._cursor
 
 
+class _FakeClock:
+    def __init__(self):
+        self.now = 0.0
+
+    def __call__(self):
+        return self.now
+
+    def advance(self, seconds):
+        self.now += seconds
+
+
 class AuthServiceBoundaryTests(unittest.TestCase):
+    def setUp(self):
+        main.AUTH_VERIFY_RATE_LIMITER.reset()
+
+    def tearDown(self):
+        main.AUTH_VERIFY_RATE_LIMITER.reset()
+
     @staticmethod
     def request_for(path):
         return Request(
@@ -185,6 +203,113 @@ class AuthServiceBoundaryTests(unittest.TestCase):
         self.assertEqual(missing.exception.status_code, 401)
         self.assertEqual(wrong.exception.status_code, 401)
         self.assertEqual(missing.exception.headers["WWW-Authenticate"], "Bearer")
+
+    @patch.object(auth_service, "verify_password", return_value=False)
+    def test_verify_rate_limit_blocks_before_database_and_recovers_after_window(
+        self,
+        _verify_password,
+    ):
+        clock = _FakeClock()
+        limiter = auth_service.AuthVerifyRateLimiter(
+            attempts_per_username=2,
+            global_attempts=10,
+            window_seconds=60,
+            clock=clock,
+        )
+        connection_factory = Mock(
+            return_value=_FakeConnection(_FakeCursor(row=None))
+        )
+        router = auth_service.build_auth_router(
+            connection_factory=connection_factory,
+            service_token_getter=lambda: VALID_SERVICE_TOKEN,
+            verify_rate_limiter=limiter,
+        )
+        route = next(
+            route
+            for route in router.routes
+            if getattr(route, "path", None) == "/internal/auth/verify"
+        )
+        dependency = route.dependant.dependencies[0].call
+
+        for username in (" school_10 ", "school_10"):
+            dependency(f"Bearer {VALID_SERVICE_TOKEN}")
+            with self.assertRaises(HTTPException) as rejected:
+                route.endpoint(
+                    auth_service.VerifyCredentialsRequest(
+                        username=username,
+                        password="private-value",
+                    ),
+                    Response(),
+                )
+            self.assertEqual(rejected.exception.status_code, 401)
+
+        with self.assertRaises(HTTPException) as limited:
+            route.endpoint(
+                auth_service.VerifyCredentialsRequest(
+                    username="school_10",
+                    password="private-value",
+                ),
+                Response(),
+            )
+
+        self.assertEqual(limited.exception.status_code, 429)
+        self.assertEqual(limited.exception.headers["Retry-After"], "60")
+        self.assertEqual(limited.exception.headers["Cache-Control"], "no-store")
+        self.assertEqual(connection_factory.call_count, 2)
+
+        clock.advance(60)
+        with self.assertRaises(HTTPException) as after_window:
+            route.endpoint(
+                auth_service.VerifyCredentialsRequest(
+                    username="school_10",
+                    password="private-value",
+                ),
+                Response(),
+            )
+
+        self.assertEqual(after_window.exception.status_code, 401)
+        self.assertEqual(connection_factory.call_count, 3)
+
+    def test_verify_global_rate_limit_bounds_distinct_usernames(self):
+        clock = _FakeClock()
+        limiter = auth_service.AuthVerifyRateLimiter(
+            attempts_per_username=5,
+            global_attempts=2,
+            window_seconds=60,
+            clock=clock,
+        )
+
+        limiter.check("school_10")
+        limiter.check("school_22")
+        with self.assertRaises(HTTPException) as limited:
+            limiter.check("previously-unseen-user")
+
+        self.assertEqual(limited.exception.status_code, 429)
+        self.assertEqual(limited.exception.headers["Retry-After"], "60")
+
+        clock.advance(60)
+        limiter.check("previously-unseen-user")
+
+    def test_verify_global_rate_limit_is_atomic_under_concurrency(self):
+        limiter = auth_service.AuthVerifyRateLimiter(
+            attempts_per_username=40,
+            global_attempts=10,
+            window_seconds=60,
+            clock=lambda: 0.0,
+        )
+
+        def attempt(index):
+            try:
+                limiter.check(f"concurrent-user-{index}")
+            except HTTPException as error:
+                self.assertEqual(error.status_code, 429)
+                return False
+            return True
+
+        with ThreadPoolExecutor(max_workers=20) as executor:
+            accepted = list(executor.map(attempt, range(40)))
+
+        self.assertEqual(sum(accepted), 10)
 
     @patch.object(auth_service, "verify_password", return_value=True)
     def test_verify_returns_public_identity_without_hash(self, verify_password):

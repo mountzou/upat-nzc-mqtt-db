@@ -26,6 +26,21 @@ Both endpoints set `Cache-Control: no-store`. Neither endpoint returns
 Malformed authentication requests return a generic HTTP 422 response without
 echoing submitted field values.
 
+## Login attempt throttling
+
+`POST /internal/auth/verify` applies a rolling 60-second limit after the caller
+has passed the service-bearer check and before any database lookup or password
+hash work. At most five attempts are accepted for one normalized username and
+at most 60 attempts are accepted globally in that window. Rejected attempts
+return HTTP 429 with `Cache-Control: no-store` and a bounded `Retry-After`
+header. Usernames are represented only by an in-memory SHA-256 key in the
+limiter.
+
+The limiter is intentionally process-local because the current production API
+runs one Uvicorn process. A future multi-process or multi-instance deployment
+must move this state to a shared rate-limit store before scaling out. The
+read-only `/resolve` endpoint is not part of the password-attempt budget.
+
 ## Transport and trust boundary
 
 The Render caller must use the HTTPS Caddy route on
@@ -33,6 +48,10 @@ The Render caller must use the HTTPS Caddy route on
 port 8000 over plaintext HTTP. The current production API still publishes port
 8000 for legacy consumers, so closing that binding remains a required hardening
 step before we describe this boundary as network-private.
+
+Caddy forwards only `POST /internal/auth/verify` and
+`POST /internal/auth/resolve`; other methods and paths under `/internal/auth/`
+remain outside the reverse-proxy allowlist.
 
 `AUTH_SERVICE_TOKEN` must be generated as a high-entropy secret, stored only in
 the VPS and Render secret stores, and never reused as `OPS_TELEMETRY_TOKEN` or
@@ -51,5 +70,7 @@ the VPS and Render secret stores, and never reused as `OPS_TELEMETRY_TOKEN` or
    validate login and JWT revocation, then remove the static fallback registry
    in a later batch.
 
-Login rate limiting and removal of the public API port are rollout prerequisites,
-not claims made by this schema-and-boundary batch.
+Login rate limiting is implemented in the API boundary. Removal of the public
+API port remains a rollout prerequisite, but it must follow migration of the
+existing EnergyPlus `DEVICE_API_BASE_URL` caller to verified HTTPS routes; an
+immediate removal would break its device, weather, PV, and simulation reads.
