@@ -88,14 +88,14 @@ def int_or_none(value):
         return None
 
 
-def local_forecast_dates():
+def get_forecast_dates():
     today = datetime.now(ZoneInfo(OPEN_METEO_TIMEZONE)).date()
     end_date = today + timedelta(days=OPEN_METEO_FORECAST_DAYS - 1)
     return today, end_date
 
 
 def build_forecast_request():
-    start_date, end_date = local_forecast_dates()
+    start_date, end_date = get_forecast_dates()
     params = {
         "latitude": OPEN_METEO_LATITUDE,
         "longitude": OPEN_METEO_LONGITUDE,
@@ -131,6 +131,10 @@ def validate_hourly_payload(data):
         values = hourly.get(variable)
         if values is None:
             raise ValueError(f"Open-Meteo response missing hourly.{variable}")
+        if not isinstance(values, list):
+            raise ValueError(
+                f"Open-Meteo response hourly.{variable} must be an array"
+            )
         if len(values) != len(times):
             raise ValueError(
                 f"Open-Meteo length mismatch for {variable}: {len(values)} vs {len(times)}"

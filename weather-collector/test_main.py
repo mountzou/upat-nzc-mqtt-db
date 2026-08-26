@@ -11,18 +11,18 @@ class WeatherCollectorHorizonTests(unittest.TestCase):
         self.assertEqual(main.OPEN_METEO_FORECAST_DAYS, 8)
 
     @patch.object(main, "datetime")
-    def test_local_forecast_dates_span_eight_inclusive_dates(self, mocked_datetime):
+    def test_get_forecast_dates_span_eight_inclusive_dates(self, mocked_datetime):
         mocked_datetime.now.return_value = datetime(2026, 8, 8, 22, 50)
 
-        start_date, end_date = main.local_forecast_dates()
+        start_date, end_date = main.get_forecast_dates()
 
         self.assertEqual(start_date, date(2026, 8, 8))
         self.assertEqual(end_date, date(2026, 8, 15))
         self.assertEqual((end_date - start_date).days + 1, 8)
 
-    @patch.object(main, "local_forecast_dates")
-    def test_request_uses_explicit_eight_day_bounds(self, local_forecast_dates):
-        local_forecast_dates.return_value = (
+    @patch.object(main, "get_forecast_dates")
+    def test_request_uses_explicit_eight_day_bounds(self, get_forecast_dates):
+        get_forecast_dates.return_value = (
             date(2026, 8, 8),
             date(2026, 8, 15),
         )
@@ -47,6 +47,18 @@ class WeatherCollectorHorizonTests(unittest.TestCase):
 
 
 class WeatherCollectorColumnContractTests(unittest.TestCase):
+    def test_rejects_hourly_variable_that_is_not_an_array(self):
+        hourly = {"time": ["2026-08-26T12:00"]}
+        for variable in main.HOURLY_VARIABLES:
+            hourly[variable] = [1]
+        hourly["temperature_2m"] = "1.5"
+
+        with self.assertRaisesRegex(
+            ValueError,
+            r"hourly\.temperature_2m must be an array",
+        ):
+            main.validate_hourly_payload({"hourly": hourly})
+
     def test_rows_use_exact_open_meteo_variable_names(self):
         timestamp = "2026-08-26T12:00"
         hourly = {"time": [timestamp]}
