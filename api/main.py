@@ -60,6 +60,10 @@ WEATHER_FIELDS = [
     "cloud_cover_percent",
 ]
 
+# Keep the public weather API contract unit-explicit while the database uses
+# the exact Open-Meteo variable names. The SQL projections below own this
+# compatibility boundary.
+
 # Create and return a new PostgreSQL connection.
 def get_connection():
     return psycopg2.connect(
@@ -1120,19 +1124,19 @@ def get_weather_hourly_forecast(
                     forecast_timestamp,
                     forecast_date,
                     forecast_hour,
-                    temperature_2m_c,
-                    dew_point_2m_c,
-                    relative_humidity_2m_percent,
-                    surface_pressure_hpa,
-                    shortwave_radiation_w_m2,
-                    direct_normal_irradiance_w_m2,
-                    diffuse_radiation_w_m2,
-                    wind_direction_10m_degrees,
-                    wind_speed_10m_ms,
+                    temperature_2m AS temperature_2m_c,
+                    dew_point_2m AS dew_point_2m_c,
+                    relative_humidity_2m AS relative_humidity_2m_percent,
+                    surface_pressure AS surface_pressure_hpa,
+                    shortwave_radiation AS shortwave_radiation_w_m2,
+                    direct_normal_irradiance AS direct_normal_irradiance_w_m2,
+                    diffuse_radiation AS diffuse_radiation_w_m2,
+                    wind_direction_10m AS wind_direction_10m_degrees,
+                    wind_speed_10m AS wind_speed_10m_ms,
                     weather_code,
-                    snow_depth_m,
-                    precipitation_mm,
-                    cloud_cover_percent,
+                    snow_depth AS snow_depth_m,
+                    precipitation AS precipitation_mm,
+                    cloud_cover AS cloud_cover_percent,
                     fetched_at
                 FROM weather_hourly_forecasts
                 WHERE forecast_timestamp >= %s
@@ -1172,19 +1176,19 @@ def get_latest_weather_forecast_hour():
                     forecast_timestamp,
                     forecast_date,
                     forecast_hour,
-                    temperature_2m_c,
-                    dew_point_2m_c,
-                    relative_humidity_2m_percent,
-                    surface_pressure_hpa,
-                    shortwave_radiation_w_m2,
-                    direct_normal_irradiance_w_m2,
-                    diffuse_radiation_w_m2,
-                    wind_direction_10m_degrees,
-                    wind_speed_10m_ms,
+                    temperature_2m AS temperature_2m_c,
+                    dew_point_2m AS dew_point_2m_c,
+                    relative_humidity_2m AS relative_humidity_2m_percent,
+                    surface_pressure AS surface_pressure_hpa,
+                    shortwave_radiation AS shortwave_radiation_w_m2,
+                    direct_normal_irradiance AS direct_normal_irradiance_w_m2,
+                    diffuse_radiation AS diffuse_radiation_w_m2,
+                    wind_direction_10m AS wind_direction_10m_degrees,
+                    wind_speed_10m AS wind_speed_10m_ms,
                     weather_code,
-                    snow_depth_m,
-                    precipitation_mm,
-                    cloud_cover_percent,
+                    snow_depth AS snow_depth_m,
+                    precipitation AS precipitation_mm,
+                    cloud_cover AS cloud_cover_percent,
                     fetched_at
                 FROM weather_hourly_forecasts
                 WHERE forecast_timestamp >= %s

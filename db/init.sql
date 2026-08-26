@@ -294,19 +294,19 @@ CREATE TABLE IF NOT EXISTS weather_hourly_forecasts (
     forecast_timestamp TIMESTAMP NOT NULL,
     forecast_date DATE NOT NULL,
     forecast_hour SMALLINT NOT NULL CHECK (forecast_hour >= 0 AND forecast_hour <= 23),
-    temperature_2m_c NUMERIC,
-    dew_point_2m_c NUMERIC,
-    relative_humidity_2m_percent NUMERIC,
-    surface_pressure_hpa NUMERIC,
-    shortwave_radiation_w_m2 NUMERIC,
-    direct_normal_irradiance_w_m2 NUMERIC,
-    diffuse_radiation_w_m2 NUMERIC,
-    wind_direction_10m_degrees NUMERIC,
-    wind_speed_10m_ms NUMERIC,
+    temperature_2m NUMERIC,
+    dew_point_2m NUMERIC,
+    relative_humidity_2m NUMERIC,
+    surface_pressure NUMERIC,
+    shortwave_radiation NUMERIC,
+    direct_normal_irradiance NUMERIC,
+    diffuse_radiation NUMERIC,
+    wind_direction_10m NUMERIC,
+    wind_speed_10m NUMERIC,
     weather_code INTEGER,
-    snow_depth_m NUMERIC,
-    precipitation_mm NUMERIC,
-    cloud_cover_percent NUMERIC,
+    snow_depth NUMERIC,
+    precipitation NUMERIC,
+    cloud_cover NUMERIC,
     raw_values JSONB,
     raw_request JSONB,
     fetched_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -331,3 +331,6 @@ CREATE INDEX IF NOT EXISTS idx_weather_hourly_forecasts_date_time
 -- Keep fresh database initialization aligned with application auth identities.
 \ir migrations/011_app_users.sql
 \ir migrations/012_app_user_preferences.sql
+
+-- Keep fresh database initialization aligned with Open-Meteo column names.
+\ir migrations/013_weather_open_meteo_column_names.sql

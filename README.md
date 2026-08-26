@@ -138,6 +138,8 @@ docker compose exec -T postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB
 
 The `weather-collector` service is a one-shot container intended to be run by VPS cron. It fetches an 8-day hourly forecast from Open-Meteo for the configured latitude/longitude and permanently upserts the rows into `weather_hourly_forecasts`. The extra day keeps the API's current 7-day simulation window complete after midnight and before the next nightly collector run.
 
+The meteorological columns in `weather_hourly_forecasts` use the exact Open-Meteo hourly variable names. The public weather API keeps its existing unit-explicit response keys for compatibility with the EnergyPlus consumer.
+
 Default configuration:
 
 ```text
@@ -158,6 +160,7 @@ For an existing PostgreSQL volume, apply the idempotent weather forecast migrati
 
 ```bash
 docker compose exec -T postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -f /docker-entrypoint-initdb.d/migrations/004_weather_hourly_forecasts.sql'
+docker compose exec -T postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -f /docker-entrypoint-initdb.d/migrations/013_weather_open_meteo_column_names.sql'
 ```
 
 ## Persistence-free PV ingestion preview

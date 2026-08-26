@@ -1,5 +1,6 @@
 import unittest
 from datetime import date, datetime, timedelta
+from decimal import Decimal
 from unittest.mock import patch
 
 import main
@@ -43,6 +44,34 @@ class WeatherCollectorHorizonTests(unittest.TestCase):
 
         self.assertLessEqual(collector_start, simulation_start)
         self.assertGreaterEqual(collector_end, simulation_end)
+
+
+class WeatherCollectorColumnContractTests(unittest.TestCase):
+    def test_rows_use_exact_open_meteo_variable_names(self):
+        timestamp = "2026-08-26T12:00"
+        hourly = {"time": [timestamp]}
+        for variable in main.HOURLY_VARIABLES:
+            hourly[variable] = [7 if variable == "weather_code" else "1.5"]
+
+        row = next(
+            main.iter_hourly_rows(
+                {"hourly": hourly},
+                {"start_date": "2026-08-26", "end_date": "2026-09-02"},
+            )
+        )
+
+        for variable in main.HOURLY_VARIABLES:
+            self.assertIn(variable, row)
+        self.assertEqual(7, row["weather_code"])
+        self.assertEqual(Decimal("1.5"), row["temperature_2m"])
+
+        for legacy_column in (
+            "temperature_2m_c",
+            "relative_humidity_2m_percent",
+            "shortwave_radiation_w_m2",
+            "wind_speed_10m_ms",
+        ):
+            self.assertNotIn(legacy_column, row)
 
 
 if __name__ == "__main__":

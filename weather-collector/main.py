@@ -42,22 +42,6 @@ HOURLY_VARIABLES = [
     "cloud_cover",
 ]
 
-DB_COLUMNS_BY_VARIABLE = {
-    "temperature_2m": "temperature_2m_c",
-    "dew_point_2m": "dew_point_2m_c",
-    "relative_humidity_2m": "relative_humidity_2m_percent",
-    "surface_pressure": "surface_pressure_hpa",
-    "shortwave_radiation": "shortwave_radiation_w_m2",
-    "direct_normal_irradiance": "direct_normal_irradiance_w_m2",
-    "diffuse_radiation": "diffuse_radiation_w_m2",
-    "wind_direction_10m": "wind_direction_10m_degrees",
-    "wind_speed_10m": "wind_speed_10m_ms",
-    "weather_code": "weather_code",
-    "snow_depth": "snow_depth_m",
-    "precipitation": "precipitation_mm",
-    "cloud_cover": "cloud_cover_percent",
-}
-
 
 def db_connect():
     connection_error = None
@@ -175,12 +159,12 @@ def iter_hourly_rows(data, request_params):
             "raw_request": request_params,
         }
 
-        for variable, column in DB_COLUMNS_BY_VARIABLE.items():
+        for variable in HOURLY_VARIABLES:
             value = raw_values.get(variable)
-            if column == "weather_code":
-                row[column] = int_or_none(value)
+            if variable == "weather_code":
+                row[variable] = int_or_none(value)
             else:
-                row[column] = decimal_or_none(value)
+                row[variable] = decimal_or_none(value)
 
         yield row
 
@@ -194,19 +178,7 @@ def save_hourly_rows(conn, rows):
         "forecast_timestamp",
         "forecast_date",
         "forecast_hour",
-        "temperature_2m_c",
-        "dew_point_2m_c",
-        "relative_humidity_2m_percent",
-        "surface_pressure_hpa",
-        "shortwave_radiation_w_m2",
-        "direct_normal_irradiance_w_m2",
-        "diffuse_radiation_w_m2",
-        "wind_direction_10m_degrees",
-        "wind_speed_10m_ms",
-        "weather_code",
-        "snow_depth_m",
-        "precipitation_mm",
-        "cloud_cover_percent",
+        *HOURLY_VARIABLES,
         "raw_values",
         "raw_request",
     ]
