@@ -7,7 +7,7 @@ from typing import Annotated
 from zoneinfo import ZoneInfo
 
 import psycopg2
-from auth_service import build_auth_router
+from auth_service import AuthVerifyRateLimiter, build_auth_router
 from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request
 from fastapi.exception_handlers import request_validation_exception_handler
 from fastapi.exceptions import RequestValidationError
@@ -40,6 +40,7 @@ DB_USER = os.getenv("POSTGRES_USER")
 DB_PASSWORD = os.getenv("POSTGRES_PASSWORD")
 OPS_TELEMETRY_TOKEN = os.getenv("OPS_TELEMETRY_TOKEN", "").strip()
 AUTH_SERVICE_TOKEN = os.getenv("AUTH_SERVICE_TOKEN", "").strip()
+AUTH_VERIFY_RATE_LIMITER = AuthVerifyRateLimiter()
 WEATHER_TIMEZONE = os.getenv("OPEN_METEO_TIMEZONE", "Europe/Athens")
 WEATHER_LOCAL_TZ = ZoneInfo(WEATHER_TIMEZONE)
 
@@ -75,6 +76,7 @@ app.include_router(
     build_auth_router(
         connection_factory=lambda: get_connection(),
         service_token_getter=lambda: AUTH_SERVICE_TOKEN,
+        verify_rate_limiter=AUTH_VERIFY_RATE_LIMITER,
     )
 )
 

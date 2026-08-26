@@ -3,7 +3,11 @@ from __future__ import annotations
 import base64
 import hashlib
 import hmac
+import math
+import time
+from collections import deque
 from collections.abc import Callable
+from threading import Lock
 from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Response, status
@@ -13,6 +17,9 @@ from pydantic import BaseModel, Field, field_validator
 MIN_SERVICE_TOKEN_LENGTH = 32
 MIN_PBKDF2_ITERATIONS = 100_000
 MAX_PBKDF2_ITERATIONS = 2_000_000
+VERIFY_RATE_LIMIT_ATTEMPTS_PER_USERNAME = 5
+VERIFY_RATE_LIMIT_GLOBAL_ATTEMPTS = 60
+VERIFY_RATE_LIMIT_WINDOW_SECONDS = 60
 SUPPORTED_AUTH_ROLES = frozenset({"teacher", "municipality", "system_admin"})
 _DUMMY_PASSWORD_HASH = (
     "pbkdf2_sha256$600000$av9ekFPpUrAoJhJbySQ9GQ$"
@@ -100,6 +107,77 @@ def _unavailable_error() -> HTTPException:
     )
 
 
+def _rate_limit_error(retry_after_seconds: int) -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+        detail="Too many authentication attempts. Try again later.",
+        headers={
+            "Cache-Control": "no-store",
+            "Retry-After": str(retry_after_seconds),
+        },
+    )
+
+
+class AuthVerifyRateLimiter:
+    """Thread-safe rolling-window limiter for password verification attempts."""
+
+    def __init__(
+        self,
+        *,
+        attempts_per_username: int = VERIFY_RATE_LIMIT_ATTEMPTS_PER_USERNAME,
+        global_attempts: int = VERIFY_RATE_LIMIT_GLOBAL_ATTEMPTS,
+        window_seconds: int = VERIFY_RATE_LIMIT_WINDOW_SECONDS,
+        clock: Callable[[], float] = time.monotonic,
+    ) -> None:
+        if attempts_per_username < 1 or global_attempts < 1 or window_seconds < 1:
+            raise ValueError("auth rate-limit settings must be positive")
+
+        self._attempts_per_username = attempts_per_username
+        self._global_attempts = global_attempts
+        self._window_seconds = window_seconds
+        self._clock = clock
+        self._events_by_username: dict[bytes, deque[float]] = {}
+        self._global_events: deque[float] = deque()
+        self._lock = Lock()
+
+    @staticmethod
+    def _prune(events: deque[float], cutoff: float) -> None:
+        while events and events[0] <= cutoff:
+            events.popleft()
+
+    def _retry_after(self, events: deque[float], now: float) -> int:
+        return max(1, math.ceil(self._window_seconds - (now - events[0])))
+
+    def check(self, username: str) -> None:
+        now = self._clock()
+        cutoff = now - self._window_seconds
+        username_key = hashlib.sha256(username.encode("utf-8")).digest()
+
+        with self._lock:
+            self._prune(self._global_events, cutoff)
+            for key, events in list(self._events_by_username.items()):
+                self._prune(events, cutoff)
+                if not events:
+                    del self._events_by_username[key]
+
+            username_events = self._events_by_username.setdefault(
+                username_key,
+                deque(),
+            )
+            if len(username_events) >= self._attempts_per_username:
+                raise _rate_limit_error(self._retry_after(username_events, now))
+            if len(self._global_events) >= self._global_attempts:
+                raise _rate_limit_error(self._retry_after(self._global_events, now))
+
+            username_events.append(now)
+            self._global_events.append(now)
+
+    def reset(self) -> None:
+        with self._lock:
+            self._events_by_username.clear()
+            self._global_events.clear()
+
+
 def _public_user(row: dict[str, Any]) -> dict[str, Any]:
     username = str(row.get("username", "")).strip()
     role = str(row.get("role", "")).strip()
@@ -143,6 +221,7 @@ def build_auth_router(
     *,
     connection_factory: Callable[[], Any],
     service_token_getter: Callable[[], str],
+    verify_rate_limiter: AuthVerifyRateLimiter,
 ) -> APIRouter:
     router = APIRouter(prefix="/internal/auth", tags=["internal-auth"])
 
@@ -219,6 +298,7 @@ def build_auth_router(
         response: Response,
     ) -> dict[str, Any]:
         response.headers["Cache-Control"] = "no-store"
+        verify_rate_limiter.check(payload.username)
         try:
             row = fetch_user(payload.username, include_password_hash=True)
             encoded_hash = row.get("password_hash") if row else _DUMMY_PASSWORD_HASH
