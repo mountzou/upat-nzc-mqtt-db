@@ -11,7 +11,7 @@ from threading import Lock
 from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Response, status
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 MIN_SERVICE_TOKEN_LENGTH = 32
@@ -21,6 +21,8 @@ VERIFY_RATE_LIMIT_ATTEMPTS_PER_USERNAME = 5
 VERIFY_RATE_LIMIT_GLOBAL_ATTEMPTS = 60
 VERIFY_RATE_LIMIT_WINDOW_SECONDS = 60
 SUPPORTED_AUTH_ROLES = frozenset({"teacher", "municipality", "system_admin"})
+SUPPORTED_THEMES = frozenset({"light", "dark"})
+MAX_ONBOARDING_KEY_LENGTH = 120
 _DUMMY_PASSWORD_HASH = (
     "pbkdf2_sha256$600000$av9ekFPpUrAoJhJbySQ9GQ$"
     "qtkFqEagEogxOON8nPMRRNn84agyFSui_gZCa2U2ngc"
@@ -43,6 +45,28 @@ class VerifyCredentialsRequest(UsernameRequest):
     password: str = Field(min_length=1, max_length=256)
 
 
+class UserPreferencesRequest(UsernameRequest):
+    theme: Literal["light", "dark"] | None = None
+    onboarding_key: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=MAX_ONBOARDING_KEY_LENGTH,
+        pattern=r"^[A-Za-z0-9_-]+$",
+    )
+    onboarding_completed: bool | None = None
+
+    @model_validator(mode="after")
+    def validate_patch(self):
+        has_onboarding_patch = self.onboarding_key is not None
+        if has_onboarding_patch != (self.onboarding_completed is not None):
+            raise ValueError(
+                "onboarding_key and onboarding_completed must be provided together"
+            )
+        if self.theme is None and not has_onboarding_patch:
+            raise ValueError("at least one preference must be provided")
+        return self
+
+
 class AuthUserResponse(BaseModel):
     username: str
     role: Literal["teacher", "municipality", "system_admin"]
@@ -50,6 +74,8 @@ class AuthUserResponse(BaseModel):
     municipality_id: str | None = None
     school_ids: list[str] = Field(default_factory=list)
     token_version: int = Field(ge=1)
+    theme: Literal["light", "dark"]
+    onboarding_completed: list[str] = Field(default_factory=list)
 
 
 def _decode_base64url(value: str) -> bytes:
@@ -185,11 +211,27 @@ def _public_user(row: dict[str, Any]) -> dict[str, Any]:
     municipality_id = row.get("municipality_id")
     school_ids = list(row.get("school_ids") or [])
     token_version = row.get("token_version")
+    theme = str(row.get("theme", "")).strip()
+    onboarding_completed = list(row.get("onboarding_completed") or [])
 
     if not username or role not in SUPPORTED_AUTH_ROLES:
         raise ValueError("invalid stored auth identity")
     if not isinstance(token_version, int) or token_version < 1:
         raise ValueError("invalid stored token version")
+    if theme not in SUPPORTED_THEMES:
+        raise ValueError("invalid stored theme")
+    if (
+        len(onboarding_completed) != len(set(onboarding_completed))
+        or len(onboarding_completed) > 64
+        or any(
+            not isinstance(item, str)
+            or not item
+            or len(item) > MAX_ONBOARDING_KEY_LENGTH
+            or item != item.strip()
+            for item in onboarding_completed
+        )
+    ):
+        raise ValueError("invalid stored onboarding state")
     if len(school_ids) != len(set(school_ids)) or any(
         not isinstance(item, str) or not item for item in school_ids
     ):
@@ -214,6 +256,8 @@ def _public_user(row: dict[str, Any]) -> dict[str, Any]:
         "municipality_id": municipality_id,
         "school_ids": school_ids,
         "token_version": token_version,
+        "theme": theme,
+        "onboarding_completed": onboarding_completed,
     }
 
 
@@ -260,6 +304,8 @@ def build_auth_router(
                     school_ids,
                     is_active,
                     token_version,
+                    theme,
+                    onboarding_completed,
                     password_hash
                 FROM app_users
                 WHERE username = %s
@@ -274,7 +320,9 @@ def build_auth_router(
                     municipality_id,
                     school_ids,
                     is_active,
-                    token_version
+                    token_version,
+                    theme,
+                    onboarding_completed
                 FROM app_users
                 WHERE username = %s
                 LIMIT 1;
@@ -286,6 +334,76 @@ def build_auth_router(
                     query,
                     (username,),
                 )
+                return cur.fetchone()
+
+    def record_successful_login(username: str) -> dict[str, Any] | None:
+        query = """
+            UPDATE app_users
+            SET
+                last_login_at = NOW(),
+                updated_at = NOW()
+            WHERE username = %s
+              AND is_active
+            RETURNING
+                username,
+                role,
+                school_id,
+                municipality_id,
+                school_ids,
+                is_active,
+                token_version,
+                theme,
+                onboarding_completed;
+        """
+        with connection_factory() as conn:
+            with conn.cursor() as cur:
+                cur.execute(query, (username,))
+                return cur.fetchone()
+
+    def update_user_preferences(
+        payload: UserPreferencesRequest,
+    ) -> dict[str, Any] | None:
+        assignments = ["updated_at = NOW()"]
+        params: list[Any] = []
+
+        if payload.theme is not None:
+            assignments.append("theme = %s")
+            params.append(payload.theme)
+
+        if payload.onboarding_key is not None:
+            if payload.onboarding_completed:
+                assignments.append(
+                    "onboarding_completed = "
+                    "ARRAY_APPEND(ARRAY_REMOVE(onboarding_completed, %s), %s)"
+                )
+                params.extend([payload.onboarding_key, payload.onboarding_key])
+            else:
+                assignments.append(
+                    "onboarding_completed = "
+                    "ARRAY_REMOVE(onboarding_completed, %s)"
+                )
+                params.append(payload.onboarding_key)
+
+        params.append(payload.username)
+        query = f"""
+            UPDATE app_users
+            SET {", ".join(assignments)}
+            WHERE username = %s
+              AND is_active
+            RETURNING
+                username,
+                role,
+                school_id,
+                municipality_id,
+                school_ids,
+                is_active,
+                token_version,
+                theme,
+                onboarding_completed;
+        """
+        with connection_factory() as conn:
+            with conn.cursor() as cur:
+                cur.execute(query, tuple(params))
                 return cur.fetchone()
 
     @router.post(
@@ -305,7 +423,11 @@ def build_auth_router(
             valid_password = verify_password(payload.password, encoded_hash)
             if row is None or not row.get("is_active") or not valid_password:
                 raise _credential_error()
-            return _public_user(row)
+            _public_user(row)
+            updated_row = record_successful_login(payload.username)
+            if updated_row is None:
+                raise _credential_error()
+            return _public_user(updated_row)
         except HTTPException:
             raise
         except Exception:
@@ -324,6 +446,30 @@ def build_auth_router(
         try:
             row = fetch_user(payload.username, include_password_hash=False)
             if row is None or not row.get("is_active"):
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Authentication identity is unavailable.",
+                    headers={"Cache-Control": "no-store"},
+                )
+            return _public_user(row)
+        except HTTPException:
+            raise
+        except Exception:
+            raise _unavailable_error() from None
+
+    @router.patch(
+        "/preferences",
+        response_model=AuthUserResponse,
+        dependencies=[Depends(require_auth_service_token)],
+    )
+    def patch_preferences(
+        payload: UserPreferencesRequest,
+        response: Response,
+    ) -> dict[str, Any]:
+        response.headers["Cache-Control"] = "no-store"
+        try:
+            row = update_user_preferences(payload)
+            if row is None:
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail="Authentication identity is unavailable.",

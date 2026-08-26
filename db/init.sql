@@ -330,3 +330,4 @@ CREATE INDEX IF NOT EXISTS idx_weather_hourly_forecasts_date_time
 
 -- Keep fresh database initialization aligned with application auth identities.
 \ir migrations/011_app_users.sql
+\ir migrations/012_app_user_preferences.sql

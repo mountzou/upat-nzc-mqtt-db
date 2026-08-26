@@ -69,7 +69,10 @@ class AuthServiceDeploymentContractTests(unittest.TestCase):
             "path /internal/auth/verify /internal/auth/resolve",
             caddyfile,
         )
-        self.assertIn("handle @auth_service", caddyfile)
+        self.assertIn("handle @auth_read_service", caddyfile)
+        self.assertIn("method PATCH", caddyfile)
+        self.assertIn("path /internal/auth/preferences", caddyfile)
+        self.assertIn("handle @auth_preferences_service", caddyfile)
         self.assertNotIn("/internal/auth/*", caddyfile)
         self.assertNotIn("handle /internal/*", caddyfile)
 

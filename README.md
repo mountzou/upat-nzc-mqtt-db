@@ -202,10 +202,11 @@ The recommended PV entry intentionally omits the legacy lag variables, so new RF
 
 ## API service
 
-The proposed database-backed application-user boundary is documented in
-[`api/AUTH_SERVICE.md`](api/AUTH_SERVICE.md). It is fail-closed and remains
-inactive until its migration, service secret, and Render adapter are rolled out
-in separately approved batches.
+The production database-backed application-user boundary is documented in
+[`api/AUTH_SERVICE.md`](api/AUTH_SERVICE.md). It is fail-closed, stores simple
+per-user theme/onboarding state plus the latest successful login timestamp.
+The preference extension remains inactive until migration 012 and the matching
+VPS/Render application revisions are rolled out in separately approved batches.
 
 Base URL in local development:
 

@@ -39,6 +39,8 @@ def user_row(**overrides):
         "school_ids": ["school_10"],
         "is_active": True,
         "token_version": 1,
+        "theme": "light",
+        "onboarding_completed": [],
     }
     row.update(overrides)
     return row
@@ -151,11 +153,12 @@ class AuthServiceBoundaryTests(unittest.TestCase):
         ):
             dependency(authorization)
             response = Response()
-            request_model = (
-                auth_service.VerifyCredentialsRequest
-                if path.endswith("/verify")
-                else auth_service.UsernameRequest
-            )
+            if path.endswith("/verify"):
+                request_model = auth_service.VerifyCredentialsRequest
+            elif path.endswith("/preferences"):
+                request_model = auth_service.UserPreferencesRequest
+            else:
+                request_model = auth_service.UsernameRequest
             result = route.endpoint(request_model(**payload), response)
         return result, response, cursor
 
@@ -328,12 +331,15 @@ class AuthServiceBoundaryTests(unittest.TestCase):
                 "municipality_id": None,
                 "school_ids": ["school_10"],
                 "token_version": 1,
+                "theme": "light",
+                "onboarding_completed": [],
             },
         )
         self.assertEqual(response.headers["cache-control"], "no-store")
         self.assertNotIn("password", str(result).lower())
         self.assertEqual(cursor.params, ("school_10",))
         self.assertNotIn("private-value", str(cursor.params))
+        self.assertIn("last_login_at = NOW()", cursor.query)
         verify_password.assert_called_once_with("private-value", "stored-password-hash")
 
     @patch.object(auth_service, "verify_password", return_value=False)
@@ -367,7 +373,51 @@ class AuthServiceBoundaryTests(unittest.TestCase):
 
         self.assertNotIn("password_hash", cursor.query)
         self.assertEqual(result["token_version"], 1)
+        self.assertEqual(result["theme"], "light")
         self.assertEqual(response.headers["cache-control"], "no-store")
+
+    def test_preferences_patch_updates_theme_and_onboarding_without_password_data(self):
+        result, response, cursor = self.call_route(
+            "/internal/auth/preferences",
+            {
+                "username": "school_10",
+                "theme": "dark",
+                "onboarding_key": "upat_simulations_onboarding_v1",
+                "onboarding_completed": True,
+            },
+            row=user_row(
+                theme="dark",
+                onboarding_completed=["upat_simulations_onboarding_v1"],
+            ),
+        )
+
+        self.assertEqual(result["theme"], "dark")
+        self.assertEqual(
+            result["onboarding_completed"],
+            ["upat_simulations_onboarding_v1"],
+        )
+        self.assertEqual(response.headers["cache-control"], "no-store")
+        self.assertIn("ARRAY_APPEND", cursor.query)
+        self.assertNotIn("password_hash", cursor.query)
+        self.assertEqual(
+            cursor.params,
+            (
+                "dark",
+                "upat_simulations_onboarding_v1",
+                "upat_simulations_onboarding_v1",
+                "school_10",
+            ),
+        )
+
+    def test_preferences_patch_requires_a_real_change(self):
+        with self.assertRaises(ValueError):
+            auth_service.UserPreferencesRequest(username="school_10")
+
+        with self.assertRaises(ValueError):
+            auth_service.UserPreferencesRequest(
+                username="school_10",
+                onboarding_key="upat_simulations_onboarding_v1",
+            )
 
     def test_resolve_hides_missing_and_inactive_identity_details(self):
         with self.assertRaises(HTTPException) as missing:

@@ -3,12 +3,21 @@ telemetry.schoolheroz.com {
 		reverse_proxy api:8000
 	}
 
-	@auth_service {
+	@auth_read_service {
 		method POST
 		path /internal/auth/verify /internal/auth/resolve
 	}
 
-	handle @auth_service {
+	handle @auth_read_service {
+		reverse_proxy api:8000
+	}
+
+	@auth_preferences_service {
+		method PATCH
+		path /internal/auth/preferences
+	}
+
+	handle @auth_preferences_service {
 		reverse_proxy api:8000
 	}
 
