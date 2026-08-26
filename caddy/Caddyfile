@@ -3,6 +3,10 @@ telemetry.schoolheroz.com {
 		reverse_proxy api:8000
 	}
 
+	handle /internal/auth/* {
+		reverse_proxy api:8000
+	}
+
 	handle {
 		respond "Not Found" 404
 	}

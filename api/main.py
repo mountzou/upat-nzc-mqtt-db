@@ -7,11 +7,31 @@ from typing import Annotated
 from zoneinfo import ZoneInfo
 
 import psycopg2
-from fastapi import Depends, FastAPI, Header, HTTPException, Query
+from auth_service import build_auth_router
+from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request
+from fastapi.exception_handlers import request_validation_exception_handler
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
 from psycopg2.extras import RealDictCursor
 from schemas import HistoryQueryParams, normalize_metrics, parse_datetime_bound
 
 app = FastAPI()
+
+
+@app.exception_handler(RequestValidationError)
+async def redact_auth_request_validation_error(
+    request: Request,
+    exc: RequestValidationError,
+):
+    if request.url.path.startswith("/internal/auth/"):
+        return JSONResponse(
+            status_code=422,
+            content={"detail": "Invalid authentication request."},
+            headers={"Cache-Control": "no-store"},
+        )
+
+    return await request_validation_exception_handler(request, exc)
+
 
 DB_HOST = os.getenv("POSTGRES_HOST", "postgres")
 DB_PORT = int(os.getenv("POSTGRES_INTERNAL_PORT", "5432"))
@@ -19,6 +39,7 @@ DB_NAME = os.getenv("POSTGRES_DB")
 DB_USER = os.getenv("POSTGRES_USER")
 DB_PASSWORD = os.getenv("POSTGRES_PASSWORD")
 OPS_TELEMETRY_TOKEN = os.getenv("OPS_TELEMETRY_TOKEN", "").strip()
+AUTH_SERVICE_TOKEN = os.getenv("AUTH_SERVICE_TOKEN", "").strip()
 WEATHER_TIMEZONE = os.getenv("OPEN_METEO_TIMEZONE", "Europe/Athens")
 WEATHER_LOCAL_TZ = ZoneInfo(WEATHER_TIMEZONE)
 
@@ -48,6 +69,14 @@ def get_connection():
         password=DB_PASSWORD,
         cursor_factory=RealDictCursor,
     )
+
+
+app.include_router(
+    build_auth_router(
+        connection_factory=lambda: get_connection(),
+        service_token_getter=lambda: AUTH_SERVICE_TOKEN,
+    )
+)
 
 
 def round_numeric(value):
