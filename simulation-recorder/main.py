@@ -33,7 +33,15 @@ DEFAULT_SIMULATION_SCHOOL_IDS = [
     "school_22",
     "school_23",
 ]
-SIMULATION_REQUEST_TIMEOUT_SECONDS = 60
+SIMULATION_AUTH_TIMEOUT_SECONDS = float(
+    os.getenv("SIMULATION_AUTH_TIMEOUT_SECONDS", "30")
+)
+SIMULATION_CONNECT_TIMEOUT_SECONDS = float(
+    os.getenv("SIMULATION_CONNECT_TIMEOUT_SECONDS", "10")
+)
+SIMULATION_REQUEST_TIMEOUT_SECONDS = float(
+    os.getenv("SIMULATION_REQUEST_TIMEOUT_SECONDS", "600")
+)
 SIMULATION_REQUEST_RETRIES = int(os.getenv("SIMULATION_REQUEST_RETRIES", "5"))
 SIMULATION_REQUEST_RETRY_DELAY_SECONDS = float(
     os.getenv("SIMULATION_REQUEST_RETRY_DELAY_SECONDS", "10")
@@ -133,7 +141,7 @@ def fetch_simulation_access_token(auth_url, username, password):
         response = requests.post(
             auth_url,
             json={"username": username, "password": password},
-            timeout=SIMULATION_REQUEST_TIMEOUT_SECONDS,
+            timeout=SIMULATION_AUTH_TIMEOUT_SECONDS,
         )
     except requests.RequestException as exc:
         raise SimulationAuthenticationError(
@@ -376,15 +384,16 @@ def log_response_trace(response):
 
 
 def fetch_simulation_response(request_url, request_body, access_token):
-    last_error = None
-
     for attempt in range(1, SIMULATION_REQUEST_RETRIES + 1):
         try:
             response = requests.post(
                 request_url,
                 json=request_body,
                 headers={"Authorization": f"Bearer {access_token}"},
-                timeout=SIMULATION_REQUEST_TIMEOUT_SECONDS,
+                timeout=(
+                    SIMULATION_CONNECT_TIMEOUT_SECONDS,
+                    SIMULATION_REQUEST_TIMEOUT_SECONDS,
+                ),
             )
 
             if response.status_code not in SIMULATION_RETRYABLE_HTTP_STATUSES:
@@ -403,17 +412,14 @@ def fetch_simulation_response(request_url, request_body, access_token):
             )
             time.sleep(retry_delay)
         except requests.RequestException as exc:
-            last_error = exc
             print(
                 "Simulation request failed "
-                f"(attempt {attempt}/{SIMULATION_REQUEST_RETRIES}): {exc}"
+                f"(attempt {attempt}/{SIMULATION_REQUEST_RETRIES}, "
+                f"not retried because server-side completion is unknown): {exc}"
             )
-            if attempt < SIMULATION_REQUEST_RETRIES:
-                retry_delay = get_retry_delay_seconds(attempt)
-                print(f"Retrying simulation request in {retry_delay:.1f} seconds")
-                time.sleep(retry_delay)
+            raise
 
-    raise last_error
+    raise RuntimeError("Simulation request retry loop ended unexpectedly")
 
 
 def extract_room_results(response_json):

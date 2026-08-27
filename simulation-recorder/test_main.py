@@ -110,7 +110,7 @@ class SimulationRecorderRequestContractTests(unittest.TestCase):
                 "username": "simulation_recorder",
                 "password": "service-password",
             },
-            timeout=main.SIMULATION_REQUEST_TIMEOUT_SECONDS,
+            timeout=main.SIMULATION_AUTH_TIMEOUT_SECONDS,
         )
 
     @patch("main.requests.post")
@@ -129,8 +129,29 @@ class SimulationRecorderRequestContractTests(unittest.TestCase):
             "https://backend.example/simulate/day-ahead",
             json={"school_id": "school_10", "target_date": "2026-08-06"},
             headers={"Authorization": "Bearer temporary-token"},
-            timeout=main.SIMULATION_REQUEST_TIMEOUT_SECONDS,
+            timeout=(
+                main.SIMULATION_CONNECT_TIMEOUT_SECONDS,
+                main.SIMULATION_REQUEST_TIMEOUT_SECONDS,
+            ),
         )
+
+    @patch("main.requests.post")
+    def test_transport_timeout_is_not_retried(self, post):
+        post.side_effect = main.requests.ReadTimeout("response timed out")
+        output = StringIO()
+
+        with (
+            redirect_stdout(output),
+            self.assertRaises(main.requests.ReadTimeout),
+        ):
+            main.fetch_simulation_response(
+                "https://backend.example/simulate/day-ahead",
+                {"school_id": "school_10", "target_date": "2026-08-06"},
+                "temporary-token",
+            )
+
+        post.assert_called_once()
+        self.assertIn("server-side completion is unknown", output.getvalue())
 
     @patch("main.requests.post")
     def test_missing_credentials_fail_before_http_request(self, post):
