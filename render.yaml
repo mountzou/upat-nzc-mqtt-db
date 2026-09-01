@@ -1,32 +1,4 @@
 services:
-  - type: web
-    name: upat-nzc-api
-    runtime: docker
-    rootDir: api
-    autoDeploy: true
-    plan: free
-    envVars:
-      - key: POSTGRES_HOST
-        fromDatabase:
-          name: upat-nzc-postgres
-          property: host
-      - key: POSTGRES_INTERNAL_PORT
-        fromDatabase:
-          name: upat-nzc-postgres
-          property: port
-      - key: POSTGRES_USER
-        fromDatabase:
-          name: upat-nzc-postgres
-          property: user
-      - key: POSTGRES_PASSWORD
-        fromDatabase:
-          name: upat-nzc-postgres
-          property: password
-      - key: POSTGRES_DB
-        fromDatabase:
-          name: upat-nzc-postgres
-          property: database
-
   - type: worker
     name: upat-nzc-ttn-ingestor
     runtime: docker
