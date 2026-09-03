@@ -1,7 +1,7 @@
 import hmac
 import os
 import shutil
-from datetime import datetime, time, timedelta, timezone
+from datetime import date, datetime, time, timedelta, timezone
 from decimal import Decimal
 from typing import Annotated
 from zoneinfo import ZoneInfo
@@ -43,6 +43,10 @@ AUTH_SERVICE_TOKEN = os.getenv("AUTH_SERVICE_TOKEN", "").strip()
 AUTH_VERIFY_RATE_LIMITER = AuthVerifyRateLimiter()
 WEATHER_TIMEZONE = os.getenv("OPEN_METEO_TIMEZONE", "Europe/Athens")
 WEATHER_LOCAL_TZ = ZoneInfo(WEATHER_TIMEZONE)
+PV_ACTUALS_MAX_DAYS = 90
+PV_ACTUALS_SITE_KEY = "upat-pv"
+PV_ACTUALS_TIMEZONE = "Europe/Athens"
+PV_ACTUALS_LOCAL_TZ = ZoneInfo(PV_ACTUALS_TIMEZONE)
 
 WEATHER_FIELDS = [
     "temperature_2m_c",
@@ -811,6 +815,138 @@ def operational_telemetry():
             status_code=503,
             detail="Operational telemetry is temporarily unavailable",
         ) from None
+
+
+def validate_pv_actuals_range(start_date: date, end_date: date) -> None:
+    if start_date > end_date:
+        raise HTTPException(
+            status_code=400,
+            detail="start_date must be on or before end_date",
+        )
+    day_count = (end_date - start_date).days + 1
+    if day_count > PV_ACTUALS_MAX_DAYS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Date range exceeds maximum of {PV_ACTUALS_MAX_DAYS} days",
+        )
+    if end_date == date.max:
+        raise HTTPException(
+            status_code=400,
+            detail="end_date is outside the supported range",
+        )
+
+
+@app.get(
+    "/pv/actuals",
+    dependencies=[Depends(require_ops_telemetry_token)],
+)
+def get_pv_actuals(
+    start_date: date = Query(...),
+    end_date: date = Query(...),
+):
+    """Return bounded, read-only five-minute plant metrics for app consumers."""
+    validate_pv_actuals_range(start_date, end_date)
+    range_start_utc = datetime.combine(
+        start_date,
+        time.min,
+        tzinfo=PV_ACTUALS_LOCAL_TZ,
+    ).astimezone(timezone.utc)
+    range_end_utc = datetime.combine(
+        end_date + timedelta(days=1),
+        time.min,
+        tzinfo=PV_ACTUALS_LOCAL_TZ,
+    ).astimezone(timezone.utc)
+    try:
+        with get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT
+                        r.observed_at,
+                        r.local_date,
+                        r.active_power_kw,
+                        r.reactive_power_kvar,
+                        r.mppt_power_kw,
+                        r.power_factor,
+                        r.quality_status
+                    FROM pv_plant_readings_5m r
+                    JOIN pv_plants p ON p.id = r.plant_id
+                    WHERE p.site_key = %s
+                      AND r.observed_at >= %s
+                      AND r.observed_at < %s
+                      AND r.quality_status <> 'invalid'
+                    ORDER BY r.observed_at ASC;
+                    """,
+                    (PV_ACTUALS_SITE_KEY, range_start_utc, range_end_utc),
+                )
+                rows = cur.fetchall()
+    except Exception:
+        raise HTTPException(
+            status_code=503,
+            detail="PV actuals are temporarily unavailable",
+        ) from None
+
+    points = [
+        {
+            "observed_at": row["observed_at"],
+            "local_date": row["local_date"].isoformat(),
+            "active_power_kw": numeric_or_none(row["active_power_kw"]),
+            "reactive_power_kvar": numeric_or_none(row["reactive_power_kvar"]),
+            "mppt_power_kw": numeric_or_none(row["mppt_power_kw"]),
+            "power_factor": numeric_or_none(row["power_factor"]),
+            "quality_status": row["quality_status"],
+        }
+        for row in rows
+    ]
+    return {
+        "source_id": "postgres-pv-plant-readings",
+        "site_key": PV_ACTUALS_SITE_KEY,
+        "timezone": PV_ACTUALS_TIMEZONE,
+        "start_date": start_date.isoformat(),
+        "end_date": end_date.isoformat(),
+        "count": len(points),
+        "points": points,
+    }
+
+
+@app.get(
+    "/pv/actuals/bounds",
+    dependencies=[Depends(require_ops_telemetry_token)],
+)
+def get_pv_actuals_bounds():
+    """Return the available local-date bounds for the bounded PV reader."""
+    try:
+        with get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT
+                        MIN(r.local_date) AS min_date,
+                        MAX(r.local_date) AS max_date
+                    FROM pv_plant_readings_5m r
+                    JOIN pv_plants p ON p.id = r.plant_id
+                    WHERE p.site_key = %s
+                      AND r.active_power_kw IS NOT NULL
+                      AND r.quality_status <> 'invalid';
+                    """,
+                    (PV_ACTUALS_SITE_KEY,),
+                )
+                row = cur.fetchone()
+    except Exception:
+        raise HTTPException(
+            status_code=503,
+            detail="PV actuals are temporarily unavailable",
+        ) from None
+
+    min_date = row["min_date"] if row else None
+    max_date = row["max_date"] if row else None
+    return {
+        "source_id": "postgres-pv-plant-readings",
+        "site_key": PV_ACTUALS_SITE_KEY,
+        "timezone": PV_ACTUALS_TIMEZONE,
+        "min_date": min_date.isoformat() if min_date else None,
+        "max_date": max_date.isoformat() if max_date else None,
+    }
 
 
 @app.get("/upat/devices")

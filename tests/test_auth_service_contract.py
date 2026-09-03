@@ -62,8 +62,11 @@ class AuthServiceDeploymentContractTests(unittest.TestCase):
     def test_production_postgres_remains_unpublished(self):
         self.assertNotIn("ports", self.production["services"]["postgres"])
 
-    def test_caddy_exposes_only_the_two_post_auth_endpoints(self):
+    def test_caddy_exposes_only_the_explicit_internal_and_pv_endpoints(self):
         caddyfile = (ROOT / "caddy" / "Caddyfile").read_text(encoding="utf-8")
+        self.assertIn("method GET", caddyfile)
+        self.assertIn("path /pv/actuals /pv/actuals/bounds", caddyfile)
+        self.assertIn("handle @pv_actuals_service", caddyfile)
         self.assertIn("method POST", caddyfile)
         self.assertIn(
             "path /internal/auth/verify /internal/auth/resolve",

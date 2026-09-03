@@ -3,6 +3,15 @@ telemetry.schoolheroz.com {
 		reverse_proxy api:8000
 	}
 
+	@pv_actuals_service {
+		method GET
+		path /pv/actuals /pv/actuals/bounds
+	}
+
+	handle @pv_actuals_service {
+		reverse_proxy api:8000
+	}
+
 	@auth_read_service {
 		method POST
 		path /internal/auth/verify /internal/auth/resolve
