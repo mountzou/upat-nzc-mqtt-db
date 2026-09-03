@@ -817,7 +817,7 @@ def operational_telemetry():
         ) from None
 
 
-def validate_pv_actuals_range(start_date: date, end_date: date) -> None:
+def validate_pv_readings_range(start_date: date, end_date: date) -> None:
     if start_date > end_date:
         raise HTTPException(
             status_code=400,
@@ -837,15 +837,15 @@ def validate_pv_actuals_range(start_date: date, end_date: date) -> None:
 
 
 @app.get(
-    "/pv/actuals",
+    "/pv/readings",
     dependencies=[Depends(require_ops_telemetry_token)],
 )
-def get_pv_actuals(
+def get_pv_readings(
     start_date: date = Query(...),
     end_date: date = Query(...),
 ):
     """Return bounded, read-only five-minute plant metrics for app consumers."""
-    validate_pv_actuals_range(start_date, end_date)
+    validate_pv_readings_range(start_date, end_date)
     range_start_utc = datetime.combine(
         start_date,
         time.min,
@@ -883,7 +883,7 @@ def get_pv_actuals(
     except Exception:
         raise HTTPException(
             status_code=503,
-            detail="PV actuals are temporarily unavailable",
+            detail="PV readings are temporarily unavailable",
         ) from None
 
     points = [
@@ -910,10 +910,10 @@ def get_pv_actuals(
 
 
 @app.get(
-    "/pv/actuals/bounds",
+    "/pv/readings/bounds",
     dependencies=[Depends(require_ops_telemetry_token)],
 )
-def get_pv_actuals_bounds():
+def get_pv_readings_bounds():
     """Return the available local-date bounds for the bounded PV reader."""
     try:
         with get_connection() as conn:
@@ -935,7 +935,7 @@ def get_pv_actuals_bounds():
     except Exception:
         raise HTTPException(
             status_code=503,
-            detail="PV actuals are temporarily unavailable",
+            detail="PV readings are temporarily unavailable",
         ) from None
 
     min_date = row["min_date"] if row else None

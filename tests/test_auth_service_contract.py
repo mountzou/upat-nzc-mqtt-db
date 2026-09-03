@@ -65,8 +65,8 @@ class AuthServiceDeploymentContractTests(unittest.TestCase):
     def test_caddy_exposes_only_the_explicit_internal_and_pv_endpoints(self):
         caddyfile = (ROOT / "caddy" / "Caddyfile").read_text(encoding="utf-8")
         self.assertIn("method GET", caddyfile)
-        self.assertIn("path /pv/actuals /pv/actuals/bounds", caddyfile)
-        self.assertIn("handle @pv_actuals_service", caddyfile)
+        self.assertIn("path /pv/readings /pv/readings/bounds", caddyfile)
+        self.assertIn("handle @pv_readings_service", caddyfile)
         self.assertIn("method POST", caddyfile)
         self.assertIn(
             "path /internal/auth/verify /internal/auth/resolve",

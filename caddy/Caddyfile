@@ -3,12 +3,12 @@ telemetry.schoolheroz.com {
 		reverse_proxy api:8000
 	}
 
-	@pv_actuals_service {
+	@pv_readings_service {
 		method GET
-		path /pv/actuals /pv/actuals/bounds
+		path /pv/readings /pv/readings/bounds
 	}
 
-	handle @pv_actuals_service {
+	handle @pv_readings_service {
 		reverse_proxy api:8000
 	}
 
