@@ -52,6 +52,7 @@ class AuthServiceDeploymentContractTests(unittest.TestCase):
     def test_api_receives_a_dedicated_auth_service_token(self):
         for compose in (self.local, self.production):
             environment = compose["services"]["api"]["environment"]
+            self.assertIn("AUTH_TOKEN_SECRET", environment)
             self.assertIn("AUTH_SERVICE_TOKEN", environment)
             self.assertIn("OPS_TELEMETRY_TOKEN", environment)
             self.assertNotEqual(
@@ -62,20 +63,25 @@ class AuthServiceDeploymentContractTests(unittest.TestCase):
     def test_production_postgres_remains_unpublished(self):
         self.assertNotIn("ports", self.production["services"]["postgres"])
 
-    def test_caddy_exposes_only_the_explicit_internal_and_pv_endpoints(self):
+    def test_caddy_exposes_explicit_service_and_public_monitoring_endpoints(self):
         caddyfile = (ROOT / "caddy" / "Caddyfile").read_text(encoding="utf-8")
         self.assertIn("method GET", caddyfile)
-        self.assertIn("path /pv/readings /pv/readings/bounds", caddyfile)
-        self.assertIn("handle @pv_readings_service", caddyfile)
+        self.assertIn(
+            "path /pv/readings /pv/readings/bounds /pv/day-ahead/range",
+            caddyfile,
+        )
+        self.assertIn("handle @pv_data_service", caddyfile)
         self.assertIn("method POST", caddyfile)
         self.assertIn(
-            "path /internal/auth/verify /internal/auth/resolve",
+            "path /internal/auth/verify /internal/auth/resolve /internal/auth/session",
             caddyfile,
         )
         self.assertIn("handle @auth_read_service", caddyfile)
         self.assertIn("method PATCH", caddyfile)
         self.assertIn("path /internal/auth/preferences", caddyfile)
         self.assertIn("handle @auth_preferences_service", caddyfile)
+        self.assertIn("handle @monitoring_public", caddyfile)
+        self.assertIn("/auth/login /auth/me /auth/preferences /schools /rooms /energy/* /indoor_environment/* /thermal-comfort/*", caddyfile)
         self.assertNotIn("/internal/auth/*", caddyfile)
         self.assertNotIn("handle /internal/*", caddyfile)
 
@@ -86,6 +92,7 @@ class AuthServiceDeploymentContractTests(unittest.TestCase):
     def test_example_environment_declares_no_auth_token_value(self):
         env_lines = (ROOT / ".env.example").read_text(encoding="utf-8").splitlines()
         self.assertIn("AUTH_SERVICE_TOKEN=", env_lines)
+        self.assertIn("AUTH_TOKEN_SECRET=", env_lines)
 
 
 if __name__ == "__main__":

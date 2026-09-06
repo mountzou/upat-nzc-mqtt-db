@@ -3,18 +3,18 @@ telemetry.schoolheroz.com {
 		reverse_proxy api:8000
 	}
 
-	@pv_readings_service {
+	@pv_data_service {
 		method GET
-		path /pv/readings /pv/readings/bounds
+		path /pv/readings /pv/readings/bounds /pv/day-ahead/range
 	}
 
-	handle @pv_readings_service {
+	handle @pv_data_service {
 		reverse_proxy api:8000
 	}
 
 	@auth_read_service {
 		method POST
-		path /internal/auth/verify /internal/auth/resolve
+		path /internal/auth/verify /internal/auth/resolve /internal/auth/session
 	}
 
 	handle @auth_read_service {
@@ -29,6 +29,15 @@ telemetry.schoolheroz.com {
 	handle @auth_preferences_service {
 		reverse_proxy api:8000
 	}
+
+	@monitoring_public {
+        path /auth/login /auth/me /auth/preferences /schools /rooms /energy/* /indoor_environment/* /thermal-comfort/*
+    }
+    handle @monitoring_public {
+        reverse_proxy api:8000 {
+            flush_interval -1
+        }
+    }
 
 	handle {
 		respond "Not Found" 404

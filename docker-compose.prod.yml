@@ -107,6 +107,7 @@ services:
       POSTGRES_DB: ${POSTGRES_DB}
       OPS_TELEMETRY_TOKEN: ${OPS_TELEMETRY_TOKEN:?OPS_TELEMETRY_TOKEN is required}
       AUTH_SERVICE_TOKEN: ${AUTH_SERVICE_TOKEN:-}
+      AUTH_TOKEN_SECRET: ${AUTH_TOKEN_SECRET:-}
     ports:
       # Staged rollout: remove this public binding only after HTTPS and all
       # downstream callers have been validated through the reverse proxy.

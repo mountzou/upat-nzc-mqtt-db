@@ -23,7 +23,7 @@ async def redact_auth_request_validation_error(
     request: Request,
     exc: RequestValidationError,
 ):
-    if request.url.path.startswith("/internal/auth/"):
+    if request.url.path.startswith(("/internal/auth/", "/auth/")):
         return JSONResponse(
             status_code=422,
             content={"detail": "Invalid authentication request."},
@@ -949,6 +949,82 @@ def get_pv_readings_bounds():
     }
 
 
+@app.get(
+    "/pv/day-ahead/range",
+    dependencies=[Depends(require_ops_telemetry_token)],
+)
+def get_pv_day_ahead_forecast_range(
+    start_date: date = Query(...),
+    end_date: date = Query(...),
+):
+    """Return the latest persisted forecast for each bounded local date."""
+    validate_pv_readings_range(start_date, end_date)
+    try:
+        with get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    WITH latest_runs AS (
+                        SELECT DISTINCT ON (forecast_date)
+                            id,
+                            forecast_date
+                        FROM pv_day_ahead_forecast_runs
+                        WHERE success = TRUE
+                          AND forecast_date >= %s
+                          AND forecast_date <= %s
+                        ORDER BY forecast_date ASC, started_at DESC, id DESC
+                    )
+                    SELECT
+                        r.forecast_date,
+                        h.forecast_timestamp,
+                        h.forecast_hour,
+                        h.predicted_power_kw
+                    FROM latest_runs r
+                    JOIN pv_day_ahead_forecast_hourly h ON h.run_id = r.id
+                    ORDER BY r.forecast_date ASC, h.forecast_timestamp ASC;
+                    """,
+                    (start_date, end_date),
+                )
+                rows = cur.fetchall()
+    except Exception:
+        raise HTTPException(
+            status_code=503,
+            detail="PV forecasts are temporarily unavailable",
+        ) from None
+
+    forecasts_by_date: dict[str, dict] = {}
+    for row in rows:
+        forecast_date = row["forecast_date"].isoformat()
+        forecast = forecasts_by_date.setdefault(
+            forecast_date,
+            {
+                "forecast_date": forecast_date,
+                "count": 0,
+                "items": [],
+            },
+        )
+        forecast["items"].append(
+            {
+                "timestamp": row["forecast_timestamp"],
+                "hour": row["forecast_hour"],
+                "predicted_power_kw": numeric_or_none(
+                    row["predicted_power_kw"]
+                ),
+            }
+        )
+        forecast["count"] += 1
+
+    forecasts = list(forecasts_by_date.values())
+    return {
+        "source_id": "postgres-pv-day-ahead-forecasts",
+        "timezone": PV_ACTUALS_TIMEZONE,
+        "start_date": start_date.isoformat(),
+        "end_date": end_date.isoformat(),
+        "count": len(forecasts),
+        "forecasts": forecasts,
+    }
+
+
 @app.get("/upat/devices")
 def get_all_upat_devices():
     with get_connection() as conn:
@@ -1760,3 +1836,16 @@ def get_shelly_device_energy(
             "total": total,
         },
     }
+
+
+# End-user data/API lives with PostgreSQL; simulation compute is a separate service.
+from monitoring.install import install as install_monitoring
+
+def require_session_service_token(authorization: Annotated[str | None, Header(alias="Authorization")] = None):
+    scheme, _, credentials = (authorization or "").partition(" ")
+    if len(AUTH_SERVICE_TOKEN) < 32:
+        raise HTTPException(503, "Authentication service is not configured", headers={"Cache-Control":"no-store"})
+    if scheme.lower() != "bearer" or not hmac.compare_digest(credentials, AUTH_SERVICE_TOKEN):
+        raise HTTPException(401, "Invalid service credentials", headers={"Cache-Control":"no-store"})
+
+install_monitoring(app, require_session_service_token)

@@ -1,0 +1,258 @@
+[
+  {
+    "id": "classroom",
+    "label": "Classroom",
+    "physical_instance_count": 8,
+    "idf_file": "classroom.idf",
+    "zone_name": "Classroom",
+    "people_object_name": "Room People",
+    "occupancy_schedule_name": "OCCUPY-ROOM",
+    "thermostat_type": "single_heating",
+    "heating_schedule_name": "Htg-SetP-Sch",
+    "cooling_schedule_name": null,
+    "defaults": {
+      "occupancy": 25,
+      "heating_setpoint": 17,
+      "cooling_setpoint": null,
+      "lighting_w_per_m2": 10.0,
+      "infiltration_ach": 4.0
+    },
+    "static_schedules": {
+      "occupancy": "OCCUPY-ROOM",
+      "lighting": "LIGHTS-1",
+      "hvac_availability": "HVAC-Avail",
+      "thermostat_control": "Zone Control Type Sched",
+      "ventilation": "Vent-Sch",
+      "activity": "ActSchd",
+      "heating_setpoint": "Htg-SetP-Sch",
+      "outdoor_co2": "Outdoor_CO2_Level",
+      "infiltration": "INFIL-SCH"
+    },
+    "idf_exists": true
+  },
+  {
+    "id": "computerclassroom",
+    "label": "Computer Classroom",
+    "idf_file": "computerclassroom.idf",
+    "zone_name": "Computer_Classroom",
+    "people_object_name": "Room People",
+    "occupancy_schedule_name": "OCCUPY-ROOM",
+    "thermostat_type": "dual_setpoint",
+    "heating_schedule_name": "Htg-SetP-Sch",
+    "cooling_schedule_name": "Clg-SetP-Sch",
+    "defaults": {
+      "occupancy": 25,
+      "heating_setpoint": 17,
+      "cooling_setpoint": 22,
+      "lighting_w_per_m2": 10.0,
+      "infiltration_ach": 4.0
+    },
+    "static_schedules": {
+      "occupancy": "OCCUPY-ROOM",
+      "lighting": "LIGHTS-1",
+      "equipment": "EQUIP-1",
+      "heating_availability": "Heat-Avail",
+      "hvac_availability": "HVAC-Avail",
+      "thermostat_control": "Zone Control Type Sched",
+      "ventilation": "Vent-Sch",
+      "activity": "ActSchd",
+      "heating_setpoint": "Htg-SetP-Sch",
+      "cooling_setpoint": "Clg-SetP-Sch",
+      "outdoor_co2": "Outdoor_CO2_Level",
+      "infiltration": "INFIL-SCH"
+    },
+    "idf_exists": true
+  },
+  {
+    "id": "eventhall",
+    "label": "Event Hall",
+    "idf_file": "eventhall.idf",
+    "zone_name": "Event_Hall",
+    "people_object_name": "Room People",
+    "occupancy_schedule_name": "OCCUPY-ROOM",
+    "thermostat_type": "dual_setpoint",
+    "heating_schedule_name": "Htg-SetP-Sch",
+    "cooling_schedule_name": "Clg-SetP-Sch",
+    "defaults": {
+      "occupancy": 250,
+      "heating_setpoint": 20,
+      "cooling_setpoint": 24,
+      "lighting_w_per_m2": 10.0,
+      "infiltration_ach": 4.0
+    },
+    "static_schedules": {
+      "occupancy": "OCCUPY-ROOM",
+      "lighting": "LIGHTS-1",
+      "equipment": "EQUIP-Event",
+      "hvac_availability": "HVAC-Avail",
+      "thermostat_control": "Zone Control Type Sched",
+      "ventilation": "Vent-Sch",
+      "activity": "ActSchd",
+      "heating_setpoint": "Htg-SetP-Sch",
+      "cooling_setpoint": "Clg-SetP-Sch",
+      "outdoor_co2": "Outdoor_CO2_Level",
+      "infiltration": "INFIL-SCH"
+    },
+    "idf_exists": true
+  },
+  {
+    "id": "lab",
+    "label": "Lab",
+    "idf_file": "lab.idf",
+    "zone_name": "Lab",
+    "people_object_name": "Room People",
+    "occupancy_schedule_name": "OCCUPY-ROOM",
+    "thermostat_type": "single_heating",
+    "heating_schedule_name": "Htg-SetP-Sch",
+    "cooling_schedule_name": null,
+    "defaults": {
+      "occupancy": 30,
+      "heating_setpoint": 17,
+      "cooling_setpoint": null,
+      "lighting_w_per_m2": 10.0,
+      "infiltration_ach": 4.0
+    },
+    "static_schedules": {
+      "occupancy": "OCCUPY-ROOM",
+      "lighting": "LIGHTS-1",
+      "hvac_availability": "HVAC-Avail",
+      "thermostat_control": "Zone Control Type Sched",
+      "ventilation": "Vent-Sch",
+      "activity": "ActSchd",
+      "heating_setpoint": "Htg-SetP-Sch",
+      "outdoor_co2": "Outdoor_CO2_Level",
+      "infiltration": "INFIL-SCH"
+    },
+    "idf_exists": true
+  },
+  {
+    "id": "library",
+    "label": "Library",
+    "idf_file": "library.idf",
+    "zone_name": "Library",
+    "people_object_name": "Room People",
+    "occupancy_schedule_name": "OCCUPY-ROOM",
+    "thermostat_type": "dual_setpoint",
+    "heating_schedule_name": "Htg-SetP-Sch",
+    "cooling_schedule_name": "Clg-SetP-Sch",
+    "defaults": {
+      "occupancy": 20,
+      "heating_setpoint": 17,
+      "cooling_setpoint": 22,
+      "lighting_w_per_m2": 10.0,
+      "infiltration_ach": 0.5
+    },
+    "static_schedules": {
+      "occupancy": "OCCUPY-ROOM",
+      "lighting": "LIGHTS-1",
+      "heating_availability": "Heat-Avail",
+      "hvac_availability": "HVAC-Avail",
+      "thermostat_control": "Zone Control Type Sched",
+      "ventilation": "Vent-Sch",
+      "activity": "ActSchd",
+      "heating_setpoint": "Htg-SetP-Sch",
+      "cooling_setpoint": "Clg-SetP-Sch",
+      "outdoor_co2": "Outdoor_CO2_Level",
+      "infiltration": "INFIL-SCH"
+    },
+    "idf_exists": true
+  },
+  {
+    "id": "principal1",
+    "label": "Principal 1 Office",
+    "idf_file": "principal1.idf",
+    "zone_name": "Principal1_Office",
+    "people_object_name": "Room2 People",
+    "occupancy_schedule_name": "OCCUPY-ROOM2",
+    "thermostat_type": "dual_setpoint",
+    "heating_schedule_name": "Htg-SetP-Sch",
+    "cooling_schedule_name": "Clg-SetP-Sch",
+    "defaults": {
+      "occupancy": 1,
+      "heating_setpoint": 17,
+      "cooling_setpoint": 22,
+      "lighting_w_per_m2": 10.0,
+      "infiltration_ach": 0.5
+    },
+    "static_schedules": {
+      "occupancy": "OCCUPY-ROOM2",
+      "lighting": "LIGHTS-2",
+      "equipment": "EQUIP-1",
+      "heating_availability": "Heat-Avail",
+      "hvac_availability": "HVAC-Avail",
+      "thermostat_control": "Zone Control Type Sched",
+      "ventilation": "Vent-Sch1",
+      "activity": "ActSchd",
+      "heating_setpoint": "Htg-SetP-Sch",
+      "cooling_setpoint": "Clg-SetP-Sch",
+      "outdoor_co2": "Outdoor_CO2_Level",
+      "infiltration": "INFIL-SCH"
+    },
+    "idf_exists": true
+  },
+  {
+    "id": "principal2",
+    "label": "Principal 2 Office",
+    "idf_file": "principal2.idf",
+    "zone_name": "Principal2_Office",
+    "people_object_name": "Room3 People",
+    "occupancy_schedule_name": "OCCUPY-ROOM2",
+    "thermostat_type": "dual_setpoint",
+    "heating_schedule_name": "Htg-SetP-Sch",
+    "cooling_schedule_name": "Clg-SetP-Sch",
+    "defaults": {
+      "occupancy": 1,
+      "heating_setpoint": 17,
+      "cooling_setpoint": 22,
+      "lighting_w_per_m2": 10.0,
+      "infiltration_ach": 0.5
+    },
+    "static_schedules": {
+      "occupancy": "OCCUPY-ROOM2",
+      "lighting": "LIGHTS-2",
+      "equipment": "EQUIP-1",
+      "heating_availability": "Heat-Avail",
+      "hvac_availability": "HVAC-Avail",
+      "thermostat_control": "Zone Control Type Sched",
+      "ventilation": "Vent-Sch2",
+      "activity": "ActSchd",
+      "heating_setpoint": "Htg-SetP-Sch",
+      "cooling_setpoint": "Clg-SetP-Sch",
+      "outdoor_co2": "Outdoor_CO2_Level",
+      "infiltration": "INFIL-SCH"
+    },
+    "idf_exists": true
+  },
+  {
+    "id": "teachers",
+    "label": "Teachers Office",
+    "idf_file": "teachers.idf",
+    "zone_name": "Teachers_Office",
+    "people_object_name": "Room1 People",
+    "occupancy_schedule_name": "OCCUPY-ROOM1",
+    "thermostat_type": "dual_setpoint",
+    "heating_schedule_name": "Htg-SetP-Sch",
+    "cooling_schedule_name": "Clg-SetP-Sch",
+    "defaults": {
+      "occupancy": 20,
+      "heating_setpoint": 17,
+      "cooling_setpoint": 22,
+      "lighting_w_per_m2": 10.0,
+      "infiltration_ach": 0.5
+    },
+    "static_schedules": {
+      "occupancy": "OCCUPY-ROOM1",
+      "lighting": "LIGHTS-1",
+      "heating_availability": "Heat-Avail",
+      "hvac_availability": "HVAC-Avail",
+      "thermostat_control": "Zone Control Type Sched",
+      "ventilation": "Vent-Sch1",
+      "activity": "ActSchd",
+      "heating_setpoint": "Htg-SetP-Sch",
+      "cooling_setpoint": "Clg-SetP-Sch",
+      "outdoor_co2": "Outdoor_CO2_Level",
+      "infiltration": "INFIL-SCH"
+    },
+    "idf_exists": true
+  }
+]
