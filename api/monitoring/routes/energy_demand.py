@@ -1,6 +1,7 @@
 import logging
 from datetime import datetime
 from time import perf_counter
+from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from pydantic import ValidationError
@@ -8,7 +9,7 @@ from pydantic import ValidationError
 from monitoring.policies.school_hours import SCHOOL_HOURS_BUCKET_LABEL
 from monitoring.routes.auth import get_current_user
 from monitoring.schemas import EnergyDeviceMetadata
-from monitoring.schemas import RoomHourlyEnergyResponse
+from monitoring.schemas import RoomHourlyEnergyResponse, CompactConsumptionResponse
 from monitoring.schemas import SchoolEnergyInsightsResponse
 from monitoring.schemas import ShellyPro3emEnergyEstimateResponse
 from monitoring.services.authentication import AuthUserRecord
@@ -50,13 +51,14 @@ def get_energy_school_devices(
 
 @router.get(
     "/energy/schools/{school_id}/rooms/hourly-energy",
-    response_model=RoomHourlyEnergyResponse,
+    response_model=CompactConsumptionResponse | RoomHourlyEnergyResponse,
 )
 def get_school_room_hourly_energy_endpoint(
     school_id: str,
     room_key: str = Query(..., min_length=1, description="Room key (matches device room_id / room_label)."),
     start: datetime | None = Query(None, description="Range start (UTC). Omit with end to use API default."),
     end: datetime | None = Query(None, description="Range end (UTC). Hourly buckets must lie fully within [start, end]."),
+    format: Literal["legacy", "compact"] = Query("legacy", description="Compact v1 omits hourly device detail and supplies server period metrics and coverage."),
     working_only: bool = Query(
         False,
         description=f"Restrict to {SCHOOL_HOURS_BUCKET_LABEL} when true.",
@@ -70,6 +72,7 @@ def get_school_room_hourly_energy_endpoint(
         start=start,
         end=end,
         working_only=working_only,
+        format=format,
     )
 
 

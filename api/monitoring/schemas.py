@@ -487,6 +487,55 @@ class RoomHourlyEnergyResponse(BaseModel):
     points: list[RoomHourlyEnergyPoint]
 
 
+class CompactConsumptionPoint(BaseModel):
+    window_start: str
+    window_end: str
+    energy_wh_total: float = Field(ge=0, allow_inf_nan=False)
+    observed_series_count: int = Field(ge=1)
+
+
+class CompactConsumptionSummary(BaseModel):
+    # Empty data stays null; measured zero stays zero.
+    total_energy_kwh: float | None = Field(ge=0, allow_inf_nan=False)
+    equivalent_co2_kg: float | None = Field(ge=0, allow_inf_nan=False)
+    mean_hourly_energy_kwh: float | None = Field(ge=0, allow_inf_nan=False)
+    peak_hourly_energy_kwh: float | None = Field(ge=0, allow_inf_nan=False)
+    measured_hour_count: int = Field(ge=0)
+
+
+class CompactConsumptionCoverage(BaseModel):
+    expected_hour_count: int = Field(ge=0)
+    observed_hour_count: int = Field(ge=0)
+    complete_hour_count: int = Field(ge=0)
+    expected_series_count: int = Field(ge=0)
+
+
+class CompactConsumptionLoad(BaseModel):
+    device_id: str
+    label: str
+    phase: Literal["a", "b", "c"] | None = None
+    energy_kwh: float | None = Field(ge=0, allow_inf_nan=False)
+    observed_hour_count: int = Field(ge=0)
+
+
+class CompactConsumptionResponse(BaseModel):
+    contract: Literal["consumption.compact.v1"]
+    room_key: str
+    start: str
+    end: str
+    working_only: bool
+    emissions_factor_kg_per_kwh: float = Field(ge=0, allow_inf_nan=False)
+    emissions_factor_source: str
+    emissions_factor_reference_year: int | None = None
+    emissions_factor_version: str
+    device_ids: list[str]
+    count: int
+    points: list[CompactConsumptionPoint]
+    summary: CompactConsumptionSummary
+    coverage: CompactConsumptionCoverage
+    breakdown: list[CompactConsumptionLoad]
+
+
 class SchoolDeviceMetadata(BaseModel):
     id: str
     label: str

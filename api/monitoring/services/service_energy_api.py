@@ -1,5 +1,6 @@
 from monitoring.local_data import local_read
 import logging
+import math
 from datetime import datetime, timedelta
 
 from fastapi import HTTPException
@@ -208,17 +209,19 @@ def build_room_hourly_series_plan(room_devices: list[dict], room_key: str) -> li
     return plan
 
 
-def aggregate_shelly_hourly_items_by_window_and_device(
+def _accumulate_hourly_series(
     items: list,
     *,
     series_plan: list[tuple[str, str | None, str]],
-) -> list[dict]:
+    strict: bool = False,
+) -> tuple[dict, dict]:
     """Group upstream hourly rows by time window; split Wh per chart series (plugs + Pro 3EM phases)."""
     if not series_plan:
-        return []
+        return {}, {}
 
     n_series = len(series_plan)
     nested: dict[tuple[str, str], list[float]] = {}
+    observed: dict[tuple[str, str], set[int]] = {}
 
     for item in items:
         if not isinstance(item, dict):
@@ -239,6 +242,7 @@ def aggregate_shelly_hourly_items_by_window_and_device(
         key = (str(ws), str(we))
         if key not in nested:
             nested[key] = [0.0] * n_series
+            observed[key] = set()
         row = nested[key]
 
         for i, (plan_did, phase, _) in enumerate(series_plan):
@@ -247,8 +251,19 @@ def aggregate_shelly_hourly_items_by_window_and_device(
             v = _hourly_wh_slice(energy_wh, phase)
             if v is None:
                 continue
+            if strict and (not math.isfinite(v) or v < 0):
+                raise HTTPException(502, "Invalid hourly energy measurement")
             row[i] += v
+            observed[key].add(i)
 
+    return nested, observed
+
+
+def aggregate_shelly_hourly_items_by_window_and_device(
+    items: list, *, series_plan: list[tuple[str, str | None, str]],
+) -> list[dict]:
+    """Legacy serialization; compact uses the same accumulator without hourly device objects."""
+    nested, _ = _accumulate_hourly_series(items, series_plan=series_plan)
     result: list[dict] = []
     for ws, we in sorted(nested.keys(), key=lambda k: k[0]):
         counts = nested[(ws, we)]
@@ -283,6 +298,7 @@ def fetch_shelly_hourly_energy(
     start: datetime,
     end: datetime,
     working_only: bool = False,
+    preserve_missing: bool = False,
 ) -> dict:
     """
     GET /shelly/hourly-energy on the device API (precomputed hourly Wh per device).
@@ -301,6 +317,8 @@ def fetch_shelly_hourly_energy(
     params.append(("start", _serialize_shelly_energy_window_param(start_naive)))
     params.append(("end", _serialize_shelly_energy_window_param(end_naive)))
     params.append(("working_only", working_only))
+    if preserve_missing:
+        params.append(("preserve_missing", True))
 
     url = f"{BASE_URL}/shelly/hourly-energy"
     return _get_shelly_json_params(
@@ -435,6 +453,7 @@ def get_school_room_hourly_energy(
     start: datetime | None,
     end: datetime | None,
     working_only: bool,
+    format: str = "legacy",
 ) -> dict:
     """
     Hourly Wh per room: totals plus per-device slices (plug + Pro 3EM) for stacked charts.
@@ -459,8 +478,20 @@ def get_school_room_hourly_energy(
         if end_dt < start_dt:
             raise HTTPException(status_code=400, detail="end must be greater than or equal to start")
 
+    if format == "compact" and end_dt - start_dt > timedelta(days=90):
+        raise HTTPException(400, "Energy history must not exceed 90 days")
+
     start_str = _serialize_shelly_energy_window_param(start_dt)
     end_str = _serialize_shelly_energy_window_param(end_dt)
+
+    if format == "compact":
+        raw = fetch_shelly_hourly_energy(device_ids, start=start_dt, end=end_dt, working_only=False, preserve_missing=True) if device_ids else {}
+        from monitoring.services.consumption_compact import build_compact_consumption
+        return build_compact_consumption(
+            raw.get("items", []), room_key=room_key, device_ids=device_ids,
+            series_plan=series_plan, start=start_dt, end=end_dt, working_only=working_only,
+            emissions=_emissions_factor_contract(),
+        )
 
     if not device_ids:
         return {

@@ -1461,6 +1461,14 @@ def get_shelly_hourly_energy(
     end: str | None = None,
     working_only: bool = Query(default=False),
 ):
+    return fetch_shelly_hourly_energy_rows(device_id, start, end, working_only)
+
+
+def fetch_shelly_hourly_energy_rows(device_id, start, end, working_only, *, preserve_missing=False):
+    """Canonical hourly query. Compact callers retain NULL; legacy serialization stays unchanged."""
+    def energy_value(value):
+        return None if preserve_missing and value is None else round(float(value or 0.0), 3)
+
     device_ids = normalize_device_ids(device_id)
 
     if not device_ids:
@@ -1507,7 +1515,7 @@ def get_shelly_hourly_energy(
                         "is_working_day": row["is_working_day"],
                         "is_working_hour": row["is_working_hour"],
                         "energy_wh": {
-                            "total": round(float(row["energy_wh"] or 0.0), 3),
+                            "total": energy_value(row["energy_wh"]),
                         },
                         "created_at": row["created_at"],
                     })
@@ -1546,10 +1554,10 @@ def get_shelly_hourly_energy(
                         "is_working_day": row["is_working_day"],
                         "is_working_hour": row["is_working_hour"],
                         "energy_wh": {
-                            "a": round(float(row["a_energy_wh"] or 0.0), 3),
-                            "b": round(float(row["b_energy_wh"] or 0.0), 3),
-                            "c": round(float(row["c_energy_wh"] or 0.0), 3),
-                            "total": round(float(row["total_energy_wh"] or 0.0), 3),
+                            "a": energy_value(row["a_energy_wh"]),
+                            "b": energy_value(row["b_energy_wh"]),
+                            "c": energy_value(row["c_energy_wh"]),
+                            "total": energy_value(row["total_energy_wh"]),
                         },
                         "created_at": row["created_at"],
                     })

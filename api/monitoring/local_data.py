@@ -17,9 +17,10 @@ def local_read(url, params=None):
         raise HTTPException(503, "Monitoring data is busy. Try again shortly.")
     try:
         if path == '/shelly/hourly-energy':
-            result = main.get_shelly_hourly_energy(
+            result = main.fetch_shelly_hourly_energy_rows(
                 device_id=values.get('device_id'), start=values.get('start'),
-                end=values.get('end'), working_only=values.get('working_only', False))
+                end=values.get('end'), working_only=values.get('working_only', False),
+                preserve_missing=values.get('preserve_missing', False))
         else:
             parts=path.strip('/').split('/')
             if len(parts)!=4 or parts[0] not in {'upat','shelly'} or parts[1]!='device':
