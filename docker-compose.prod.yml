@@ -97,7 +97,7 @@ services:
         condition: service_healthy
 
   api:
-    image: sha256:e2ac2b61f0cf8a8b328d0539af1ec9a08a1a0ea037defd7ba9029b4d40fb9b4e
+    image: sha256:f2cc6719c8f722987265b13417c170eb74c3a5518db20e273f2ca7cbd0389089
     build:
       context: ./api
     container_name: iot_api

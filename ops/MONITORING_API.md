@@ -91,7 +91,35 @@ against the preceding commit produced identical results for 36 HTTP-handler
 cases, 36 service cases and two complete school-insights calculations. All 78
 executed SQL statements and parameters matched, as did the OpenAPI schema
 (51 paths). The existing Dockerfile already copies the entire readers package.
-This source batch requires a separate build and API-only rollout from its commit.
+The second batch was activated on 8 September 2026 from commit
+`96ac96cf68f4be47a83ae54a53362c40d555ee08`. Its immutable image is
+`sha256:f2cc6719c8f722987265b13417c170eb74c3a5518db20e273f2ca7cbd0389089`.
+The build retained every installed dependency from the preceding API image;
+runtime hashes match the committed source. Candidate acceptance passed 309
+checks with database connections forced read-only, followed by 300 checks on
+the activated API, including public HTTPS hourly energy and school insights.
+The initial acceptance script incorrectly required nonempty insights for both
+schools. The previous API already reports school_22 as unavailable with zero
+analyzed devices; the corrected check verifies identical populated and
+unavailable results without changing the image or API code.
+
+Only API was recreated. Readiness passed after 25.8 seconds from activation
+start (not an independently measured outage duration). PostgreSQL identity and
+start time, every other container and mount, Caddy and environment settings
+were unchanged. During that readiness window, 14 UPAT and 23 Shelly raw messages
+were persisted. Five reviewed runtime source paths were aligned in the VPS
+checkout; unrelated changes were preserved. No migration or collector restart
+was performed. The temporary candidate was removed; no API tracebacks or HTTP
+500 responses were found after activation.
+
+Verified source/configuration backup, the preceding image archive (all 68 OCI
+blobs verified) and automatic rollback are retained root-private at
+`/opt/schoolheroz-hourly-reader-rollout-20260908`. Rollback was not used.
+Authenticated web checks with school_10 passed for consumption, energy insights,
+environmental live/history data and PV production. Render health passed. The
+iOS visual check awaits a free Simulator, which displayed another application
+after SchoolHeroZ was launched. No consumer build, installation or deployment
+was performed.
 
 ## Safe deployment
 
