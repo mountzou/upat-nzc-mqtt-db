@@ -8,6 +8,16 @@ import main
 
 
 class SimulationRecorderRequestContractTests(unittest.TestCase):
+    def test_simulation_urls_use_the_shared_api_base(self):
+        self.assertEqual(
+            main.build_simulation_url(),
+            f"{main.SIMULATION_API_BASE_URL}/simulate/day-ahead",
+        )
+        self.assertEqual(
+            main.build_simulation_auth_url(),
+            f"{main.SIMULATION_API_BASE_URL}/auth/login",
+        )
+
     def test_school_scope_defaults_to_supported_school_catalog(self):
         self.assertEqual(
             main.parse_simulation_school_ids(None),

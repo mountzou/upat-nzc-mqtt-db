@@ -193,14 +193,14 @@ A recommended production order for the day-ahead jobs is below, using `Europe/At
 
 1. `22:50` — refresh the Open-Meteo weather forecast.
 2. `23:00` — generate and persist the D+1 PV forecast.
-3. `23:10` — run and persist the D+1 EnergyPlus demand simulation for `school_10`.
+3. `23:10` — run and persist the D+1 EnergyPlus demand simulation for all supported schools.
 
 The cron daemon invokes each entry every minute, while an explicit `TZ=Europe/Athens` time guard selects the intended local time across daylight-saving changes. `flock` prevents overlapping runs. These are the repository-recommended entries; verify them against the live VPS crontab before applying changes:
 
 ```cron
 * * * * * /usr/bin/env TZ=Europe/Athens /bin/sh -c '[ "$(/bin/date +\%H:\%M)" = "22:50" ] || exit 0; cd /opt/upat-nzc-mqtt-db && /usr/bin/flock -n /var/lock/weather-collector.lock /usr/bin/docker compose -f docker-compose.prod.yml --profile jobs run --rm --no-deps weather-collector' >> /var/log/weather-collector.log 2>&1
 * * * * * /usr/bin/env TZ=Europe/Athens /bin/sh -c '[ "$(/bin/date +\%H:\%M)" = "23:00" ] || exit 0; cd /opt/upat-nzc-mqtt-db && /usr/bin/flock -n /var/lock/pv-prediction.lock /usr/bin/docker compose -f docker-compose.prod.yml --profile jobs run --rm --no-deps pv-prediction' >> /var/log/pv_prediction.log 2>&1
-* * * * * /usr/bin/env TZ=Europe/Athens /bin/sh -c '[ "$(/bin/date +\%H:\%M)" = "23:10" ] || exit 0; cd /opt/upat-nzc-mqtt-db && /usr/bin/flock -n /var/lock/simulation-recorder.lock /usr/bin/docker compose -f docker-compose.prod.yml run --rm --no-deps -e SIMULATION_SCHOOL_IDS=school_10 simulation-recorder' >> /var/log/simulation_recorder.log 2>&1
+* * * * * /usr/bin/env TZ=Europe/Athens /bin/sh -c '[ "$(/bin/date +\%H:\%M)" = "23:10" ] || exit 0; cd /opt/upat-nzc-mqtt-db && /usr/bin/flock -n /var/lock/simulation-recorder.lock /usr/bin/docker compose -f docker-compose.prod.yml run --rm --no-deps -e SIMULATION_SCHOOL_IDS=school_3,school_7,school_10,school_13,school_22,school_23 simulation-recorder' >> /var/log/simulation_recorder.log 2>&1
 ```
 
 The recommended PV entry intentionally omits the legacy lag variables, so new RF rows store `NULL` in those fields unless a real value is supplied explicitly.

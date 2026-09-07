@@ -65,11 +65,8 @@ def parse_simulation_school_ids(raw_value):
     if raw_value is None:
         return list(DEFAULT_SIMULATION_SCHOOL_IDS)
 
-    school_ids = []
-    for value in raw_value.split(","):
-        school_id = value.strip()
-        if school_id and school_id not in school_ids:
-            school_ids.append(school_id)
+    values = (value.strip() for value in raw_value.split(","))
+    school_ids = list(dict.fromkeys(filter(None, values)))
 
     if not school_ids:
         raise ValueError(
@@ -80,7 +77,7 @@ def parse_simulation_school_ids(raw_value):
     if unsupported:
         raise ValueError(
             "SIMULATION_SCHOOL_IDS contains unsupported school ids: "
-            + ", ".join(unsupported)
+            f"{', '.join(unsupported)}"
         )
 
     return school_ids
@@ -115,16 +112,17 @@ def db_connect():
     raise connection_error
 
 
-def build_simulation_url():
+def build_simulation_api_url(path):
     base_url = SIMULATION_API_BASE_URL.rstrip("/") + "/"
-    path = SIMULATION_API_PATH.lstrip("/")
-    return urljoin(base_url, path)
+    return urljoin(base_url, path.lstrip("/"))
+
+
+def build_simulation_url():
+    return build_simulation_api_url(SIMULATION_API_PATH)
 
 
 def build_simulation_auth_url():
-    base_url = SIMULATION_API_BASE_URL.rstrip("/") + "/"
-    path = SIMULATION_API_AUTH_PATH.lstrip("/")
-    return urljoin(base_url, path)
+    return build_simulation_api_url(SIMULATION_API_AUTH_PATH)
 
 
 def fetch_simulation_access_token(auth_url, username, password):
