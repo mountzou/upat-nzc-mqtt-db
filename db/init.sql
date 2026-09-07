@@ -4,7 +4,7 @@ CREATE TABLE IF NOT EXISTS upat_devices (
     device_id TEXT NOT NULL,
     dev_eui TEXT,
     name TEXT,
-    created_at TIMESTAMP DEFAULT NOW(),
+    created_at TIMESTAMPTZ DEFAULT NOW(),
     UNIQUE (source, device_id),
     UNIQUE (source, dev_eui)
 );
@@ -17,7 +17,7 @@ CREATE TABLE IF NOT EXISTS shelly_devices (
     source TEXT NOT NULL,
     device_id TEXT NOT NULL,
     name TEXT,
-    created_at TIMESTAMP DEFAULT NOW(),
+    created_at TIMESTAMPTZ DEFAULT NOW(),
     UNIQUE (source, device_id)
 );
 
@@ -30,8 +30,8 @@ CREATE TABLE IF NOT EXISTS upat_raw_messages (
     device_id TEXT NOT NULL,
     topic TEXT,
     payload JSONB NOT NULL,
-    event_time TIMESTAMP,
-    ingestion_time TIMESTAMP DEFAULT NOW()
+    event_time TIMESTAMPTZ,
+    ingestion_time TIMESTAMPTZ DEFAULT NOW()
 );
 
 CREATE INDEX IF NOT EXISTS idx_upat_raw_messages_device_id_event_time
@@ -43,7 +43,7 @@ CREATE TABLE IF NOT EXISTS upat_measurements (
     metric TEXT NOT NULL,
     value DOUBLE PRECISION,
     unit TEXT,
-    event_time TIMESTAMP
+    event_time TIMESTAMPTZ
 );
 
 CREATE INDEX IF NOT EXISTS idx_upat_measurements_device_metric_event_time
@@ -54,8 +54,8 @@ CREATE TABLE IF NOT EXISTS shelly_raw_messages (
     device_id TEXT NOT NULL,
     topic TEXT NOT NULL,
     payload JSONB NOT NULL,
-    event_time TIMESTAMP,
-    ingestion_time TIMESTAMP DEFAULT NOW()
+    event_time TIMESTAMPTZ,
+    ingestion_time TIMESTAMPTZ DEFAULT NOW()
 );
 
 CREATE INDEX IF NOT EXISTS idx_shelly_raw_messages_device_id_event_time
@@ -67,7 +67,7 @@ CREATE TABLE IF NOT EXISTS shelly_measurements (
     metric TEXT NOT NULL,
     value DOUBLE PRECISION,
     unit TEXT,
-    event_time TIMESTAMP
+    event_time TIMESTAMPTZ
 );
 
 CREATE INDEX IF NOT EXISTS idx_shelly_measurements_device_metric_event_time
@@ -331,3 +331,8 @@ CREATE INDEX IF NOT EXISTS idx_weather_hourly_forecasts_date_time
 
 -- Keep fresh database initialization aligned with Open-Meteo column names.
 \ir migrations/013_weather_open_meteo_column_names.sql
+
+-- Time-aware telemetry persistence and Athens calendar policy.
+\ir migrations/005_upat_measurement_rollups.sql
+\ir migrations/006_upat_rollup_state.sql
+\ir migrations/014_telemetry_timestamptz.sql

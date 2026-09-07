@@ -9,6 +9,7 @@ from pipeline import (
     PipelineValidationError,
     build_ingestion_batch,
     build_request_window,
+    default_target_date,
 )
 
 
@@ -16,6 +17,10 @@ FIXTURE_PATH = Path(__file__).parent / "tests" / "fixtures" / "fusionsolar_sampl
 
 
 class PipelineTests(unittest.TestCase):
+    def test_provider_clocks_reject_missing_offset(self):
+        with self.assertRaisesRegex(PipelineValidationError, "timezone offset"):
+            default_target_date(datetime(2026, 9, 6))
+
     def setUp(self):
         self.fixture = json.loads(FIXTURE_PATH.read_text(encoding="utf-8"))
         self.window = build_request_window(

@@ -29,7 +29,7 @@ WITH aggregated AS (
         date_bin(
             INTERVAL '5 minutes',
             event_time,
-            TIMESTAMP '2001-01-01 00:00:00'
+            TIMESTAMPTZ '2001-01-01 00:00:00+00'
         ) AS bucket_start,
         AVG(value)::DOUBLE PRECISION AS value_avg,
         MIN(value)::DOUBLE PRECISION AS value_min,
@@ -37,7 +37,7 @@ WITH aggregated AS (
         COUNT(*)::INTEGER AS sample_count
     FROM upat_measurements
     WHERE event_time >= (
-        NOW() AT TIME ZONE 'UTC'
+        NOW()
         - (:rebuild_lookback)::INTERVAL
     )
       AND event_time IS NOT NULL
@@ -48,7 +48,7 @@ WITH aggregated AS (
         date_bin(
             INTERVAL '5 minutes',
             event_time,
-            TIMESTAMP '2001-01-01 00:00:00'
+            TIMESTAMPTZ '2001-01-01 00:00:00+00'
         )
 )
 INSERT INTO upat_measurements_5min (
@@ -90,7 +90,7 @@ WITH aggregated AS (
         date_bin(
             INTERVAL '1 hour',
             event_time,
-            TIMESTAMP '2001-01-01 00:00:00'
+            TIMESTAMPTZ '2001-01-01 00:00:00+00'
         ) AS bucket_start,
         AVG(value)::DOUBLE PRECISION AS value_avg,
         MIN(value)::DOUBLE PRECISION AS value_min,
@@ -98,7 +98,7 @@ WITH aggregated AS (
         COUNT(*)::INTEGER AS sample_count
     FROM upat_measurements
     WHERE event_time >= (
-        NOW() AT TIME ZONE 'UTC'
+        NOW()
         - (:rebuild_lookback)::INTERVAL
     )
       AND event_time IS NOT NULL
@@ -109,7 +109,7 @@ WITH aggregated AS (
         date_bin(
             INTERVAL '1 hour',
             event_time,
-            TIMESTAMP '2001-01-01 00:00:00'
+            TIMESTAMPTZ '2001-01-01 00:00:00+00'
         )
 )
 INSERT INTO upat_measurements_hourly (

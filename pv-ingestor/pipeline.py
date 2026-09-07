@@ -42,8 +42,8 @@ class PipelineValidationError(ValueError):
 
 def default_target_date(now: datetime | None = None) -> date:
     current = now or datetime.now(tz=PLANT_TIMEZONE)
-    if current.tzinfo is None:
-        current = current.replace(tzinfo=PLANT_TIMEZONE)
+    if current.tzinfo is None or current.utcoffset() is None:
+        raise PipelineValidationError("Current timestamp must include a timezone offset")
     return current.astimezone(PLANT_TIMEZONE).date() - timedelta(days=1)
 
 
@@ -388,8 +388,8 @@ def build_ingestion_batch(
         if row["active_power_kw"] is not None
     )
     collected = collected_at or datetime.now(timezone.utc)
-    if collected.tzinfo is None:
-        collected = collected.replace(tzinfo=timezone.utc)
+    if collected.tzinfo is None or collected.utcoffset() is None:
+        raise PipelineValidationError("Collection timestamp must include a timezone offset")
     active_power_values = [
         row["active_power_kw"]
         for row in plant_readings

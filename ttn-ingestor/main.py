@@ -1,6 +1,8 @@
 import os
 import json
+import re
 import time
+from datetime import datetime
 import psycopg2
 import paho.mqtt.client as mqtt
 
@@ -18,6 +20,19 @@ DB_PASSWORD = os.getenv("POSTGRES_PASSWORD")
 DB_CONNECT_RETRIES = int(os.getenv("POSTGRES_CONNECT_RETRIES", "5"))
 DB_CONNECT_DELAY_SECONDS = float(os.getenv("POSTGRES_CONNECT_DELAY_SECONDS", "2"))
 VERBOSE_LOGGING = os.getenv("VERBOSE_LOGGING", "false").strip().lower() == "true"
+
+
+def validated_event_time(value):
+    """Require the source offset once, before persistence; preserve precision."""
+    if not isinstance(value, str):
+        raise ValueError("TTN received_at must be an ISO timestamp with an offset")
+    # TTN can send nanoseconds; Python runtimes differ in accepted precision.
+    # Shorten only the validation copy, never the value sent to PostgreSQL.
+    validation_value = re.sub(r"(\.\d{6})\d+", r"\1", value)
+    parsed = datetime.fromisoformat(validation_value.replace("Z", "+00:00"))
+    if parsed.tzinfo is None:
+        raise ValueError("TTN received_at must include an offset")
+    return value
 
 
 def log_verbose(message):
@@ -117,7 +132,11 @@ def on_message(client, userdata, msg):
     end_device_ids = payload_obj.get("end_device_ids", {})
     device_id = end_device_ids.get("device_id")
     dev_eui = end_device_ids.get("dev_eui")
-    event_time = payload_obj.get("received_at")
+    try:
+        event_time = validated_event_time(payload_obj.get("received_at"))
+    except ValueError:
+        print("Skipping TTN message: missing or invalid timestamp offset")
+        return
 
     if not device_id:
         print("Skipping message: no device_id found")

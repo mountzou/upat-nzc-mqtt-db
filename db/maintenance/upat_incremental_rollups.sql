@@ -64,7 +64,7 @@ WITH aggregated AS (
         date_bin(
             INTERVAL '5 minutes',
             event_time,
-            TIMESTAMP '2001-01-01 00:00:00'
+            TIMESTAMPTZ '2001-01-01 00:00:00+00'
         ) AS bucket_start,
         AVG(value)::DOUBLE PRECISION AS value_avg,
         MIN(value)::DOUBLE PRECISION AS value_min,
@@ -79,7 +79,7 @@ WITH aggregated AS (
         date_bin(
             INTERVAL '5 minutes',
             event_time,
-            TIMESTAMP '2001-01-01 00:00:00'
+            TIMESTAMPTZ '2001-01-01 00:00:00+00'
         )
 )
 INSERT INTO upat_measurements_5min (
@@ -136,7 +136,7 @@ WITH aggregated AS (
         date_bin(
             INTERVAL '1 hour',
             event_time,
-            TIMESTAMP '2001-01-01 00:00:00'
+            TIMESTAMPTZ '2001-01-01 00:00:00+00'
         ) AS bucket_start,
         AVG(value)::DOUBLE PRECISION AS value_avg,
         MIN(value)::DOUBLE PRECISION AS value_min,
@@ -151,7 +151,7 @@ WITH aggregated AS (
         date_bin(
             INTERVAL '1 hour',
             event_time,
-            TIMESTAMP '2001-01-01 00:00:00'
+            TIMESTAMPTZ '2001-01-01 00:00:00+00'
         )
 )
 INSERT INTO upat_measurements_hourly (
