@@ -4,6 +4,7 @@ import time
 from datetime import datetime, timezone
 import paho.mqtt.client as mqtt
 import psycopg2
+from counters import insert_counters
 
 BROKER_HOST = os.getenv("MQTT_HOST", "mosquitto")
 BROKER_PORT = int(os.getenv("MQTT_INTERNAL_PORT", "1883"))
@@ -171,6 +172,7 @@ def insert_pro3em_metrics(conn, device_id, payload_obj, event_time):
 
 # Process incoming MQTT messages, extract relevant data, and store it in the database
 def on_message(client, userdata, msg):
+    received_at = datetime.now(timezone.utc)
     payload_text = msg.payload.decode()
     log_verbose(f"Received message on {msg.topic}: {payload_text}")
 
@@ -203,8 +205,11 @@ def on_message(client, userdata, msg):
         )
 
         # Insert metrics based on the device type (plug or pro3em) and available fields in the payload
+        if not isinstance(payload_obj, dict):
+            return
         insert_plug_metrics(conn, device_id, payload_obj, event_time)
         insert_pro3em_metrics(conn, device_id, payload_obj, event_time)
+        insert_counters(conn, device_id, msg.topic, payload_obj, received_at)
 
 
 # Set up MQTT client

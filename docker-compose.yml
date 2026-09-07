@@ -108,6 +108,7 @@ services:
     container_name: energy_aggregator
     logging: *json-logging
     environment:
+      SHELLY_COUNTER_START: ${SHELLY_COUNTER_START:-}
       POSTGRES_HOST: ${POSTGRES_HOST}
       POSTGRES_INTERNAL_PORT: ${POSTGRES_INTERNAL_PORT}
       POSTGRES_USER: ${POSTGRES_USER}
