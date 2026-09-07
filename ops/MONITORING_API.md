@@ -46,6 +46,27 @@ database schemas, production image selection and collectors are unchanged.
 The new modules are included by the API Dockerfile. Rollout requires a
 separately selected image built from the committed source.
 
+The first batch was activated on 8 September 2026 from commit
+`7640d7e989a75c8c75aa2ac86ad1d5dc60623769`. Its immutable VPS image is
+`sha256:e2ac2b61f0cf8a8b328d0539af1ec9a08a1a0ea037defd7ba9029b4d40fb9b4e`.
+The build used the committed API source and the preceding image's unchanged
+Python dependencies. Runtime source hashes and OpenAPI were verified. The
+candidate passed 289 checks with database connections forced read-only; the
+activated API passed 286 checks, including public HTTPS latest reads and ACLs.
+Only API was recreated. PostgreSQL identity/start time, other containers,
+Caddy and environment settings were unchanged. During the 26.67-second API
+readiness window, 12 UPAT and 13 Shelly raw messages were received; this window
+is not an independently measured outage duration.
+
+Verified backup, rollback instructions and sanitized receipts are retained at
+`/opt/schoolheroz-latest-reader-rollout-20260908` on the VPS. The previous image
+archive was verified against all 63 OCI blobs and reused by hard link to avoid
+duplicating it. No database backup/restore or migration was needed. Rollback
+was not used. The installed checkout's reviewed API paths were aligned with
+the committed source, preserving unrelated changes. Web and Render HTTP checks
+passed; authenticated visual checks await web login and Simulator session unlock.
+No consumer build or deployment was performed.
+
 ## Safe deployment
 
 1. Validate and commit the scoped source in an isolated checkout. Inspect current source hashes, container IDs/start times and database health. Keep a source/config backup and tag the previous API image.
