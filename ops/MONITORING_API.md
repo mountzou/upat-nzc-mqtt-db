@@ -27,6 +27,25 @@ current range, interval and cache policies.
 
 Home environment reuses a bounded cache and eight workers and supports NDJSON streaming. Direct monitoring reads have a shared concurrency cap. Existing SQL aggregation, watermarks and precomputed hourly consumption tables remain canonical. The PV energy-only implementation moves web and native consumers to `/energy/production/history` and web forecasts to `/energy/production/forecasts`. The VPS API and web release (`c4e61f0`) are deployed and verified on 2026-09-06; iOS 1.0.0 build 4 is signed and tested, with physical-device installation skipped by user instruction. Render needs no change for these direct VPS requests. The three old `/energy/production/solar/*` routes were removed in production on 2026-09-06 and now return 404, following explicit acceptance of the impact on the old iPhone installation. Low-level `/pv/*` service contracts remain unchanged. See [PV energy contract](PV_ENERGY.md) for units, coverage, caching and rollback constraints.
 
+## Internal latest readers
+
+Latest UPAT and Shelly snapshots are read directly through
+`api/readers/measurements.py`. Monitoring services pass Python arguments and
+retain native timestamps until response serialization; they do not construct
+URLs or call the history adapter for latest data. The minute-average SQL,
+metric filtering, snapshot limits and response envelopes are unchanged.
+
+`api/database.py` owns the existing connection settings and Athens session
+timezone. The remaining handlers still import that factory through `main`.
+`monitoring/read_limits.py` owns the same eight-slot monitoring budget and
+five-second acquisition timeout shared with history reads. Existing low-level
+HTTP route authentication and concurrency behavior are unchanged.
+
+This is the first reader-extraction batch. History SQL, hourly energy,
+database schemas, production image selection and collectors are unchanged.
+The new modules are included by the API Dockerfile. Rollout requires a
+separately selected image built from the committed source.
+
 ## Safe deployment
 
 1. Validate and commit the scoped source in an isolated checkout. Inspect current source hashes, container IDs/start times and database health. Keep a source/config backup and tag the previous API image.

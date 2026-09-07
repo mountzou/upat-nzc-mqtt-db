@@ -1,4 +1,6 @@
 from monitoring.local_data import local_read
+from monitoring.read_limits import monitoring_read
+from readers.measurements import fetch_device_latest as read_latest
 import logging
 from datetime import datetime, timedelta
 
@@ -49,8 +51,8 @@ def _get_json(url: str, *, device_id: str, params: dict | None = None):
 
 
 def fetch_energy_device_latest(device_id: str, *, limit: int):
-    url = f"{BASE_URL}/shelly/device/{device_id}/latest"
-    return _get_json(url, device_id=device_id, params={"limit": limit})
+    with monitoring_read():
+        return read_latest("shelly_measurements", device_id, None, limit)
 
 
 def fetch_energy_device_history(

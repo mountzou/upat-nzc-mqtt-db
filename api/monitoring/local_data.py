@@ -1,11 +1,8 @@
-"""Call the canonical VPS queries directly; monitoring has no HTTP dependency."""
-from threading import BoundedSemaphore
+"""Remaining history adapters; latest readers are called directly by services."""
 from urllib.parse import urlsplit
-from fastapi import HTTPException
 from fastapi.encoders import jsonable_encoder
 from schemas import HistoryQueryParams
-
-_reads = BoundedSemaphore(8)
+from monitoring.read_limits import monitoring_read
 
 def local_read(url, params=None):
     import main
@@ -13,9 +10,7 @@ def local_read(url, params=None):
     if isinstance(params, (list, tuple)):
         values['device_id'] = [v for k,v in params if k=='device_id']
     path = urlsplit(url).path
-    if not _reads.acquire(timeout=5):
-        raise HTTPException(503, "Monitoring data is busy. Try again shortly.")
-    try:
+    with monitoring_read():
         if path == '/shelly/hourly-energy':
             result = main.fetch_shelly_hourly_energy_rows(
                 device_id=values.get('device_id'), start=values.get('start'),
@@ -26,14 +21,10 @@ def local_read(url, params=None):
                 raise ValueError('Unsupported local monitoring query')
             family, _, device, action=parts
             table='upat_measurements' if family=='upat' else 'shelly_measurements'
-            if action=='latest':
-                result=main.fetch_device_latest(table,device,values.get('metric'),values.get('limit',1))
-            elif action=='history':
+            if action=='history':
                 query=HistoryQueryParams.model_validate(values)
                 result=(main.fetch_upat_device_history(device,query) if family=='upat'
                         else main.fetch_device_history(table,device,query))
             else:
                 raise ValueError('Unsupported local monitoring query')
         return jsonable_encoder(result)
-    finally:
-        _reads.release()

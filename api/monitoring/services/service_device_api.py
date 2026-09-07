@@ -1,4 +1,6 @@
 from monitoring.local_data import local_read
+from monitoring.read_limits import monitoring_read
+from readers.measurements import fetch_device_latest as read_latest
 from datetime import datetime
 
 from fastapi import HTTPException
@@ -50,10 +52,9 @@ def _fetch_batched_metric_history(
         raise HTTPException(status_code=502, detail="Malformed upstream device timestamp") from exc
 
 
-# Fetch latest measurements for a given device ID from the `upat-nzc-mqtt-db` API
 def fetch_device_latest(device_id: str):
-    url = f"{DEVICE_API_BASE_URL.rstrip('/')}/upat/device/{device_id}/latest"
-    return _get_json(url, device_id=device_id, params={"limit": 1})
+    with monitoring_read():
+        return read_latest("upat_measurements", device_id, None, 1)
 
 
 # Fetch historical measurements for a given device ID from the `upat-nzc-mqtt-db` API

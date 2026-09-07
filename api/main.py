@@ -6,15 +6,14 @@ from decimal import Decimal
 from typing import Annotated
 from zoneinfo import ZoneInfo
 
-import psycopg2
+from database import get_connection
 from auth_service import AuthVerifyRateLimiter, build_auth_router
 from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request
 from fastapi.exception_handlers import request_validation_exception_handler
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
-from psycopg2.extras import RealDictCursor
-from schemas import HistoryQueryParams, history_query_params, normalize_metrics, parse_datetime_bound, parse_telemetry_bound
-from monitoring.config import APP_TIMEZONE_NAME
+from readers.measurements import fetch_device_latest, format_response_object
+from schemas import HistoryQueryParams, history_query_params, parse_datetime_bound, parse_telemetry_bound
 
 app = FastAPI()
 
@@ -34,11 +33,6 @@ async def redact_auth_request_validation_error(
     return await request_validation_exception_handler(request, exc)
 
 
-DB_HOST = os.getenv("POSTGRES_HOST", "postgres")
-DB_PORT = int(os.getenv("POSTGRES_INTERNAL_PORT", "5432"))
-DB_NAME = os.getenv("POSTGRES_DB")
-DB_USER = os.getenv("POSTGRES_USER")
-DB_PASSWORD = os.getenv("POSTGRES_PASSWORD")
 OPS_TELEMETRY_TOKEN = os.getenv("OPS_TELEMETRY_TOKEN", "").strip()
 AUTH_SERVICE_TOKEN = os.getenv("AUTH_SERVICE_TOKEN", "").strip()
 AUTH_VERIFY_RATE_LIMITER = AuthVerifyRateLimiter()
@@ -69,19 +63,6 @@ WEATHER_FIELDS = [
 # the exact Open-Meteo variable names. The SQL projections below own this
 # compatibility boundary.
 
-# Create and return a new PostgreSQL connection.
-def get_connection():
-    return psycopg2.connect(
-        host=DB_HOST,
-        port=DB_PORT,
-        dbname=DB_NAME,
-        user=DB_USER,
-        password=DB_PASSWORD,
-        cursor_factory=RealDictCursor,
-        options=f"-c timezone={APP_TIMEZONE_NAME}",
-    )
-
-
 app.include_router(
     build_auth_router(
         connection_factory=lambda: get_connection(),
@@ -89,12 +70,6 @@ app.include_router(
         verify_rate_limiter=AUTH_VERIFY_RATE_LIMITER,
     )
 )
-
-
-def round_numeric(value):
-    if isinstance(value, (int, float)) and value is not None:
-        return round(value, 1)
-    return value
 
 
 def normalize_device_ids(device_ids: list[str] | None):
@@ -216,38 +191,6 @@ def split_shelly_device_ids(device_ids: list[str]):
     return plug_ids, pro3em_ids
 
 
-def format_response_object(device_id, rows, metrics=None):
-    snapshots = []
-    snapshots_by_time = {}
-
-    for row in rows:
-        event_time = row["event_time"]
-        event_time_key = event_time.isoformat() if event_time else "null"
-
-        if metrics and row["metric"] not in metrics:
-            continue
-
-        if event_time_key not in snapshots_by_time:
-            snapshot = {
-                "device_id": row["device_id"],
-                "event_time": event_time,
-                "measurements": {},
-            }
-            snapshots_by_time[event_time_key] = snapshot
-            snapshots.append(snapshot)
-
-        snapshots_by_time[event_time_key]["measurements"][row["metric"]] = {
-            "value": round_numeric(row["value"]),
-            "unit": row["unit"],
-        }
-
-    return {
-        "device_id": device_id,
-        "count": len(snapshots),
-        "items": snapshots,
-    }
-
-
 def format_simulation_recording(row):
     return {
         "id": row["id"],
@@ -307,60 +250,6 @@ def format_pv_forecast_hour(row):
         "hour": row["forecast_hour"],
         "predicted_power_kw": numeric_or_none(row["predicted_power_kw"]),
     }
-
-
-def fetch_device_latest(table_name, device_id, metrics, limit):
-    normalized_metrics = normalize_metrics(metrics)
-
-    query_params = []
-    query_parts = [f"""
-        WITH aggregated AS (
-            SELECT
-                device_id,
-                metric,
-                AVG(value) AS value,
-                unit,
-                date_bin(
-                    INTERVAL '1 minute',
-                    event_time,
-                    TIMESTAMPTZ '2001-01-01 00:00:00+00'
-                ) AS bucket_time
-            FROM {table_name}
-            WHERE device_id = %s
-    """]
-    query_params.append(device_id)
-
-    if normalized_metrics:
-        query_parts.append(" AND metric = ANY(%s)")
-        query_params.append(normalized_metrics)
-
-    query_parts.append("""
-            GROUP BY device_id, metric, unit, bucket_time
-        ),
-        selected_times AS (
-            SELECT DISTINCT bucket_time
-            FROM aggregated
-            ORDER BY bucket_time DESC
-            LIMIT %s
-        )
-        SELECT
-            device_id,
-            metric,
-            value,
-            unit,
-            bucket_time AS event_time
-        FROM aggregated
-        WHERE bucket_time IN (SELECT bucket_time FROM selected_times)
-        ORDER BY bucket_time DESC, metric ASC;
-    """)
-    query_params.append(limit)
-
-    with get_connection() as conn:
-        with conn.cursor() as cur:
-            cur.execute("".join(query_parts), query_params)
-            rows = cur.fetchall()
-
-    return format_response_object(device_id, rows, normalized_metrics)
 
 
 def fetch_device_history(table_name, device_id, params):
@@ -1417,7 +1306,8 @@ def get_latest_measurements(
     metric: list[str] | None = Query(default=None),
     limit: int = Query(default=30, le=1000),
 ):
-    return fetch_device_latest("upat_measurements", device_id, metric, limit)
+    return fetch_device_latest("upat_measurements", device_id, metric, limit,
+                               connection_factory=get_connection)
 
 
 @app.get("/shelly/device/{device_id}/latest")
@@ -1426,7 +1316,8 @@ def get_latest_shelly_measurements(
     metric: list[str] | None = Query(default=None),
     limit: int = Query(default=30, le=1000),
 ):
-    return fetch_device_latest("shelly_measurements", device_id, metric, limit)
+    return fetch_device_latest("shelly_measurements", device_id, metric, limit,
+                               connection_factory=get_connection)
 
 
 @app.get("/upat/device/{device_id}/history")

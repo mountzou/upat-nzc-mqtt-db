@@ -7,7 +7,7 @@ fails explicitly after raw retention instead of inventing a historical value.
 from fastapi import HTTPException
 from pydantic import BaseModel, AwareDatetime
 
-from monitoring.local_data import _reads
+from monitoring.read_limits import _reads
 from monitoring.schemas import DeviceHistoryBucketItem, OverviewReading
 from monitoring.utils.timezone import to_app_timezone
 from .contract import HistoryPlan
