@@ -135,13 +135,16 @@ def test_hourly_cache_serves_daily_and_does_not_prefetch_hours(database,client):
         pv.get_energy(day,day,'1h');assert query.call_count==2
         pv.get_energy(day,day,'day');assert query.call_count==2
 
-def test_local_multi_meter_read_keeps_all_ids(database):
-    from monitoring.local_data import local_read
+def test_direct_multi_meter_read_keeps_all_ids(database, monkeypatch):
+    import database as shared_database
+    from monitoring.services.service_energy_api import fetch_shelly_hourly_energy
+    monkeypatch.setattr(shared_database, 'get_connection', database)
     with database() as conn:
         with conn.cursor() as cur:
             for device,value in [('shellyplug-a',100),('shellyplug-b',200)]:
                 cur.execute("INSERT INTO shelly_plug_hourly_energy VALUES (%s,'2026-09-01T00:00Z','2026-09-01T01:00Z',%s,1,1,NOW())",(device,value))
-    result=local_read('/shelly/hourly-energy',[('device_id','shellyplug-a'),('device_id','shellyplug-b'),('start','2026-09-01T00:00'),('end','2026-09-01T02:00')])
+    result=fetch_shelly_hourly_energy(['shellyplug-a','shellyplug-b'],
+        start=datetime(2026,9,1,tzinfo=timezone.utc), end=datetime(2026,9,1,2,tzinfo=timezone.utc))
     assert result['device_ids']==['shellyplug-a','shellyplug-b'] and result['count']==2
 
 def test_public_cors_allows_only_named_frontends(client):
