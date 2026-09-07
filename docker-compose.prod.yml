@@ -50,6 +50,7 @@ services:
       - ./mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf
 
   shelly-ingestor:
+    image: schoolheroz-counter-final-ingestor:20260907
     build:
       context: ./shelly-ingestor
     container_name: shelly_ingestor
@@ -74,6 +75,7 @@ services:
         condition: service_started
 
   ttn-ingestor:
+    image: schoolheroz-time-ttn-ingestor:20260906
     build:
       context: ./ttn-ingestor
     container_name: ttn_ingestor
@@ -95,6 +97,7 @@ services:
         condition: service_healthy
 
   api:
+    image: sha256:6b77b736e9818bdaf9d66173296a4fb4786c36bd9bb0d4cd8fa565b691105677
     build:
       context: ./api
     container_name: iot_api
@@ -117,11 +120,14 @@ services:
         condition: service_healthy
 
   energy-aggregator:
-    build:
-      context: ./energy-aggregator
+    image: sha256:c16ade3bf7365c427ef44f261d4fe9a5b06ad3b50e485a58cc3caa01b9d7ffa7
+    profiles:
+      - jobs
     container_name: energy_aggregator
     logging: *json-logging
     environment:
+      # Fixed historical cutover; changing it requires a separate data review.
+      SHELLY_COUNTER_START: "2026-09-07T08:00:00+00:00"
       POSTGRES_HOST: ${POSTGRES_HOST}
       POSTGRES_INTERNAL_PORT: ${POSTGRES_INTERNAL_PORT}
       POSTGRES_USER: ${POSTGRES_USER}

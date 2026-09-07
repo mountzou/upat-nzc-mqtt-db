@@ -69,13 +69,19 @@ docker compose logs --tail=50 api
 
 ## Energy aggregator
 
-The `energy-aggregator` service is a one-shot job. It processes the most recently completed UTC hour and upserts per-device energy into `shelly_plug_hourly_energy` and `shelly_pro3em_hourly_energy`. Working-day and working-hour flags are evaluated in the `Europe/Athens` timezone.
+The production Shelly counter aggregator is an hourly one-shot job. It rechecks
+the last three closed UTC hours, respecting the fixed historical cutover, and
+upserts per-device energy into `shelly_plug_hourly_energy` and
+`shelly_pro3em_hourly_energy`. Calendar flags use `Europe/Athens`.
 
-Run it manually:
+Root cron invokes `ops/run-energy-aggregator.sh` at minute 02. The launcher owns
+the existing flock and selects only the pinned production Compose service. Its
+`jobs` profile excludes it from an ordinary production `up`. The development
+Compose still has a local build and is not the production scheduler entrypoint.
+Do not execute the writer merely for a health check.
 
-```bash
-docker compose run --rm energy-aggregator
-```
+See [the aggregator operations guide](ops/ENERGY_AGGREGATOR.md) for configuration,
+read-only validation and rollback.
 
 ## Simulation recorder
 

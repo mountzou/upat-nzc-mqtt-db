@@ -110,3 +110,16 @@ upgrades; do not repeat initialization. Future changes follow commit, build,
 then separately authorized rollout. Installing only the unit or reusing the
 old image will not provide the new protections. No PostgreSQL migration or
 database restart is needed for these controls.
+
+## Production Compose consolidation
+
+See [PRODUCTION_COMPOSE.md](PRODUCTION_COMPOSE.md) for the verified replacement
+of the historical deployment overlays, the read-only equivalence checker, and
+the verified API-only activation and rollback boundary. Other services were
+not restarted.
+
+## Scheduled energy aggregation
+
+[ENERGY_AGGREGATOR.md](ENERGY_AGGREGATOR.md) records the stable cron launcher,
+pinned production image, fixed counter cutover and installation rollback.
+The old migration wrapper is no longer an active scheduler input.
