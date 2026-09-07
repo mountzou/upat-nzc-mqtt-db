@@ -1,0 +1,124 @@
+[
+  {
+    "id": "classroomlower",
+    "label": "Classroom (lower)",
+    "idf_file": "classroomlower.idf",
+    "zone_name": "Classroom_Lower",
+    "people_object_name": "Classroom_Lower People",
+    "occupancy_schedule_name": "OCCUPY-ROOM1",
+    "thermostat_type": "single_heating",
+    "heating_schedule_name": "Htg-SetP-Sch",
+    "cooling_schedule_name": null,
+    "defaults": {
+      "occupancy": 20,
+      "heating_setpoint": 19,
+      "cooling_setpoint": null,
+      "lighting_w_per_m2": 10.0,
+      "infiltration_ach": 0.5
+    },
+    "static_schedules": {
+      "occupancy": "OCCUPY-ROOM1",
+      "lighting": "LIGHTS-1",
+      "heating_availability": "Heat-Avail",
+      "thermostat_control": "Zone Control Type Sched1",
+      "ventilation": "Vent-Sch1",
+      "activity": "ActSchd1",
+      "heating_setpoint": "Htg-SetP-Sch",
+      "outdoor_co2": "Outdoor_CO2_Level",
+      "infiltration": "INFIL-SCH"
+    },
+    "idf_exists": true
+  },
+  {
+    "id": "classroomupper",
+    "label": "Classroom (upper)",
+    "idf_file": "classroomupper.idf",
+    "zone_name": "Classroom_Upper",
+    "people_object_name": "Classroom_Upper People",
+    "occupancy_schedule_name": "OCCUPY-ROOM1",
+    "thermostat_type": "single_heating",
+    "heating_schedule_name": "Htg-SetP-Sch",
+    "cooling_schedule_name": null,
+    "defaults": {
+      "occupancy": 20,
+      "heating_setpoint": 19.5,
+      "cooling_setpoint": null,
+      "lighting_w_per_m2": 10.0,
+      "infiltration_ach": 0.5
+    },
+    "static_schedules": {
+      "occupancy": "OCCUPY-ROOM1",
+      "lighting": "LIGHTS-1",
+      "heating_availability": "Heat-Avail",
+      "thermostat_control": "Zone Control Type Sched1",
+      "ventilation": "Vent-Sch1",
+      "activity": "ActSchd1",
+      "heating_setpoint": "Htg-SetP-Sch",
+      "outdoor_co2": "Outdoor_CO2_Level",
+      "infiltration": "INFIL-SCH"
+    },
+    "idf_exists": true
+  },
+  {
+    "id": "hallway",
+    "label": "Hallway",
+    "idf_file": "hallway.idf",
+    "zone_name": "Hallway_Room3",
+    "people_object_name": "Hallway_Room3 People",
+    "occupancy_schedule_name": "OCCUPY-ROOM2",
+    "thermostat_type": "dual_setpoint",
+    "heating_schedule_name": "Htg-SetP-Sch",
+    "cooling_schedule_name": "Clg-SetP-Sch",
+    "defaults": {
+      "occupancy": 41,
+      "heating_setpoint": 17,
+      "cooling_setpoint": 22,
+      "lighting_w_per_m2": 10.0,
+      "infiltration_ach": 0.5
+    },
+    "static_schedules": {
+      "occupancy": "OCCUPY-ROOM2",
+      "lighting": "LIGHTS-2",
+      "hvac_availability": "HVAC-Avail",
+      "thermostat_control": "Zone Control Type Sched2",
+      "ventilation": "Vent-Sch2",
+      "activity": "ActSchd2",
+      "heating_setpoint": "Htg-SetP-Sch",
+      "cooling_setpoint": "Clg-SetP-Sch",
+      "outdoor_co2": "Outdoor_CO2_Level",
+      "infiltration": "INFIL-SCH"
+    },
+    "idf_exists": true
+  },
+  {
+    "id": "room2",
+    "label": "Small office (room 2)",
+    "idf_file": "room2.idf",
+    "zone_name": "Room2_Small",
+    "people_object_name": "Room2_Small People",
+    "occupancy_schedule_name": "OCCUPY-ROOM1",
+    "thermostat_type": "single_heating",
+    "heating_schedule_name": "Htg-SetP-Sch",
+    "cooling_schedule_name": null,
+    "defaults": {
+      "occupancy": 1,
+      "heating_setpoint": 17,
+      "cooling_setpoint": null,
+      "lighting_w_per_m2": 10.0,
+      "infiltration_ach": 0.5
+    },
+    "static_schedules": {
+      "occupancy": "OCCUPY-ROOM1",
+      "lighting": "LIGHTS-1",
+      "equipment": "EQUIP-1",
+      "heating_availability": "Heat-Avail",
+      "thermostat_control": "Zone Control Type Sched1",
+      "ventilation": "Vent-Sch1",
+      "activity": "ActSchd1",
+      "heating_setpoint": "Htg-SetP-Sch",
+      "outdoor_co2": "Outdoor_CO2_Level",
+      "infiltration": "INFIL-SCH"
+    },
+    "idf_exists": true
+  }
+]

@@ -94,7 +94,8 @@ class OperationsTelemetryTests(unittest.TestCase):
         self.assertIn("LEFT JOIN LATERAL", cursor.query)
         self.assertIn("upat_raw_messages", cursor.query)
         self.assertIn("shelly_raw_messages", cursor.query)
-        self.assertIn("CURRENT_TIMESTAMP AT TIME ZONE 'UTC'", cursor.query)
+        self.assertIn("CURRENT_TIMESTAMP", cursor.query)
+        self.assertNotIn("AT TIME ZONE", cursor.query)
         self.assertNotIn("payload", cursor.query.lower())
         self.assertNotIn("device_id", str(result))
         self.assertNotIn("must-not-leak", str(result))
@@ -311,7 +312,7 @@ class OperationsTelemetryDatabaseTests(unittest.TestCase):
                     );
                     CREATE TABLE upat_raw_messages (
                         device_id TEXT NOT NULL,
-                        event_time TIMESTAMP
+                        event_time TIMESTAMPTZ
                     );
                     CREATE INDEX ON upat_raw_messages (
                         device_id,
@@ -319,7 +320,7 @@ class OperationsTelemetryDatabaseTests(unittest.TestCase):
                     );
                     CREATE TABLE shelly_raw_messages (
                         device_id TEXT NOT NULL,
-                        event_time TIMESTAMP
+                        event_time TIMESTAMPTZ
                     );
                     CREATE INDEX ON shelly_raw_messages (
                         device_id,
@@ -340,7 +341,7 @@ class OperationsTelemetryDatabaseTests(unittest.TestCase):
                 )
 
     def test_fleet_categories_are_calculated_by_postgresql(self):
-        now_utc = datetime.now(timezone.utc).replace(tzinfo=None)
+        now_utc = datetime.now(timezone.utc)
 
         with main.get_connection() as conn:
             with conn.cursor() as cur:

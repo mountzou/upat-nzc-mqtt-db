@@ -261,39 +261,11 @@ def _public_user(row: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def build_auth_router(
-    *,
-    connection_factory: Callable[[], Any],
-    service_token_getter: Callable[[], str],
-    verify_rate_limiter: AuthVerifyRateLimiter,
-) -> APIRouter:
-    router = APIRouter(prefix="/internal/auth", tags=["internal-auth"])
+class AuthRepository:
+    def __init__(self, connection_factory):
+        self.connection_factory = connection_factory
 
-    def require_auth_service_token(
-        authorization: Annotated[
-            str | None,
-            Header(alias="Authorization"),
-        ] = None,
-    ) -> None:
-        configured_token = service_token_getter().strip()
-        if len(configured_token) < MIN_SERVICE_TOKEN_LENGTH:
-            raise _service_auth_error(
-                status.HTTP_503_SERVICE_UNAVAILABLE,
-                "Authentication service is not configured.",
-            )
-
-        scheme, separator, credentials = (authorization or "").partition(" ")
-        if (
-            not separator
-            or scheme.lower() != "bearer"
-            or not hmac.compare_digest(credentials, configured_token)
-        ):
-            raise _service_auth_error(
-                status.HTTP_401_UNAUTHORIZED,
-                "Invalid or missing service credentials.",
-            )
-
-    def fetch_user(username: str, *, include_password_hash: bool) -> dict[str, Any] | None:
+    def fetch_user(self, username: str, *, include_password_hash: bool) -> dict[str, Any] | None:
         if include_password_hash:
             query = """
                 SELECT
@@ -328,7 +300,7 @@ def build_auth_router(
                 LIMIT 1;
             """
 
-        with connection_factory() as conn:
+        with self.connection_factory() as conn:
             with conn.cursor() as cur:
                 cur.execute(
                     query,
@@ -336,7 +308,8 @@ def build_auth_router(
                 )
                 return cur.fetchone()
 
-    def record_successful_login(username: str) -> dict[str, Any] | None:
+
+    def record_successful_login(self, username: str) -> dict[str, Any] | None:
         query = """
             UPDATE app_users
             SET
@@ -355,12 +328,13 @@ def build_auth_router(
                 theme,
                 onboarding_completed;
         """
-        with connection_factory() as conn:
+        with self.connection_factory() as conn:
             with conn.cursor() as cur:
                 cur.execute(query, (username,))
                 return cur.fetchone()
 
-    def update_user_preferences(
+
+    def update_user_preferences(self,
         payload: UserPreferencesRequest,
     ) -> dict[str, Any] | None:
         assignments = ["updated_at = NOW()"]
@@ -401,10 +375,51 @@ def build_auth_router(
                 theme,
                 onboarding_completed;
         """
-        with connection_factory() as conn:
+        with self.connection_factory() as conn:
             with conn.cursor() as cur:
                 cur.execute(query, tuple(params))
                 return cur.fetchone()
+
+
+
+def build_auth_router(
+    *,
+    connection_factory: Callable[[], Any],
+    service_token_getter: Callable[[], str],
+    verify_rate_limiter: AuthVerifyRateLimiter,
+) -> APIRouter:
+    router = APIRouter(prefix="/internal/auth", tags=["internal-auth"])
+    repository = AuthRepository(connection_factory)
+    fetch_user = repository.fetch_user
+    record_successful_login = repository.record_successful_login
+    update_user_preferences = repository.update_user_preferences
+
+    def require_auth_service_token(
+        authorization: Annotated[
+            str | None,
+            Header(alias="Authorization"),
+        ] = None,
+    ) -> None:
+        configured_token = service_token_getter().strip()
+        if len(configured_token) < MIN_SERVICE_TOKEN_LENGTH:
+            raise _service_auth_error(
+                status.HTTP_503_SERVICE_UNAVAILABLE,
+                "Authentication service is not configured.",
+            )
+
+        scheme, separator, credentials = (authorization or "").partition(" ")
+        if (
+            not separator
+            or scheme.lower() != "bearer"
+            or not hmac.compare_digest(credentials, configured_token)
+        ):
+            raise _service_auth_error(
+                status.HTTP_401_UNAUTHORIZED,
+                "Invalid or missing service credentials.",
+            )
+
+
+
 
     @router.post(
         "/verify",

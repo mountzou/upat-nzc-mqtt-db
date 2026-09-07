@@ -1,0 +1,82 @@
+[
+  {
+    "school_id": "school_10",
+    "devices": [
+      {
+        "id": "portable-108",
+        "label": "Computer Classroom",
+        "room_id": "computerclassroom"
+      },
+      {
+        "id": "portable-110",
+        "label": "Teachers Office",
+        "room_id": "teachers"
+      },
+      {
+        "id": "portable-111",
+        "label": "Teachers Office",
+        "room_id": "teachers"
+      },
+      {
+        "id": "portable-112",
+        "label": "Event Hall",
+        "room_id": "eventhall"
+      },
+      {
+        "id": "portable-109",
+        "label": "Library",
+        "room_id": "library"
+      }
+    ]
+  },
+  {
+    "school_id": "school_3",
+    "devices": [
+      {
+        "id": "portable-101",
+        "label": "Hall Room",
+        "room_id": "hallway"
+      }
+    ]
+  },
+  {
+    "school_id": "school_7",
+    "devices": [
+      {
+        "id": "portable-106",
+        "label": "Hall Room",
+        "room_id": "hallway"
+      }
+    ]
+  },
+  {
+    "school_id": "school_13",
+    "devices": [
+      {
+        "id": "portable-105",
+        "label": "Hall Room",
+        "room_id": "hallway"
+      }
+    ]
+  },
+  {
+    "school_id": "school_23",
+    "devices": [
+      {
+        "id": "portable-104",
+        "label": "Hall Room",
+        "room_id": "hallway"
+      }
+    ]
+  },
+  {
+    "school_id": "school_22",
+    "devices": [
+      {
+        "id": "portable-103",
+        "label": "Teachers Office",
+        "room_id": "teachers"
+      }
+    ]
+  }
+]

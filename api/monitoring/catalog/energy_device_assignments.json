@@ -1,0 +1,278 @@
+[
+  {
+    "school_id": "school_10",
+    "devices": [
+      {
+        "id": "shellyplugsg3-8cbfeaa29930",
+        "type": "plug",
+        "model": "Shelly Plug S Gen3",
+        "room_id": "computerclassroom",
+        "room_alias": "Computer Room",
+        "label": "AC floor",
+        "load_type": "hvac"
+      },
+      {
+        "id": "shellyplugsg3-8cbfeaa2923c",
+        "type": "plug",
+        "model": "Shelly Plug S Gen3",
+        "room_id": "computerclassroom",
+        "room_alias": "Computer Room",
+        "label": "AC top",
+        "load_type": "hvac"
+      },
+      {
+        "id": "shellyplugsg3-e4b32313f198",
+        "type": "plug",
+        "model": "Shelly Plug S Gen3",
+        "room_id": "teachers",
+        "room_alias": "Teachers Room",
+        "label": "AC",
+        "load_type": "hvac"
+      },
+      {
+        "id": "shellyplugsg3-8cbfeaa3bc70",
+        "type": "plug",
+        "model": "Shelly Plug S Gen3",
+        "room_id": "principal1",
+        "room_alias": "Director Room",
+        "label": "AC",
+        "load_type": "hvac"
+      },
+      {
+        "id": "shellyplugsg3-e4b323140eb0",
+        "type": "plug",
+        "model": "Shelly Plug S Gen3",
+        "room_id": "principal2",
+        "room_alias": "Subdirector Room",
+        "label": "AC",
+        "load_type": "hvac"
+      },
+      {
+        "id": "shellypro3em-ac15187c4f30",
+        "type": "three_phase_meter",
+        "model": "Shelly Pro 3EM",
+        "room_id": "computerclassroom",
+        "room_alias": "Computer Room",
+        "phases": {
+          "a": {
+            "load_type": "hvac",
+            "target_room_id": "computerclassroom",
+            "display_label": "External AC"
+          },
+          "b": {
+            "load_type": "hvac",
+            "target_room_id": "computerclassroom",
+            "display_label": "External AC"
+          },
+          "c": {
+            "load_type": "hvac",
+            "target_room_id": "computerclassroom",
+            "display_label": "External AC"
+          }
+        }
+      },
+      {
+        "id": "shellypro3em-8813bfe05630",
+        "type": "three_phase_meter",
+        "model": "Shelly Pro 3EM",
+        "room_id": "teachers",
+        "room_alias": "Teachers Room",
+        "phases": {
+          "a": {
+            "load_type": "hvac",
+            "target_room_id": "teachers",
+            "display_label": "External AC - Teachers Room"
+          },
+          "b": {
+            "load_type": "hvac",
+            "target_room_id": "principal2",
+            "display_label": "External AC - Subdirector Room"
+          },
+          "c": {
+            "load_type": "lighting",
+            "target_room_id": "teachers",
+            "display_label": "Lights - Teachers Room"
+          }
+        }
+      },
+      {
+        "id": "shellypro3em-ac15187c7694",
+        "type": "three_phase_meter",
+        "model": "Shelly Pro 3EM",
+        "room_id": "principal2",
+        "room_alias": "Subdirector Room",
+        "phases": {
+          "a": {
+            "load_type": "hvac",
+            "target_room_id": "principal1",
+            "display_label": "External AC - Directors Room"
+          },
+          "b": {
+            "load_type": "lighting",
+            "target_room_id": "principal2",
+            "display_label": "Lights - Director and Subdirector Room"
+          },
+          "c": {
+            "load_type": "hvac",
+            "target_room_id": "library",
+            "display_label": "External AC - Library"
+          }
+        }
+      }
+    ]
+  },
+  {
+    "school_id": "school_3",
+    "devices": [
+      {
+        "id": "shellypro3em-ac15187c7da8",
+        "type": "three_phase_meter",
+        "model": "Shelly Pro 3EM",
+        "room_id": "all_rooms",
+        "room_alias": "All rooms",
+        "phases": {
+          "a": {
+            "load_type": "mixed",
+            "target_room_id": "all_rooms",
+            "display_label": "Phase A"
+          },
+          "b": {
+            "load_type": "mixed",
+            "target_room_id": "all_rooms",
+            "display_label": "Phase B"
+          },
+          "c": {
+            "load_type": "mixed",
+            "target_room_id": "all_rooms",
+            "display_label": "Phase C"
+          }
+        }
+      }
+    ]
+  },
+  {
+    "school_id": "school_7",
+    "devices": [
+      {
+        "id": "shellypro3em-ac15187c6538",
+        "type": "three_phase_meter",
+        "model": "Shelly Pro 3EM",
+        "room_id": "all_rooms",
+        "room_alias": "All rooms",
+        "phases": {
+          "a": {
+            "load_type": "mixed",
+            "target_room_id": "all_rooms",
+            "display_label": "Phase A"
+          },
+          "b": {
+            "load_type": "mixed",
+            "target_room_id": "all_rooms",
+            "display_label": "Phase B"
+          },
+          "c": {
+            "load_type": "mixed",
+            "target_room_id": "all_rooms",
+            "display_label": "Phase C"
+          }
+        }
+      }
+    ]
+  },
+  {
+    "school_id": "school_13",
+    "devices": [
+      {
+        "id": "shellypro3em-8813bfd92edc",
+        "type": "three_phase_meter",
+        "model": "Shelly Pro 3EM",
+        "room_id": "all_rooms",
+        "room_alias": "All rooms",
+        "phases": {
+          "a": {
+            "load_type": "mixed",
+            "target_room_id": "all_rooms",
+            "display_label": "Phase A"
+          },
+          "b": {
+            "load_type": "mixed",
+            "target_room_id": "all_rooms",
+            "display_label": "Phase B"
+          },
+          "c": {
+            "load_type": "mixed",
+            "target_room_id": "all_rooms",
+            "display_label": "Phase C"
+          }
+        }
+      }
+    ]
+  },
+  {
+    "school_id": "school_23",
+    "devices": [
+      {
+        "id": "shellypro3em-ac15187c1c5c",
+        "type": "three_phase_meter",
+        "model": "Shelly Pro 3EM",
+        "room_id": "all_rooms",
+        "room_alias": "All rooms",
+        "phases": {
+          "a": {
+            "load_type": "mixed",
+            "target_room_id": "all_rooms",
+            "display_label": "Phase A"
+          },
+          "b": {
+            "load_type": "mixed",
+            "target_room_id": "all_rooms",
+            "display_label": "Phase B"
+          },
+          "c": {
+            "load_type": "mixed",
+            "target_room_id": "all_rooms",
+            "display_label": "Phase C"
+          }
+        }
+      }
+    ]
+  },
+  {
+    "school_id": "school_22",
+    "devices": [
+      {
+        "id": "shellypro3em-ac15187c7da0",
+        "type": "three_phase_meter",
+        "model": "Shelly Pro 3EM",
+        "room_id": "all_rooms",
+        "room_alias": "All rooms",
+        "phases": {
+          "a": {
+            "load_type": "mixed",
+            "target_room_id": "all_rooms",
+            "display_label": "Phase A"
+          },
+          "b": {
+            "load_type": "mixed",
+            "target_room_id": "all_rooms",
+            "display_label": "Phase B"
+          },
+          "c": {
+            "load_type": "mixed",
+            "target_room_id": "all_rooms",
+            "display_label": "Phase C"
+          }
+        }
+      },
+      {
+        "id": "shellyplugsg3-e4b32313f278",
+        "type": "plug",
+        "model": "Shelly Plug S Gen3",
+        "room_id": "teachers",
+        "room_alias": "Teachers Room",
+        "label": "AC",
+        "load_type": "hvac"
+      }
+    ]
+  }
+]

@@ -13,7 +13,8 @@ from fastapi.exception_handlers import request_validation_exception_handler
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from psycopg2.extras import RealDictCursor
-from schemas import HistoryQueryParams, normalize_metrics, parse_datetime_bound
+from schemas import HistoryQueryParams, history_query_params, normalize_metrics, parse_datetime_bound, parse_telemetry_bound
+from monitoring.config import APP_TIMEZONE_NAME
 
 app = FastAPI()
 
@@ -23,7 +24,7 @@ async def redact_auth_request_validation_error(
     request: Request,
     exc: RequestValidationError,
 ):
-    if request.url.path.startswith("/internal/auth/"):
+    if request.url.path.startswith(("/internal/auth/", "/auth/")):
         return JSONResponse(
             status_code=422,
             content={"detail": "Invalid authentication request."},
@@ -77,6 +78,7 @@ def get_connection():
         user=DB_USER,
         password=DB_PASSWORD,
         cursor_factory=RealDictCursor,
+        options=f"-c timezone={APP_TIMEZONE_NAME}",
     )
 
 
@@ -165,12 +167,12 @@ def resolve_weather_time_bounds(start: str | None, end: str | None):
 
 
 def resolve_energy_time_bounds(start: str | None, end: str | None):
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     default_end = now.replace(minute=0, second=0, microsecond=0)
     default_start = default_end - timedelta(hours=24)
 
-    start_time = parse_datetime_bound(start, "start") if start is not None else default_start
-    end_time = parse_datetime_bound(end, "end") if end is not None else default_end
+    start_time = parse_telemetry_bound(start, "start") if start is not None else default_start
+    end_time = parse_telemetry_bound(end, "end") if end is not None else default_end
 
     if start_time > end_time:
         raise HTTPException(
@@ -321,7 +323,7 @@ def fetch_device_latest(table_name, device_id, metrics, limit):
                 date_bin(
                     INTERVAL '1 minute',
                     event_time,
-                    TIMESTAMP '2001-01-01 00:00:00'
+                    TIMESTAMPTZ '2001-01-01 00:00:00+00'
                 ) AS bucket_time
             FROM {table_name}
             WHERE device_id = %s
@@ -363,9 +365,12 @@ def fetch_device_latest(table_name, device_id, metrics, limit):
 
 def fetch_device_history(table_name, device_id, params):
     metrics = params.resolved_metrics
-    end_time = params.resolved_end_time or datetime.now()
+    end_time = params.resolved_end_time or datetime.now(timezone.utc)
     start_time = params.resolved_start_time or (end_time - timedelta(days=1))
-    bucket_interval = params.resolved_bucket_interval or "1 minute"
+    spec = params.resolved_interval
+    bucket_interval = "Europe/Athens" if spec.calendar_day else spec.sql_duration
+    bucket_sql = ("date_trunc('day', event_time, %s)" if spec.calendar_day else
+                  "date_bin(%s::interval, event_time, TIMESTAMPTZ '2001-01-01 00:00:00+00')")
 
     query_parts = [f"""
         WITH aggregated AS (
@@ -374,11 +379,7 @@ def fetch_device_history(table_name, device_id, params):
                 metric,
                 AVG(value) AS value,
                 unit,
-                date_bin(
-                    %s::interval,
-                    event_time,
-                    TIMESTAMP '2001-01-01 00:00:00'
-                ) AS bucket_time
+                {bucket_sql} AS bucket_time
             FROM {table_name}
             WHERE device_id = %s
     """]
@@ -428,30 +429,24 @@ def fetch_device_history(table_name, device_id, params):
 
 
 def resolve_upat_rollup_table(params):
-    if params.aggregate != "avg" or params.resolved_bucket_unit is None:
+    if params.aggregate != "avg":
         return None
-
-    bucket_unit = params.resolved_bucket_unit
-    bucket_size = params.resolved_bucket_size
-
-    if bucket_unit == "minute":
-        if bucket_size % 60 == 0:
-            return "upat_measurements_hourly"
-        if bucket_size >= 5 and bucket_size % 5 == 0:
-            return "upat_measurements_5min"
-        return None
-
-    if bucket_unit in {"hour", "day"}:
+    spec = params.resolved_interval
+    if spec.calendar_day or spec.minutes % 60 == 0:
         return "upat_measurements_hourly"
-
+    if spec.minutes >= 5 and spec.minutes % 5 == 0:
+        return "upat_measurements_5min"
     return None
 
 
 def fetch_upat_rollup_history(table_name, device_id, params):
     metrics = params.resolved_metrics
-    end_time = params.resolved_end_time or datetime.now()
+    end_time = params.resolved_end_time or datetime.now(timezone.utc)
     start_time = params.resolved_start_time or (end_time - timedelta(days=1))
-    bucket_interval = params.resolved_bucket_interval
+    spec = params.resolved_interval
+    bucket_interval = "Europe/Athens" if spec.calendar_day else spec.sql_duration
+    bucket_sql = ("date_trunc('day', source_bucket, %s)" if spec.calendar_day else
+                  "date_bin(%s::interval, source_bucket, TIMESTAMPTZ '2001-01-01 00:00:00+00')")
     source_bucket_interval = (
         "5 minutes"
         if table_name == "upat_measurements_5min"
@@ -474,7 +469,7 @@ def fetch_upat_rollup_history(table_name, device_id, params):
                 date_bin(
                     %s::interval,
                     measurement.event_time,
-                    TIMESTAMP '2001-01-01 00:00:00'
+                    TIMESTAMPTZ '2001-01-01 00:00:00+00'
                 ) AS source_bucket
             FROM upat_measurements AS measurement
             CROSS JOIN rollup_state AS state
@@ -519,7 +514,7 @@ def fetch_upat_rollup_history(table_name, device_id, params):
         query_parts.append(" AND rollup.metric = ANY(%s)")
         query_params.append(metrics)
 
-    query_parts.append("""
+    query_parts.append(f"""
         ),
         combined_source AS (
             SELECT device_id, metric, unit, value_sum, sample_count, source_bucket
@@ -534,11 +529,7 @@ def fetch_upat_rollup_history(table_name, device_id, params):
                 metric,
                 SUM(value_sum) / NULLIF(SUM(sample_count), 0) AS value,
                 MAX(unit) AS unit,
-                date_bin(
-                    %s::interval,
-                    source_bucket,
-                    TIMESTAMP '2001-01-01 00:00:00'
-                ) AS bucket_time
+                {bucket_sql} AS bucket_time
             FROM combined_source
             GROUP BY device_id, metric, bucket_time
         )
@@ -693,20 +684,20 @@ def fetch_operational_telemetry():
                     COUNT(*)::integer AS total_devices,
                     COUNT(*) FILTER (
                         WHERE last_reading_at >=
-                            (CURRENT_TIMESTAMP AT TIME ZONE 'UTC')
+                            CURRENT_TIMESTAMP
                             - INTERVAL '15 minutes'
                     )::integer AS live_devices,
                     COUNT(*) FILTER (
                         WHERE last_reading_at <
-                                (CURRENT_TIMESTAMP AT TIME ZONE 'UTC')
+                                CURRENT_TIMESTAMP
                                 - INTERVAL '15 minutes'
                           AND last_reading_at >=
-                                (CURRENT_TIMESTAMP AT TIME ZONE 'UTC')
+                                CURRENT_TIMESTAMP
                                 - INTERVAL '24 hours'
                     )::integer AS stale_devices,
                     COUNT(*) FILTER (
                         WHERE last_reading_at <
-                                (CURRENT_TIMESTAMP AT TIME ZONE 'UTC')
+                                CURRENT_TIMESTAMP
                                 - INTERVAL '24 hours'
                            OR last_reading_at IS NULL
                     )::integer AS offline_devices,
@@ -946,6 +937,82 @@ def get_pv_readings_bounds():
         "timezone": PV_ACTUALS_TIMEZONE,
         "min_date": min_date.isoformat() if min_date else None,
         "max_date": max_date.isoformat() if max_date else None,
+    }
+
+
+@app.get(
+    "/pv/day-ahead/range",
+    dependencies=[Depends(require_ops_telemetry_token)],
+)
+def get_pv_day_ahead_forecast_range(
+    start_date: date = Query(...),
+    end_date: date = Query(...),
+):
+    """Return the latest persisted forecast for each bounded local date."""
+    validate_pv_readings_range(start_date, end_date)
+    try:
+        with get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    WITH latest_runs AS (
+                        SELECT DISTINCT ON (forecast_date)
+                            id,
+                            forecast_date
+                        FROM pv_day_ahead_forecast_runs
+                        WHERE success = TRUE
+                          AND forecast_date >= %s
+                          AND forecast_date <= %s
+                        ORDER BY forecast_date ASC, started_at DESC, id DESC
+                    )
+                    SELECT
+                        r.forecast_date,
+                        h.forecast_timestamp,
+                        h.forecast_hour,
+                        h.predicted_power_kw
+                    FROM latest_runs r
+                    JOIN pv_day_ahead_forecast_hourly h ON h.run_id = r.id
+                    ORDER BY r.forecast_date ASC, h.forecast_timestamp ASC;
+                    """,
+                    (start_date, end_date),
+                )
+                rows = cur.fetchall()
+    except Exception:
+        raise HTTPException(
+            status_code=503,
+            detail="PV forecasts are temporarily unavailable",
+        ) from None
+
+    forecasts_by_date: dict[str, dict] = {}
+    for row in rows:
+        forecast_date = row["forecast_date"].isoformat()
+        forecast = forecasts_by_date.setdefault(
+            forecast_date,
+            {
+                "forecast_date": forecast_date,
+                "count": 0,
+                "items": [],
+            },
+        )
+        forecast["items"].append(
+            {
+                "timestamp": row["forecast_timestamp"],
+                "hour": row["forecast_hour"],
+                "predicted_power_kw": numeric_or_none(
+                    row["predicted_power_kw"]
+                ),
+            }
+        )
+        forecast["count"] += 1
+
+    forecasts = list(forecasts_by_date.values())
+    return {
+        "source_id": "postgres-pv-day-ahead-forecasts",
+        "timezone": PV_ACTUALS_TIMEZONE,
+        "start_date": start_date.isoformat(),
+        "end_date": end_date.isoformat(),
+        "count": len(forecasts),
+        "forecasts": forecasts,
     }
 
 
@@ -1365,7 +1432,7 @@ def get_latest_shelly_measurements(
 @app.get("/upat/device/{device_id}/history")
 def get_device_history(
     device_id: str,
-    params: Annotated[HistoryQueryParams, Query()],
+    params: Annotated[HistoryQueryParams, Depends(history_query_params)],
 ):
     return fetch_upat_device_history(device_id, params)
 
@@ -1373,7 +1440,7 @@ def get_device_history(
 @app.get("/shelly/device/{device_id}/history")
 def get_shelly_device_history(
     device_id: str,
-    params: Annotated[HistoryQueryParams, Query()],
+    params: Annotated[HistoryQueryParams, Depends(history_query_params)],
 ):
     return fetch_device_history("shelly_measurements", device_id, params)
 
@@ -1385,6 +1452,14 @@ def get_shelly_hourly_energy(
     end: str | None = None,
     working_only: bool = Query(default=False),
 ):
+    return fetch_shelly_hourly_energy_rows(device_id, start, end, working_only)
+
+
+def fetch_shelly_hourly_energy_rows(device_id, start, end, working_only):
+    """Hourly device query retained for insights and device telemetry."""
+    def energy_value(value):
+        return round(float(value or 0.0), 3)
+
     device_ids = normalize_device_ids(device_id)
 
     if not device_ids:
@@ -1431,7 +1506,7 @@ def get_shelly_hourly_energy(
                         "is_working_day": row["is_working_day"],
                         "is_working_hour": row["is_working_hour"],
                         "energy_wh": {
-                            "total": round(float(row["energy_wh"] or 0.0), 3),
+                            "total": energy_value(row["energy_wh"]),
                         },
                         "created_at": row["created_at"],
                     })
@@ -1470,10 +1545,10 @@ def get_shelly_hourly_energy(
                         "is_working_day": row["is_working_day"],
                         "is_working_hour": row["is_working_hour"],
                         "energy_wh": {
-                            "a": round(float(row["a_energy_wh"] or 0.0), 3),
-                            "b": round(float(row["b_energy_wh"] or 0.0), 3),
-                            "c": round(float(row["c_energy_wh"] or 0.0), 3),
-                            "total": round(float(row["total_energy_wh"] or 0.0), 3),
+                            "a": energy_value(row["a_energy_wh"]),
+                            "b": energy_value(row["b_energy_wh"]),
+                            "c": energy_value(row["c_energy_wh"]),
+                            "total": energy_value(row["total_energy_wh"]),
                         },
                         "created_at": row["created_at"],
                     })
@@ -1760,3 +1835,21 @@ def get_shelly_device_energy(
             "total": total,
         },
     }
+
+
+# End-user data/API lives with PostgreSQL; simulation compute is a separate service.
+from monitoring.install import install as install_monitoring
+
+def require_session_service_token(authorization: Annotated[str | None, Header(alias="Authorization")] = None):
+    scheme, _, credentials = (authorization or "").partition(" ")
+    if len(AUTH_SERVICE_TOKEN) < 32:
+        raise HTTPException(503, "Authentication service is not configured", headers={"Cache-Control":"no-store"})
+    if scheme.lower() != "bearer" or not hmac.compare_digest(credentials, AUTH_SERVICE_TOKEN):
+        raise HTTPException(401, "Invalid service credentials", headers={"Cache-Control":"no-store"})
+
+install_monitoring(app, require_session_service_token)
+
+# Additive service access; migrate callers before removing the public port.
+from monitoring.service_access import build_data_service_router
+
+app.include_router(build_data_service_router(app.routes))

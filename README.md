@@ -475,33 +475,30 @@ Query parameters:
   Optional. Repeat the parameter to request multiple metrics.
 - `limit`
   Optional. Number of grouped items to return. Default: `100`. Maximum: `1000`.
-- `start`
-  Optional. Start bound.
-  Accepted formats:
-  - `YYYY-MM-DD`
-  - `YYYY-MM-DDTHH:MM`
-- `end`
-  Optional. End bound.
-  Accepted formats:
-  - `YYYY-MM-DD`
-  - `YYYY-MM-DDTHH:MM`
+- `start` / `end`
+  Optional together. Prefer ISO 8601 timestamps with explicit `Z` or UTC offset.
+  `start` is inclusive and `end` is exclusive.
 - `aggregate`
-  Optional. Currently supports only `avg`.
-- `bucket_unit`
-  Optional. Supported values:
-  - `minute`
-  - `hour`
-  - `day`
-- `bucket_size`
-  Optional. Bucket size. Examples: `1`, `2`, `15`.
+  Optional. Currently supports only `avg`; implied when `interval` is supplied.
+- `interval`
+  Optional. Positive integer minutes (`5m`, `90m`) or hours (`1h`, `24h`).
+  `day` means a calendar day in Europe/Athens, including DST (23/24/25 hours).
+  Fixed durations use UTC-aligned boundaries; `24h` is different from `day`.
+  Default low-level history resolution: `1m`.
 
 Notes:
 
-- If `start` or `end` is provided as `YYYY-MM-DD`, the API expands it to the full day.
+- These low-level request bounds retain compatibility: offset-free timestamps
+  are interpreted as UTC, and date-only bounds expand to the UTC day (start at
+  midnight, end at 23:59:59.999999). Consumers should send explicit offsets.
+  The public `/indoor_environment/devices/{device_id}/history` contract instead
+  requires aware timestamps; see [environmental history](ops/ENVIRONMENTAL_HISTORY.md).
 - Explicit timestamp ranges use a half-open interval: `start` is included and
   `end` is excluded. This prevents the first bucket of the following period
   from being returned as a partial bucket.
-- If aggregation parameters are used, `aggregate=avg` must also be provided.
+- Retired `bucket_unit`, `bucket_size` and `bucket_minutes` parameters return
+  422, even when empty or combined with `interval`. Use `interval` only.
+  See [the interval contract](ops/INTERVAL.md).
 - `limit` applies only when no explicit `start` and `end` range is provided.
 - If no time range is provided, the default history view is the last 1 day aggregated at 1-minute resolution.
 - UPAT minute buckets that are exact multiples of five use persisted five-minute
@@ -518,43 +515,43 @@ Notes:
 Latest twelve five-minute averages:
 
 ```bash
-curl -s "http://localhost:8000/upat/device/portable-112/history?aggregate=avg&bucket_unit=minute&bucket_size=5&limit=12"
+curl -s "http://localhost:8000/upat/device/portable-112/history?aggregate=avg&interval=5m&limit=12"
 ```
 
 Latest four fifteen-minute averages:
 
 ```bash
-curl -s "http://localhost:8000/upat/device/portable-112/history?aggregate=avg&bucket_unit=minute&bucket_size=15&limit=4"
+curl -s "http://localhost:8000/upat/device/portable-112/history?aggregate=avg&interval=15m&limit=4"
 ```
 
 Hourly averages:
 
 ```bash
-curl -s "http://localhost:8000/upat/device/portable-112/history?aggregate=avg&bucket_unit=hour&bucket_size=1&limit=24"
+curl -s "http://localhost:8000/upat/device/portable-112/history?aggregate=avg&interval=1h&limit=24"
 ```
 
 Two-hour averages:
 
 ```bash
-curl -s "http://localhost:8000/upat/device/portable-112/history?aggregate=avg&bucket_unit=hour&bucket_size=2&limit=24"
+curl -s "http://localhost:8000/upat/device/portable-112/history?aggregate=avg&interval=2h&limit=24"
 ```
 
-Daily averages:
+Calendar-day averages over an explicit Athens range:
 
 ```bash
-curl -s "http://localhost:8000/upat/device/portable-112/history?aggregate=avg&bucket_unit=day&bucket_size=1&limit=7"
+curl -s "http://localhost:8000/upat/device/portable-112/history?interval=day&start=2026-03-07T22:00:00Z&end=2026-03-14T22:00:00Z"
 ```
 
 Filtered aggregated history:
 
 ```bash
-curl -s "http://localhost:8000/upat/device/portable-112/history?metric=temperature&metric=relative_humidity&aggregate=avg&bucket_unit=hour&bucket_size=2&limit=12"
+curl -s "http://localhost:8000/upat/device/portable-112/history?metric=temperature&metric=relative_humidity&aggregate=avg&interval=2h&limit=12"
 ```
 
 Aggregated history in a time range:
 
 ```bash
-curl -s "http://localhost:8000/upat/device/portable-112/history?aggregate=avg&bucket_unit=hour&bucket_size=2&start=2026-03-14T00:00&end=2026-03-14T12:00"
+curl -s "http://localhost:8000/upat/device/portable-112/history?aggregate=avg&interval=2h&start=2026-03-14T00:00:00Z&end=2026-03-14T12:00:00Z"
 ```
 
 Example response:
@@ -610,7 +607,7 @@ curl -s "http://localhost:8000/shelly/device/shellypro3em-example/latest?metric=
 
 ### `GET /shelly/device/{device_id}/history`
 
-Returns raw historical Shelly telemetry from `shelly_measurements`. It uses the same `metric`, `start`, `end`, `aggregate`, `bucket_unit`, `bucket_size`, and `limit` query contract described for `/upat/device/{device_id}/history`.
+Returns raw historical Shelly telemetry from `shelly_measurements`. It uses the same `metric`, `start`, `end`, `aggregate`, `interval`, and `limit` query contract described for `/upat/device/{device_id}/history`.
 
 Example:
 

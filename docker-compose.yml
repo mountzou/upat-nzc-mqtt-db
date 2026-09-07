@@ -97,8 +97,10 @@ services:
       POSTGRES_DB: ${POSTGRES_DB}
       OPS_TELEMETRY_TOKEN: ${OPS_TELEMETRY_TOKEN:-}
       AUTH_SERVICE_TOKEN: ${AUTH_SERVICE_TOKEN:-}
+      DATA_SERVICE_TOKEN: ${DATA_SERVICE_TOKEN:-}
+      AUTH_TOKEN_SECRET: ${AUTH_TOKEN_SECRET:-}
     ports:
-      - "${API_PORT}:8000"
+      - "127.0.0.1:${API_PORT:-8000}:8000"
     depends_on:
       - postgres
 

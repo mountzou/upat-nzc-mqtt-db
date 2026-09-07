@@ -1,0 +1,56 @@
+[
+  {
+    "id": "school_22",
+    "label": "School 22",
+    "address": "University of the Peloponnese, Fares, Kalamata 241 00, Greece",
+    "lat": 37.0275,
+    "lng": 22.1281,
+    "school_level": "primary_school",
+    "construction_year": null
+  },
+  {
+    "id": "school_10",
+    "label": "School 10",
+    "address": "46 Kritis Street, Kalamata 241 00, Greece",
+    "lat": 37.0315739,
+    "lng": 22.1123851,
+    "school_level": "primary_school",
+    "construction_year": null
+  },
+  {
+    "id": "school_3",
+    "label": "School 3",
+    "address": "1 Akrita Street, Kalamata 241 00, Greece",
+    "lat": 37.0235,
+    "lng": 22.1188,
+    "school_level": "primary_school",
+    "construction_year": null
+  },
+  {
+    "id": "school_7",
+    "label": "School 7",
+    "address": "118 Akrita Street & Kritis Street, Kalamata, Greece",
+    "lat": 37.0308,
+    "lng": 22.1195,
+    "school_level": "primary_school",
+    "construction_year": null
+  },
+  {
+    "id": "school_13",
+    "label": "School 13",
+    "address": "63–77 Maizonos Street, Kalamata 241 00, Greece",
+    "lat": 37.0315,
+    "lng": 22.1158,
+    "school_level": "pre_school",
+    "construction_year": null
+  },
+  {
+    "id": "school_23",
+    "label": "School 23",
+    "address": "22 Omirou Street, Kalamata 241 00, Greece",
+    "lat": 37.0330406,
+    "lng": 22.1095608,
+    "school_level": "pre_school",
+    "construction_year": null
+  }
+]

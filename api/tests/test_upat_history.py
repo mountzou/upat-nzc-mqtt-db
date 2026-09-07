@@ -1,7 +1,7 @@
 import os
 import unittest
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from unittest.mock import patch
 
 import main
@@ -54,56 +54,49 @@ class UpatHistoryTests(unittest.TestCase):
             (
                 HistoryQueryParams(
                     aggregate="avg",
-                    bucket_unit="minute",
-                    bucket_size=1,
+                    interval="1m",
                 ),
                 None,
             ),
             (
                 HistoryQueryParams(
                     aggregate="avg",
-                    bucket_unit="minute",
-                    bucket_size=5,
+                    interval="5m",
                 ),
                 "upat_measurements_5min",
             ),
             (
                 HistoryQueryParams(
                     aggregate="avg",
-                    bucket_unit="minute",
-                    bucket_size=15,
+                    interval="15m",
                 ),
                 "upat_measurements_5min",
             ),
             (
                 HistoryQueryParams(
                     aggregate="avg",
-                    bucket_unit="minute",
-                    bucket_size=7,
+                    interval="7m",
                 ),
                 None,
             ),
             (
                 HistoryQueryParams(
                     aggregate="avg",
-                    bucket_unit="minute",
-                    bucket_size=60,
+                    interval="60m",
                 ),
                 "upat_measurements_hourly",
             ),
             (
                 HistoryQueryParams(
                     aggregate="avg",
-                    bucket_unit="hour",
-                    bucket_size=1,
+                    interval="1h",
                 ),
                 "upat_measurements_hourly",
             ),
             (
                 HistoryQueryParams(
                     aggregate="avg",
-                    bucket_unit="day",
-                    bucket_size=1,
+                    interval="24h",
                 ),
                 "upat_measurements_hourly",
             ),
@@ -122,8 +115,7 @@ class UpatHistoryTests(unittest.TestCase):
             start="2026-07-29T10:00",
             end="2026-07-29T11:00",
             aggregate="avg",
-            bucket_unit="minute",
-            bucket_size=1,
+            interval="1m",
         )
 
         fetch_device_history("upat_measurements", "portable-test", params)
@@ -151,8 +143,7 @@ class UpatHistoryTests(unittest.TestCase):
             start="2026-07-29T10:00",
             end="2026-07-29T10:14",
             aggregate="avg",
-            bucket_unit="minute",
-            bucket_size=15,
+            interval="15m",
             limit=96,
         )
 
@@ -192,8 +183,7 @@ class UpatHistoryTests(unittest.TestCase):
             start="2026-07-29T09:00",
             end="2026-07-29T10:59",
             aggregate="avg",
-            bucket_unit="hour",
-            bucket_size=1,
+            interval="1h",
         )
 
         fetch_upat_rollup_history(
@@ -246,14 +236,14 @@ class UpatHistoryDatabaseTests(unittest.TestCase):
                         metric TEXT NOT NULL,
                         value DOUBLE PRECISION,
                         unit TEXT,
-                        event_time TIMESTAMP NOT NULL
+                        event_time TIMESTAMPTZ NOT NULL
                     );
 
                     CREATE TABLE upat_measurements_5min (
                         device_id TEXT NOT NULL,
                         metric TEXT NOT NULL,
                         unit TEXT,
-                        bucket_start TIMESTAMP NOT NULL,
+                        bucket_start TIMESTAMPTZ NOT NULL,
                         value_avg DOUBLE PRECISION,
                         value_min DOUBLE PRECISION,
                         value_max DOUBLE PRECISION,
@@ -266,7 +256,7 @@ class UpatHistoryDatabaseTests(unittest.TestCase):
                         device_id TEXT NOT NULL,
                         metric TEXT NOT NULL,
                         unit TEXT,
-                        bucket_start TIMESTAMP NOT NULL,
+                        bucket_start TIMESTAMPTZ NOT NULL,
                         value_avg DOUBLE PRECISION,
                         value_min DOUBLE PRECISION,
                         value_max DOUBLE PRECISION,
@@ -329,7 +319,7 @@ class UpatHistoryDatabaseTests(unittest.TestCase):
                         'portable-test',
                         'temperature',
                         'C',
-                        TIMESTAMP '2026-07-01 10:00:00',
+                        TIMESTAMPTZ '2026-07-01 10:00:00+00',
                         20,
                         10,
                         30,
@@ -351,7 +341,7 @@ class UpatHistoryDatabaseTests(unittest.TestCase):
                             'temperature',
                             30,
                             'C',
-                            TIMESTAMP '2026-07-01 10:04:00'
+                            TIMESTAMPTZ '2026-07-01 10:04:00+00'
                         ),
                         (
                             101,
@@ -359,7 +349,7 @@ class UpatHistoryDatabaseTests(unittest.TestCase):
                             'temperature',
                             50,
                             'C',
-                            TIMESTAMP '2026-07-01 10:04:30'
+                            TIMESTAMPTZ '2026-07-01 10:04:30+00'
                         );
                 """)
 
@@ -368,8 +358,7 @@ class UpatHistoryDatabaseTests(unittest.TestCase):
             start="2026-07-01T10:00",
             end="2026-07-01T10:14",
             aggregate="avg",
-            bucket_unit="minute",
-            bucket_size=15,
+            interval="15m",
         )
 
         response = fetch_upat_rollup_history(
@@ -385,7 +374,7 @@ class UpatHistoryDatabaseTests(unittest.TestCase):
         )
 
     def test_twelve_five_minute_rollups_form_four_fifteen_minute_buckets(self):
-        first_bucket = datetime(2026, 7, 1, 12, 0)
+        first_bucket = datetime(2026, 7, 1, 12, 0, tzinfo=timezone.utc)
         rows = [
             (
                 "portable-test",
@@ -424,8 +413,7 @@ class UpatHistoryDatabaseTests(unittest.TestCase):
             start="2026-07-01T12:00",
             end="2026-07-01T12:59",
             aggregate="avg",
-            bucket_unit="minute",
-            bucket_size=15,
+            interval="15m",
         )
 
         response = fetch_upat_rollup_history(
@@ -438,10 +426,10 @@ class UpatHistoryDatabaseTests(unittest.TestCase):
         self.assertEqual(
             [item["event_time"] for item in response["items"]],
             [
-                datetime(2026, 7, 1, 12, 45),
-                datetime(2026, 7, 1, 12, 30),
-                datetime(2026, 7, 1, 12, 15),
-                datetime(2026, 7, 1, 12, 0),
+                datetime(2026, 7, 1, 12, 45, tzinfo=timezone.utc),
+                datetime(2026, 7, 1, 12, 30, tzinfo=timezone.utc),
+                datetime(2026, 7, 1, 12, 15, tzinfo=timezone.utc),
+                datetime(2026, 7, 1, 12, 0, tzinfo=timezone.utc),
             ],
         )
         self.assertEqual(
@@ -471,7 +459,7 @@ class UpatHistoryDatabaseTests(unittest.TestCase):
                             'portable-test',
                             'temperature',
                             'C',
-                            TIMESTAMP '2026-07-29 00:00:00',
+                            TIMESTAMPTZ '2026-07-29 00:00:00+00',
                             20,
                             20,
                             20,
@@ -481,7 +469,7 @@ class UpatHistoryDatabaseTests(unittest.TestCase):
                             'portable-test',
                             'temperature',
                             'C',
-                            TIMESTAMP '2026-07-30 00:00:00',
+                            TIMESTAMPTZ '2026-07-30 00:00:00+00',
                             30,
                             30,
                             30,
@@ -494,8 +482,7 @@ class UpatHistoryDatabaseTests(unittest.TestCase):
             start="2026-07-29T00:00",
             end="2026-07-30T00:00",
             aggregate="avg",
-            bucket_unit="day",
-            bucket_size=1,
+            interval="24h",
         )
 
         response = fetch_upat_rollup_history(
@@ -507,7 +494,7 @@ class UpatHistoryDatabaseTests(unittest.TestCase):
         self.assertEqual(response["count"], 1)
         self.assertEqual(
             response["items"][0]["event_time"],
-            datetime(2026, 7, 29, 0, 0),
+            datetime(2026, 7, 29, 0, 0, tzinfo=timezone.utc),
         )
         self.assertEqual(
             response["items"][0]["measurements"]["temperature"]["value"],

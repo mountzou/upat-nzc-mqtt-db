@@ -1,3 +1,5 @@
 fastapi
 uvicorn[standard]
 psycopg2-binary
+PyJWT==2.13.0
+pythermalcomfort==4.4.2

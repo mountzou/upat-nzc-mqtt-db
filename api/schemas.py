@@ -1,6 +1,7 @@
-from datetime import datetime, time
-from fastapi import HTTPException
-from pydantic import BaseModel, Field, model_validator
+from datetime import datetime, time, timezone
+from fastapi import HTTPException, Query, Request
+from pydantic import BaseModel, Field, ValidationError, model_validator
+from monitoring.utils.interval import parse_interval, RETIRED_BUCKET_PARAMETERS
 
 # Parses a datetime bound from a string value
 def parse_datetime_bound(date, bound_name):
@@ -31,6 +32,21 @@ def parse_datetime_bound(date, bound_name):
     )
 
 
+def parse_telemetry_bound(value, bound_name):
+    """Parse an absolute instant; old offset-free request bounds remain UTC.
+
+    This is the single compatibility boundary for existing callers. Weather
+    forecast wall-clock timestamps continue to use parse_datetime_bound.
+    """
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except (ValueError, TypeError):
+        parsed = None
+    if parsed is not None and parsed.tzinfo is not None:
+        return parsed.astimezone(timezone.utc)
+    return parse_datetime_bound(value, bound_name).replace(tzinfo=timezone.utc)
+
+
 # Normalizes a list of metric names by stripping whitespace, removing empty entries, and sorting them
 def normalize_metrics(metrics):
     if not metrics:
@@ -51,8 +67,7 @@ class HistoryQueryParams(BaseModel):
     start: str | None = None
     end: str | None = None
     aggregate: str | None = None
-    bucket_unit: str | None = None
-    bucket_size: int | None = Field(default=None, ge=1, le=10080)
+    interval: str | None = None
     limit: int = Field(default=100, le=1000)
 
     @property   # Return the resolved list of normalized metric names or None if no metrics were provided
@@ -63,35 +78,33 @@ class HistoryQueryParams(BaseModel):
     def resolved_start_time(self):
         if self.start is None:
             return None
-        return parse_datetime_bound(self.start, "start")
+        return parse_telemetry_bound(self.start, "start")
 
     @property   # Return the resolved end time as a datetime object or None if not provided
     def resolved_end_time(self):
         if self.end is None:
             return None
-        return parse_datetime_bound(self.end, "end")
+        return parse_telemetry_bound(self.end, "end")
 
-    @property   # Return the resolved bucket unit, such as "minute", "hour" or "day"
-    def resolved_bucket_unit(self):
-        return self.bucket_unit
+    @property
+    def resolved_interval(self):
+        return parse_interval("1m" if self.interval is None else self.interval)
 
-    @property   # Return the resolved bucket size, such as 1, 5 or 60, with a default of 1
-    def resolved_bucket_size(self):
-        if self.bucket_size is None:
-            return 1
-        return self.bucket_size
 
-    @property   # Return the resolved bucket interval as a string like "5 minutes" or "1 hour"
-    def resolved_bucket_interval(self):
-        if self.resolved_bucket_unit is None:
-            return None
-        unit = self.resolved_bucket_unit
-        if self.resolved_bucket_size != 1:
-            unit = f"{unit}s"
-        return f"{self.resolved_bucket_size} {unit}"
+
+
+    @model_validator(mode="before")
+    @classmethod
+    def reject_retired_bucket_parameters(cls, value):
+        if isinstance(value, dict) and RETIRED_BUCKET_PARAMETERS.intersection(value):
+            raise ValueError("Use interval; legacy bucket parameters are no longer supported")
+        return value
 
     @model_validator(mode="after")
     def validate_history_query(self):
+        self.resolved_interval  # Validate the interval before SQL.
+        if self.interval is not None and self.aggregate is None:
+            self.aggregate = "avg"
         start_time = self.resolved_start_time
         end_time   = self.resolved_end_time
 
@@ -105,9 +118,8 @@ class HistoryQueryParams(BaseModel):
 
         # If the user did not provide any aggregation parameters, return the original object without further validation
         uses_aggregation = (
-            self.aggregate is not None
-            or self.bucket_unit is not None
-            or self.bucket_size is not None
+            self.interval is not None
+            or self.aggregate is not None
         )
         if not uses_aggregation:
             return self
@@ -116,8 +128,24 @@ class HistoryQueryParams(BaseModel):
         if self.aggregate != "avg":
             raise ValueError("aggregate must be 'avg' when provided")
 
-        # Validate that if the user provided a bucket_unit parameter, it must be "minute", "hour" or "day"
-        if self.resolved_bucket_unit not in {"minute", "hour", "day"}:
-            raise ValueError("bucket_unit must be 'minute', 'hour' or 'day' when aggregate is used")
+        if self.interval is None:
+            raise ValueError("interval is required when aggregate is provided")
 
         return self
+
+
+def history_query_params(
+    request: Request,
+    metric: list[str] | None = Query(None),
+    start: str | None = Query(None), end: str | None = Query(None),
+    aggregate: str | None = Query(None),
+    interval: str | None = Query(None, description="Average into a fixed duration such as 5m, 1h or 24h; day is an Athens calendar day. Default: 1m."),
+    limit: int = Query(100, ge=1, le=1000),
+):
+    try:
+        if RETIRED_BUCKET_PARAMETERS.intersection(request.query_params):
+            raise HTTPException(422, "Use interval; legacy bucket parameters are no longer supported")
+        return HistoryQueryParams(metric=metric, start=start, end=end, aggregate=aggregate,
+                                  interval=interval, limit=limit)
+    except ValidationError as exc:
+        raise HTTPException(422, "Invalid history query: " + str(exc.errors()[0]["msg"])) from exc

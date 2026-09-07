@@ -1,20 +1,30 @@
 telemetry.schoolheroz.com {
+	# Prepared service access: API validates DATA_SERVICE_TOKEN on every read.
+	@data_read_service {
+		method GET
+		path /internal/data/health /internal/data/upat/device/*/latest /internal/data/upat/device/*/history /internal/data/shelly/hourly-energy /internal/data/weather/hourly/forecast /internal/data/simulations/day-ahead/latest /internal/data/pv/day-ahead/latest
+	}
+
+	handle @data_read_service {
+		reverse_proxy api:8000
+	}
+
 	handle /ops/telemetry {
 		reverse_proxy api:8000
 	}
 
-	@pv_readings_service {
+	@pv_data_service {
 		method GET
-		path /pv/readings /pv/readings/bounds
+		path /pv/readings /pv/readings/bounds /pv/day-ahead/range
 	}
 
-	handle @pv_readings_service {
+	handle @pv_data_service {
 		reverse_proxy api:8000
 	}
 
 	@auth_read_service {
 		method POST
-		path /internal/auth/verify /internal/auth/resolve
+		path /internal/auth/verify /internal/auth/resolve /internal/auth/session
 	}
 
 	handle @auth_read_service {
@@ -29,6 +39,15 @@ telemetry.schoolheroz.com {
 	handle @auth_preferences_service {
 		reverse_proxy api:8000
 	}
+
+	@monitoring_public {
+        path /auth/login /auth/me /auth/preferences /catalog/schools /catalog/schools/*/rooms /energy/* /indoor_environment/* /thermal-comfort/*
+    }
+    handle @monitoring_public {
+        reverse_proxy api:8000 {
+            flush_interval -1
+        }
+    }
 
 	handle {
 		respond "Not Found" 404
