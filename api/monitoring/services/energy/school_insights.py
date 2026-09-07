@@ -126,6 +126,11 @@ def _completed_window_utc(
 
 
 def _parse_datetime(value) -> datetime | None:
+    if isinstance(value, datetime):
+        try:
+            return as_utc(value)
+        except ValueError:
+            return None
     if not isinstance(value, str) or not value.strip():
         return None
     try:

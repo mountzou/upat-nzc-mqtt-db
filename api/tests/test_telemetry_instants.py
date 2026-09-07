@@ -1,9 +1,10 @@
 from datetime import datetime, timedelta, timezone
+from unittest.mock import Mock
 
 import pytest
 
 from schemas import HistoryQueryParams, parse_datetime_bound, parse_telemetry_bound
-from monitoring.services.service_energy_api import _serialize_shelly_energy_window_param
+from monitoring.services import service_energy_api
 from monitoring.utils.api_datetime import normalize_api_window_dt
 
 
@@ -30,10 +31,16 @@ def test_legacy_request_bounds_keep_their_utc_meaning_at_one_boundary():
     assert parse_datetime_bound("2026-09-06T12:00", "start").tzinfo is None
 
 
-def test_internal_energy_requests_keep_the_offset():
+def test_internal_energy_requests_keep_the_instant_without_serializing(monkeypatch):
     original = datetime(2026, 9, 6, 15, tzinfo=timezone(timedelta(hours=3)))
     normalized = normalize_api_window_dt(original)
-    serialized = _serialize_shelly_energy_window_param(original)
+    reader = Mock(return_value={"items": []})
+    monkeypatch.setattr(service_energy_api, "read_hourly_energy", reader)
+    service_energy_api.fetch_shelly_hourly_energy(
+        ["shellyplug-fixture"], start=original, end=original + timedelta(hours=1)
+    )
+    start, end = reader.call_args.args[1:3]
     assert normalized.tzinfo is not None
-    assert serialized == "2026-09-06T12:00+00:00"
-    assert parse_telemetry_bound(serialized, "start") == original
+    assert start == original == normalized
+    assert start.tzinfo is timezone.utc
+    assert end - start == timedelta(hours=1)
