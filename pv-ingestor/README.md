@@ -32,6 +32,31 @@ The default window is the latest three completed `Europe/Athens` dates. The
 FusionSolar application response and `failCode` are checked even when HTTP is
 successful. A `407`/rate-limit response fails immediately without a retry storm.
 
+Every live request now requires an initialized, persistent `PV_API_STATE_DIR`.
+The account ledger records the attempt **before** HTTP, including failed and
+interrupted attempts. All three endpoints are covered; requests are never
+retried or redirected automatically. History calls are separated by at least
+65 seconds across device types and runs. A whole-run file lock serializes API
+access across containers that share the directory.
+
+The initial local policy allows at most 12 history attempts in a rolling 24h,
+with the final two available only to scheduled runs. This is a conservative
+operator policy, not a verified Huawei account quota. Full-run preflight checks
+the planned one/two history calls before login. The ledger also caps login at
+5 attempts per rolling 10 minutes and device discovery at 12 per rolling 24h.
+
+Account `failCode=407` sets a shared 24h cooldown; `429`/HTTP 429 sets 15 minutes;
+other failed responses or transport errors set 15 minutes. A longer
+`Retry-After` wins. Expiry permits a future requested run; it never starts an
+automatic retry and does not prove that Huawei has unblocked the account.
+Unknown outcomes after interruption and initial activation require a 24h hold.
+
+The durable ledger is a separate SQLite file, outside production PostgreSQL.
+Missing/corrupt state, a different account/policy, or an active run prevents API
+calls. JSON events contain endpoint, attempt/run IDs, trigger, device type/count,
+time window, status, numeric fail code, timing, and outcome. They omit account
+names, device IDs, credentials, tokens, provider messages, and raw payloads.
+
 ## Offline validation
 
 No network or database is used:
@@ -48,26 +73,18 @@ Fixture mode is permanently read-only and rejects `--save-to-db`.
 
 ## Explicit live preview
 
-Set the following only in a local/private environment; never commit their
-values:
-
-```text
-FUSIONSOLAR_BASE_URL=https://.../thirdData
-FUSIONSOLAR_USERNAME=...
-FUSIONSOLAR_SYSTEM_CODE=...
-FUSIONSOLAR_PLANT_CODE=NE=...
-FUSIONSOLAR_LOOKBACK_DAYS=3
-FUSIONSOLAR_INCLUDE_METER=true
-```
-
-Then run the isolated preview profile:
+After the separately reviewed VPS activation in
+[`ops/PV_API_CONTROL.md`](../ops/PV_API_CONTROL.md), use the same launcher and
+ledger as the scheduled job:
 
 ```bash
-docker compose --profile pv-ingestor-preview run --rm --no-deps pv-ingestor
+sudo /usr/local/sbin/upat-pv-ingestor manual --no-save-to-db
 ```
 
-The command makes live read calls, but the resulting batch is not written to a
-file, Firestore, or PostgreSQL.
+This consumes real API quota even though it does not persist telemetry.
+The old Compose preview has no shared state mount and therefore fails before
+HTTP with the new code. Do not create a separate local ledger for the production
+account to bypass a refusal. Use fixture mode for development.
 
 ## Explicit local PostgreSQL persistence
 
@@ -91,5 +108,5 @@ not enable persistence or receive database credentials.
 Production scheduling is deliberately separate from the persistence-free
 Compose preview. The reviewed systemd service and timer live under
 `ops/systemd/`; their install, credential, validation, monitoring, and rollback
-procedure is documented in `ops/README.md`. Do not enable that timer while any
+procedure is documented in `ops/PV_API_CONTROL.md`. Do not enable that timer while any
 legacy FusionSolar scheduler is active.

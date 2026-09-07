@@ -23,6 +23,7 @@ from pipeline import (
     normalize_devices,
 )
 from persistence import PersistenceError, persist_batch
+from api_control import ApiControl, ApiControlError
 
 
 def _positive_lookback(value: str) -> int:
@@ -150,11 +151,20 @@ def _live_inputs(
     args: argparse.Namespace,
     request_window: dict[str, Any],
 ) -> tuple[str, dict, dict, list[dict]]:
+    # Every live entry point (including previews) must share this durable ledger.
+    with ApiControl(os.getenv("PV_API_STATE_DIR"),
+                    _required_env("FUSIONSOLAR_USERNAME"), args.trigger_kind) as control:
+        control.preflight(1 if args.skip_meter else 2)
+        return _guarded_live_inputs(args, request_window, control)
+
+
+def _guarded_live_inputs(args, request_window, control):
     plant_code = _required_env("FUSIONSOLAR_PLANT_CODE")
     client = FusionSolarClient(
         base_url=_required_env("FUSIONSOLAR_BASE_URL"),
         username=_required_env("FUSIONSOLAR_USERNAME"),
         system_code=_required_env("FUSIONSOLAR_SYSTEM_CODE"),
+        control=control,
     )
     client.login()
     device_list_payload = client.get_device_list(plant_code)
@@ -245,6 +255,7 @@ if __name__ == "__main__":
         raise SystemExit(main())
     except (
         FusionSolarError,
+        ApiControlError,
         PipelineValidationError,
         PersistenceError,
         OSError,

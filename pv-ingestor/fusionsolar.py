@@ -4,10 +4,14 @@ from __future__ import annotations
 
 import re
 import time
+import math
+from email.utils import parsedate_to_datetime
 from typing import Any
 from urllib.parse import urlparse
 
 import requests
+
+from api_control import ApiControl
 
 
 CONNECT_TIMEOUT_SECONDS = 10
@@ -70,6 +74,19 @@ def _extract_token(response: requests.Response) -> str | None:
     return match.group(1) if match else None
 
 
+def _retry_after(value: str | None, now: float) -> float | None:
+    if not value:
+        return None
+    try:
+        seconds = float(value)
+    except ValueError:
+        try:
+            seconds = parsedate_to_datetime(value).timestamp() - now
+        except (TypeError, ValueError, OverflowError):
+            return None
+    return max(0, seconds) if math.isfinite(seconds) else None
+
+
 class FusionSolarClient:
     """Sequential client with no implicit retries or payload logging."""
 
@@ -79,6 +96,7 @@ class FusionSolarClient:
         base_url: str,
         username: str,
         system_code: str,
+        control: ApiControl,
         session: requests.Session | None = None,
     ) -> None:
         if not username or not system_code:
@@ -89,6 +107,7 @@ class FusionSolarClient:
         self.session = session or requests.Session()
         self.token: str | None = None
         self.call_reports: list[dict[str, Any]] = []
+        self.control = control
 
     def _request(
         self,
@@ -105,52 +124,69 @@ class FusionSolarClient:
                 )
             headers["XSRF-TOKEN"] = self.token
 
+        attempt = self.control.begin_attempt(endpoint, payload)
         started = time.monotonic()
+        result = {"endpoint": endpoint, "http_status": None, "success": False,
+                  "fail_code": None, "response_bytes": 0, "automatic_retries": 0,
+                  "retry_after_seconds": None, "outcome": "transport_error"}
         try:
             response = self.session.post(
                 f"{self.base_url}/{endpoint}",
                 json=payload,
                 headers=headers,
                 timeout=(CONNECT_TIMEOUT_SECONDS, READ_TIMEOUT_SECONDS),
+                allow_redirects=False,
             )
         except requests.RequestException as exc:
+            result.update(elapsed_ms=round((time.monotonic() - started) * 1000, 1),
+                          error_type=type(exc).__name__)
+            self.call_reports.append(self.control.finish_attempt(attempt, result))
             raise FusionSolarTransportError(
                 f"{endpoint} transport failure: {type(exc).__name__}; no retry attempted"
             ) from exc
-
-        body = _response_json(response, endpoint)
-        fail_code = body.get("failCode")
-        self.call_reports.append(
-            {
-                "endpoint": endpoint,
-                "http_status": response.status_code,
-                "elapsed_ms": round((time.monotonic() - started) * 1000, 1),
-                "response_bytes": len(response.content),
-                "success": body.get("success"),
-                "fail_code": fail_code,
-                "automatic_retries": 0,
-            }
-        )
-
-        if response.status_code == 429 or fail_code == 407:
-            raise FusionSolarRateLimitError(
-                f"{endpoint} was rate limited or blocked; immediate retries are disabled"
-            )
-        if response.status_code >= 400:
-            error_type = (
-                FusionSolarAuthenticationError
-                if endpoint == "login" or response.status_code in {401, 403}
-                else FusionSolarError
-            )
-            raise error_type(f"{endpoint} returned HTTP {response.status_code}")
-        if body.get("success") is not True or fail_code not in (0, None):
-            error_type = (
-                FusionSolarAuthenticationError
-                if endpoint == "login"
-                else FusionSolarError
-            )
+        result.update(http_status=response.status_code, response_bytes=len(response.content),
+                      retry_after_seconds=_retry_after(response.headers.get("Retry-After"), self.control.clock()))
+        try:
+            body = _response_json(response, endpoint)
+        except FusionSolarError:
+            body = None
+        # Never log provider-supplied messages, identifiers, headers, or raw payloads.
+        fail_code = body.get("failCode") if body else None
+        if type(fail_code) is not int:
+            fail_code = None
+        result["fail_code"] = fail_code
+        error_type = FusionSolarError
+        if fail_code == 407:
+            result["outcome"] = "account_rate_limit"
+            error_type = FusionSolarRateLimitError
+        elif response.status_code == 429 or fail_code == 429:
+            result["outcome"] = "system_rate_limit"
+            error_type = FusionSolarRateLimitError
+        elif 300 <= response.status_code < 400:
+            result["outcome"] = "redirect_refused"
+        elif response.status_code >= 400:
+            result["outcome"] = "http_error"
+            if endpoint == "login" or response.status_code in {401, 403}:
+                error_type = FusionSolarAuthenticationError
+        elif body is None:
+            result["outcome"] = "invalid_json"
+        elif body.get("success") is not True or body.get("failCode") not in (0, None):
+            result["outcome"] = "application_error"
+            if endpoint == "login":
+                error_type = FusionSolarAuthenticationError
+        elif endpoint == "login" and not _extract_token(response):
+            result["outcome"] = "missing_token"
+            error_type = FusionSolarAuthenticationError
+        else:
+            result.update(outcome="success", success=True)
+        result["elapsed_ms"] = round((time.monotonic() - started) * 1000, 1)
+        self.call_reports.append(self.control.finish_attempt(attempt, result))
+        if result["outcome"] != "success":
+            reason = ("was rate limited or blocked; immediate retries are disabled; "
+                      if error_type is FusionSolarRateLimitError else "")
             raise error_type(
-                f"{endpoint} application failure failCode={fail_code}"
+                f"{endpoint} {reason}{result['outcome']}: HTTP={response.status_code}, "
+                f"failCode={fail_code}, devTypeId={attempt.get('dev_type_id')}; no retry attempted"
             )
         return body, response
 
