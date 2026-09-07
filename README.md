@@ -108,6 +108,8 @@ The `pv-prediction` service is a one-shot D+1 forecasting job. It fetches hourly
 
 The tracked operational model is `rf_operational_20260806`, a `RandomForestRegressor` trained on a short summer reference dataset (39 dates and 903 rows). Its feature contract and provenance are recorded in `pv-prediction/pv_model_manifest_rf_operational_20260806.json`; the associated model and feature artifacts are versioned in the same directory. Treat this model as an operational evaluation baseline rather than a fully validated year-round model.
 
+Model evaluation belongs in a separate workspace. The former `pv-shadow-prediction` replay runner and its evaluation snapshots have been removed from this worktree; their implementation remains available in Git history (introduced in `03dd9ca`). The historical migration `007_pv_shadow_forecasts.sql` is retained for existing installations but is no longer included in fresh database initialization. This cleanup does not drop existing tables or data.
+
 The current Random Forest feature contract excludes `lag_1h`. `PV_LATEST_ACTIVE_POWER_KW`, `PV_LAG_1H_KW`, and the corresponding nullable database fields are retained only for schema and CLI compatibility; changing them does not affect current RF predictions. When neither legacy value is explicitly supplied, new RF rows store `NULL` rather than manufacturing a measured-power value.
 
 Open-Meteo collection retries transient network and HTTP failures up to four attempts with 10, 20, and 40 second backoff delays. Retries happen before inference and database persistence, so a failed weather request cannot create duplicate forecast rows.
