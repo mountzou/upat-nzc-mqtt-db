@@ -100,7 +100,8 @@ The tests require `NOTIFICATIONS_TEST_DSN` containing `host=127.0.0.1` and
 `local-fixture-only`. They create and remove only their fixture schema.
 
 For eventual approved VPS rollout: apply migration 016, deploy the reviewed API
-image (the job is packaged in the same image), then install the three
+image (the job is packaged in the same image), load the reviewed Caddy routing
+addition for `/notifications` and `/notifications/*/read`, then install the three
 `ops/systemd/upat-iaq-notifications*` templates. They execute a separate Python
 process in the API container; no background task is attached to Uvicorn startup.
 Confirm Docker path, Compose project/location and API image before installation.
@@ -158,3 +159,9 @@ a stored hourly value immediately above its threshold without rounding.
 
 The earlier School 10 real-data report predates this final Teachers Office
 rule and must not be used as final-version production acceptance evidence.
+
+### Final PR preparation
+
+See [the final validation report](reports/iaq-final-pr-20260909/REPORT.md) for
+real hourly-aggregate replay with the final Teachers Office rule, reconciliation
+of the already deployed hourly reader, combined API tests and Caddy checks.
