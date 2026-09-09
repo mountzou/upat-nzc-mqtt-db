@@ -1,6 +1,6 @@
 # Public monitoring API
 
-`https://telemetry.schoolheroz.com` is the canonical public monitoring origin. Source: `api/monitoring/`. It uses the existing PostgreSQL tables and local query functions in `api/main.py`; measurement requests do not pass through Render or call this API over HTTP from inside the same process.
+`https://telemetry.schoolheroz.com` is the canonical public monitoring origin. Source: `api/monitoring/`. It uses the existing PostgreSQL tables, shared readers in `api/readers/` and remaining query functions in `api/main.py`; measurement requests do not pass through Render or call this API over HTTP from inside the same process.
 
 ## Public contracts
 
@@ -64,8 +64,62 @@ archive was verified against all 63 OCI blobs and reused by hard link to avoid
 duplicating it. No database backup/restore or migration was needed. Rollback
 was not used. The installed checkout's reviewed API paths were aligned with
 the committed source, preserving unrelated changes. Web and Render HTTP checks
-passed; authenticated visual checks await web login and Simulator session unlock.
+passed; the user subsequently confirmed the authenticated consumer visual checks.
 No consumer build or deployment was performed.
+
+## Internal hourly energy reader
+
+The second batch moves precomputed hourly Wh reads to
+`api/readers/shelly_energy.py`. School energy insights call that reader directly
+through their existing service, passing native timestamps and retaining the
+shared eight-slot monitoring budget and five-second acquisition timeout. The
+internal URL dispatch, query-string construction and intermediate JSON encoding
+for hourly energy are removed. Insights accept native instants while preserving
+validation and newest-row deduplication, including the repeated Athens DST hour.
+
+The existing `/shelly/hourly-energy` service route delegates to the same reader.
+Its query parameters, defaults, response, authentication and SQL are unchanged.
+Device normalization and energy-window resolution are shared with the other
+retained Shelly handlers. The service still normalizes its requested window to
+minutes and enforces the existing 90-day maximum. No consumption calculation,
+public endpoint, database schema, collector or production image pin changes.
+The generic UPAT/Shelly device-history adapter remains for a separate batch.
+
+Validation used an isolated source snapshot and disposable local PostgreSQL:
+475 tests and 12 subtests passed; four optional tests were skipped. Comparison
+against the preceding commit produced identical results for 36 HTTP-handler
+cases, 36 service cases and two complete school-insights calculations. All 78
+executed SQL statements and parameters matched, as did the OpenAPI schema
+(51 paths). The existing Dockerfile already copies the entire readers package.
+The second batch was activated on 8 September 2026 from commit
+`96ac96cf68f4be47a83ae54a53362c40d555ee08`. Its immutable image is
+`sha256:f2cc6719c8f722987265b13417c170eb74c3a5518db20e273f2ca7cbd0389089`.
+The build retained every installed dependency from the preceding API image;
+runtime hashes match the committed source. Candidate acceptance passed 309
+checks with database connections forced read-only, followed by 300 checks on
+the activated API, including public HTTPS hourly energy and school insights.
+The initial acceptance script incorrectly required nonempty insights for both
+schools. The previous API already reports school_22 as unavailable with zero
+analyzed devices; the corrected check verifies identical populated and
+unavailable results without changing the image or API code.
+
+Only API was recreated. Readiness passed after 25.8 seconds from activation
+start (not an independently measured outage duration). PostgreSQL identity and
+start time, every other container and mount, Caddy and environment settings
+were unchanged. During that readiness window, 14 UPAT and 23 Shelly raw messages
+were persisted. Five reviewed runtime source paths were aligned in the VPS
+checkout; unrelated changes were preserved. No migration or collector restart
+was performed. The temporary candidate was removed; no API tracebacks or HTTP
+500 responses were found after activation.
+
+Verified source/configuration backup, the preceding image archive (all 68 OCI
+blobs verified) and automatic rollback are retained root-private at
+`/opt/schoolheroz-hourly-reader-rollout-20260908`. Rollback was not used.
+Authenticated web checks with school_10 passed for consumption, energy insights,
+environmental live/history data and PV production. Render health passed. The
+iOS visual check awaits a free Simulator, which displayed another application
+after SchoolHeroZ was launched. No consumer build, installation or deployment
+was performed.
 
 ## Safe deployment
 

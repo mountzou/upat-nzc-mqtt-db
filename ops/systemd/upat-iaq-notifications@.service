@@ -1,0 +1,12 @@
+[Unit]
+Description=Evaluate room IAQ notifications (%i)
+Requires=docker.service
+After=docker.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/upat-nzc-mqtt-db
+ExecStart=/usr/bin/docker compose exec -T api python -m monitoring.notifications.job %i
+TimeoutStartSec=3min
+StandardOutput=journal
+StandardError=journal

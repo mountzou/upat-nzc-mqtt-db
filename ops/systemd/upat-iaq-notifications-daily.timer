@@ -1,0 +1,10 @@
+[Unit]
+Description=Check previous day of room CO2 and PM2.5 at 00:10
+
+[Timer]
+OnCalendar=*-*-* 00:10:00 Europe/Athens
+AccuracySec=1s
+Unit=upat-iaq-notifications@daily.service
+
+[Install]
+WantedBy=timers.target

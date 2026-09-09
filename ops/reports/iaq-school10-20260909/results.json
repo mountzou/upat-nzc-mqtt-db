@@ -1,0 +1,393 @@
+{
+  "source_captured_at": "2026-09-09T15:36:27.644402+00:00",
+  "production_transaction_read_only": "on",
+  "sample_count": 58434,
+  "periods": {
+    "hourly": {
+      "start": "2026-09-09T14:00:00+00:00",
+      "end": "2026-09-09T15:00:00+00:00",
+      "checks": [
+        {
+          "room_id": "computerclassroom",
+          "metric": "co2",
+          "average": 507.56666666666666,
+          "sample_count": 240,
+          "canonical_average": 507.56666666666666,
+          "threshold": 750.0,
+          "notify": false
+        },
+        {
+          "room_id": "computerclassroom",
+          "metric": "pm25",
+          "average": 6.0,
+          "sample_count": 240,
+          "canonical_average": 6.0,
+          "threshold": 10.0,
+          "notify": false
+        },
+        {
+          "room_id": "eventhall",
+          "metric": "co2",
+          "average": 547.6291666666667,
+          "sample_count": 240,
+          "canonical_average": 547.6291666666667,
+          "threshold": 750.0,
+          "notify": false
+        },
+        {
+          "room_id": "eventhall",
+          "metric": "pm25",
+          "average": 10.0625,
+          "sample_count": 240,
+          "canonical_average": 10.0625,
+          "threshold": 10.0,
+          "notify": true
+        },
+        {
+          "room_id": "library",
+          "metric": "co2",
+          "average": 522.0811965811965,
+          "sample_count": 234,
+          "canonical_average": 522.0811965811967,
+          "threshold": 750.0,
+          "notify": false
+        },
+        {
+          "room_id": "library",
+          "metric": "pm25",
+          "average": 5.042735042735043,
+          "sample_count": 234,
+          "canonical_average": 5.042735042735043,
+          "threshold": 10.0,
+          "notify": false
+        },
+        {
+          "room_id": "teachers",
+          "metric": "co2",
+          "average": 750.4789915966387,
+          "sample_count": 476,
+          "canonical_average": 750.4789915966387,
+          "threshold": 750.0,
+          "notify": true
+        },
+        {
+          "room_id": "teachers",
+          "metric": "pm25",
+          "average": 5.714285714285714,
+          "sample_count": 476,
+          "canonical_average": 5.714285714285714,
+          "threshold": 10.0,
+          "notify": false
+        }
+      ],
+      "run": {
+        "period_kind": "hourly",
+        "period_start": "2026-09-09T14:00:00+00:00",
+        "period_end": "2026-09-09T15:00:00+00:00",
+        "dry_run": false,
+        "room_count": 4,
+        "status": "completed",
+        "observed_metric_count": 8,
+        "notification_count": 2
+      },
+      "repeat": {
+        "period_kind": "hourly",
+        "period_start": "2026-09-09T14:00:00+00:00",
+        "period_end": "2026-09-09T15:00:00+00:00",
+        "dry_run": false,
+        "room_count": 4,
+        "status": "already_checked",
+        "notification_count": 2
+      },
+      "notifications": [
+        {
+          "id": 1,
+          "school_id": "school_10",
+          "room_id": "eventhall",
+          "room_label": "Event Hall",
+          "metric": "pm25",
+          "period_kind": "hourly",
+          "period_start": "2026-09-09 14:00:00+00:00",
+          "period_end": "2026-09-09 15:00:00+00:00",
+          "average": 10.0625,
+          "sample_count": 240,
+          "threshold": 10.0,
+          "policy_version": "indoor-environment-iaq-v1",
+          "unit": "µg/m³",
+          "title": "Elevated PM2.5 — Event Hall",
+          "body": "The hourly average was 10.1 µg/m³, above the configured hourly threshold of 10 µg/m³.",
+          "created_at": "2026-09-09 15:37:56.453381+00:00"
+        },
+        {
+          "id": 2,
+          "school_id": "school_10",
+          "room_id": "teachers",
+          "room_label": "Teachers Office",
+          "metric": "co2",
+          "period_kind": "hourly",
+          "period_start": "2026-09-09 14:00:00+00:00",
+          "period_end": "2026-09-09 15:00:00+00:00",
+          "average": 750.4789915966387,
+          "sample_count": 476,
+          "threshold": 750.0,
+          "policy_version": "indoor-environment-iaq-v1",
+          "unit": "ppm",
+          "title": "Elevated CO2 — Teachers Office",
+          "body": "The hourly average was 750.5 ppm, above the configured hourly threshold of 750 ppm.",
+          "created_at": "2026-09-09 15:37:56.453381+00:00"
+        }
+      ]
+    },
+    "daily": {
+      "start": "2026-09-07T21:00:00+00:00",
+      "end": "2026-09-08T21:00:00+00:00",
+      "checks": [
+        {
+          "room_id": "computerclassroom",
+          "metric": "co2",
+          "average": 490.16950940742043,
+          "sample_count": 5687,
+          "canonical_average": 490.16950940742043,
+          "threshold": 800.0,
+          "notify": true
+        },
+        {
+          "room_id": "computerclassroom",
+          "metric": "pm25",
+          "average": 2.0031651134165642,
+          "sample_count": 5687,
+          "canonical_average": 2.0031651134165642,
+          "threshold": 15.0,
+          "notify": true
+        },
+        {
+          "room_id": "eventhall",
+          "metric": "co2",
+          "average": 557.3467085798817,
+          "sample_count": 5408,
+          "canonical_average": 557.3467085798817,
+          "threshold": 800.0,
+          "notify": true
+        },
+        {
+          "room_id": "eventhall",
+          "metric": "pm25",
+          "average": 0.2440828402366864,
+          "sample_count": 5408,
+          "canonical_average": 0.2440828402366864,
+          "threshold": 15.0,
+          "notify": true
+        },
+        {
+          "room_id": "library",
+          "metric": "co2",
+          "average": 562.4443659484281,
+          "sample_count": 5662,
+          "canonical_average": 562.4443659484281,
+          "threshold": 800.0,
+          "notify": true
+        },
+        {
+          "room_id": "library",
+          "metric": "pm25",
+          "average": 2.611621335217238,
+          "sample_count": 5662,
+          "canonical_average": 2.611621335217238,
+          "threshold": 15.0,
+          "notify": true
+        },
+        {
+          "room_id": "teachers",
+          "metric": "co2",
+          "average": 774.010115350488,
+          "sample_count": 11270,
+          "canonical_average": 774.010115350488,
+          "threshold": 800.0,
+          "notify": true
+        },
+        {
+          "room_id": "teachers",
+          "metric": "pm25",
+          "average": 2.5646850044365572,
+          "sample_count": 11270,
+          "canonical_average": 2.5646850044365572,
+          "threshold": 15.0,
+          "notify": true
+        }
+      ],
+      "run": {
+        "period_kind": "daily",
+        "period_start": "2026-09-07T21:00:00+00:00",
+        "period_end": "2026-09-08T21:00:00+00:00",
+        "dry_run": false,
+        "room_count": 4,
+        "status": "completed",
+        "observed_metric_count": 8,
+        "notification_count": 8
+      },
+      "repeat": {
+        "period_kind": "daily",
+        "period_start": "2026-09-07T21:00:00+00:00",
+        "period_end": "2026-09-08T21:00:00+00:00",
+        "dry_run": false,
+        "room_count": 4,
+        "status": "already_checked",
+        "notification_count": 8
+      },
+      "notifications": [
+        {
+          "id": 3,
+          "school_id": "school_10",
+          "room_id": "computerclassroom",
+          "room_label": "Computer Classroom",
+          "metric": "co2",
+          "period_kind": "daily",
+          "period_start": "2026-09-07 21:00:00+00:00",
+          "period_end": "2026-09-08 21:00:00+00:00",
+          "average": 490.16950940742043,
+          "sample_count": 5687,
+          "threshold": 800.0,
+          "policy_version": "indoor-environment-iaq-v1",
+          "unit": "ppm",
+          "title": "Good CO2 — Computer Classroom",
+          "body": "The daily average was 490.2 ppm, below the configured daily threshold of 800 ppm.",
+          "created_at": "2026-09-09 15:37:56.510288+00:00"
+        },
+        {
+          "id": 4,
+          "school_id": "school_10",
+          "room_id": "computerclassroom",
+          "room_label": "Computer Classroom",
+          "metric": "pm25",
+          "period_kind": "daily",
+          "period_start": "2026-09-07 21:00:00+00:00",
+          "period_end": "2026-09-08 21:00:00+00:00",
+          "average": 2.0031651134165642,
+          "sample_count": 5687,
+          "threshold": 15.0,
+          "policy_version": "indoor-environment-iaq-v1",
+          "unit": "µg/m³",
+          "title": "Good PM2.5 — Computer Classroom",
+          "body": "The daily average was 2.0 µg/m³, below the configured daily threshold of 15 µg/m³.",
+          "created_at": "2026-09-09 15:37:56.510288+00:00"
+        },
+        {
+          "id": 5,
+          "school_id": "school_10",
+          "room_id": "eventhall",
+          "room_label": "Event Hall",
+          "metric": "co2",
+          "period_kind": "daily",
+          "period_start": "2026-09-07 21:00:00+00:00",
+          "period_end": "2026-09-08 21:00:00+00:00",
+          "average": 557.3467085798817,
+          "sample_count": 5408,
+          "threshold": 800.0,
+          "policy_version": "indoor-environment-iaq-v1",
+          "unit": "ppm",
+          "title": "Good CO2 — Event Hall",
+          "body": "The daily average was 557.3 ppm, below the configured daily threshold of 800 ppm.",
+          "created_at": "2026-09-09 15:37:56.510288+00:00"
+        },
+        {
+          "id": 6,
+          "school_id": "school_10",
+          "room_id": "eventhall",
+          "room_label": "Event Hall",
+          "metric": "pm25",
+          "period_kind": "daily",
+          "period_start": "2026-09-07 21:00:00+00:00",
+          "period_end": "2026-09-08 21:00:00+00:00",
+          "average": 0.2440828402366864,
+          "sample_count": 5408,
+          "threshold": 15.0,
+          "policy_version": "indoor-environment-iaq-v1",
+          "unit": "µg/m³",
+          "title": "Good PM2.5 — Event Hall",
+          "body": "The daily average was 0.2 µg/m³, below the configured daily threshold of 15 µg/m³.",
+          "created_at": "2026-09-09 15:37:56.510288+00:00"
+        },
+        {
+          "id": 7,
+          "school_id": "school_10",
+          "room_id": "library",
+          "room_label": "Library",
+          "metric": "co2",
+          "period_kind": "daily",
+          "period_start": "2026-09-07 21:00:00+00:00",
+          "period_end": "2026-09-08 21:00:00+00:00",
+          "average": 562.4443659484281,
+          "sample_count": 5662,
+          "threshold": 800.0,
+          "policy_version": "indoor-environment-iaq-v1",
+          "unit": "ppm",
+          "title": "Good CO2 — Library",
+          "body": "The daily average was 562.4 ppm, below the configured daily threshold of 800 ppm.",
+          "created_at": "2026-09-09 15:37:56.510288+00:00"
+        },
+        {
+          "id": 8,
+          "school_id": "school_10",
+          "room_id": "library",
+          "room_label": "Library",
+          "metric": "pm25",
+          "period_kind": "daily",
+          "period_start": "2026-09-07 21:00:00+00:00",
+          "period_end": "2026-09-08 21:00:00+00:00",
+          "average": 2.611621335217238,
+          "sample_count": 5662,
+          "threshold": 15.0,
+          "policy_version": "indoor-environment-iaq-v1",
+          "unit": "µg/m³",
+          "title": "Good PM2.5 — Library",
+          "body": "The daily average was 2.6 µg/m³, below the configured daily threshold of 15 µg/m³.",
+          "created_at": "2026-09-09 15:37:56.510288+00:00"
+        },
+        {
+          "id": 9,
+          "school_id": "school_10",
+          "room_id": "teachers",
+          "room_label": "Teachers Office",
+          "metric": "co2",
+          "period_kind": "daily",
+          "period_start": "2026-09-07 21:00:00+00:00",
+          "period_end": "2026-09-08 21:00:00+00:00",
+          "average": 774.010115350488,
+          "sample_count": 11270,
+          "threshold": 800.0,
+          "policy_version": "indoor-environment-iaq-v1",
+          "unit": "ppm",
+          "title": "Good CO2 — Teachers Office",
+          "body": "The daily average was 774.0 ppm, below the configured daily threshold of 800 ppm.",
+          "created_at": "2026-09-09 15:37:56.510288+00:00"
+        },
+        {
+          "id": 10,
+          "school_id": "school_10",
+          "room_id": "teachers",
+          "room_label": "Teachers Office",
+          "metric": "pm25",
+          "period_kind": "daily",
+          "period_start": "2026-09-07 21:00:00+00:00",
+          "period_end": "2026-09-08 21:00:00+00:00",
+          "average": 2.5646850044365572,
+          "sample_count": 11270,
+          "threshold": 15.0,
+          "policy_version": "indoor-environment-iaq-v1",
+          "unit": "µg/m³",
+          "title": "Good PM2.5 — Teachers Office",
+          "body": "The daily average was 2.6 µg/m³, below the configured daily threshold of 15 µg/m³.",
+          "created_at": "2026-09-09 15:37:56.510288+00:00"
+        }
+      ]
+    }
+  },
+  "checks": {
+    "raw_vs_live_canonical": "passed",
+    "persisted_vs_independent_rules": "passed",
+    "duplicate_prevention": "passed",
+    "school_10_api_count": 10,
+    "school_3_isolation": "passed"
+  },
+  "source_sha256": "94863b07f4d5c466fae8db070bd53f8f840123e68ca53698c087706931944f9e"
+}
