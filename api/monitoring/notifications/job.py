@@ -87,8 +87,8 @@ def notification(row, kind, start, end):
             'threshold': threshold, 'policy_version': IAQ_POLICY_VERSION,
             'unit': descriptor['unit'],
             'title': f"{status} {descriptor['label']} — {row['room_label']}",
-            'body': f"The {kind} average was {average:.1f} {descriptor['unit']}, "
-                    f"{comparison} the configured {kind} threshold of {threshold:g} {descriptor['unit']}."}
+            'body': f"The {kind} average was {comparison} the configured {kind} "
+                    f"threshold of {threshold:g} {descriptor['unit']}."}
 
 
 def run(kind, *, now=None, dry_run=False, connection_factory=get_connection):

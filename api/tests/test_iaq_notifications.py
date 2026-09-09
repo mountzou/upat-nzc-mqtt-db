@@ -285,3 +285,21 @@ def test_single_sensor_uses_exact_stored_hourly_average(database):
     assert run(database)['notification_count'] == 1
     row = query(database, 'SELECT average FROM iaq_notifications')[0]
     assert row['average'] == 750.00000001
+
+
+@pytest.mark.parametrize('metric,kind,value,threshold,comparison', [
+    ('co2', 'hourly', 750.04, 750, 'above'),
+    ('co2', 'daily', 799.96, 800, 'below'),
+    ('pm25', 'hourly', 10.04, 10, 'above'),
+    ('pm25', 'daily', 14.96, 15, 'below'),
+])
+def test_threshold_adjacent_copy_preserves_evidence(metric, kind, value, threshold, comparison):
+    start, end = job.previous_period(kind, AT)
+    result = job.notification(dict(metric=metric, average=value, room_label='Room A'), kind, start, end)
+    assert result is not None
+    assert result['average'] == value and result['threshold'] == threshold
+    assert f'average was {comparison}' in result['body']
+    assert f'threshold of {threshold:g} ' in result['body']
+    # Do not describe the rounded measurement as equal to the threshold while
+    # simultaneously claiming that it is strictly above/below that threshold.
+    assert f'average was {value:.1f}' not in result['body']
