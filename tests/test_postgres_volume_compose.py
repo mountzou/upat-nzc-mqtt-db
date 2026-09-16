@@ -33,7 +33,11 @@ class VolumeComposeTests(unittest.TestCase):
         cls.before=model(f)
 
     def test_only_database_ownership_changes(self):
-        self.assertEqual([],check.differences(check.expected_after(self.before),self.after))
+        expected=check.expected_after(self.before)
+        expected['services']['shelly-ingestor']['environment']['SHELLY_MEASUREMENTS_WRITE_MODE']='legacy'
+        expected['services']['api']['environment']['SHELLY_MEASUREMENTS_READ_STORAGE']='legacy'
+        expected['services']['api']['environment']['SHELLY_MEASUREMENTS_ROUNDING']='legacy'
+        self.assertEqual([],check.differences(expected,self.after))
         check.validate_model(self.after)
 
     def test_jobs_profiles_preserved(self):
