@@ -100,7 +100,7 @@ def pause():
     while active_job_processes():
         require(time.monotonic()<deadline,'Scheduled job process still running; no forced kill performed');time.sleep(2)
     for n in WRITERS:
-        run('docker','stop','--signal','SIGTERM','--timeout','-1',n)
+        run('docker','stop','--signal','SIGTERM' if n=='iot_api' else 'SIGINT','--timeout','-1',n)
         require(not inspect(n)['State']['Running'],'Writer still running');event('writer_stopped',name=n)
     deadline=time.monotonic()+180
     while int(sql("SELECT count(*) FROM pg_stat_activity WHERE backend_type='client backend' AND pid<>pg_backend_pid();")):
