@@ -140,7 +140,7 @@ def cases():
         ('power_24h',dt.timedelta(days=1),'1h',['a_act_power']),
         ('multiple_24h',dt.timedelta(days=1),'15m',['a_act_power','b_act_power']),
         ('power_7d',dt.timedelta(days=7),'1h',['a_act_power']),
-        ('calendar_days',dt.timedelta(days=3),'1d',['a_act_power']),
+        ('calendar_days',dt.timedelta(days=3),'day',['a_act_power']),
     ]:
         params={'start':(end-delta).isoformat(),'end':end.isoformat(),'interval':interval}
         if metrics:params['metric']=metrics
@@ -203,6 +203,31 @@ def preview(mode):
     subprocess.run(args+['--entrypoint','python',IMAGE,'/stage-shadow.py'],env={**os.environ,**env},
                    check=True,stdout=subprocess.DEVNULL,stderr=subprocess.PIPE)
     return name
+
+
+def visibility_maintenance():
+    """Finish ordinary visibility-map maintenance on the freshly copied table."""
+    artifacts();guard()
+    before=json.loads((RECEIPTS/'before.json').read_text())
+    require(sha(CANONICAL)==before['compose_sha'],'API already changed')
+    require(not (RECEIPTS/'visibility-maintenance.json').exists(),'Maintenance already recorded')
+    live_state()
+    query="SELECT json_build_object('pages',relpages,'all_visible_pages',relallvisible) FROM pg_class WHERE oid='shelly_compact.measurements'::regclass"
+    old=json.loads(s.psql(query))
+    commands=["SET lock_timeout='1s'", "SET statement_timeout='5min'",
+              "SET vacuum_cost_delay='5ms'", "SET vacuum_cost_limit=200",
+              "VACUUM (FULL FALSE, INDEX_CLEANUP OFF, TRUNCATE FALSE, PARALLEL 0, VERBOSE TRUE) shelly_compact.measurements"]
+    args=['docker','exec','iot_postgres','psql','-X','-q','-U','postgres','-d','iot_db','-v','ON_ERROR_STOP=1']
+    for command in commands:args+=['-c',command]
+    started=time.monotonic()
+    result=subprocess.run(args,text=True,stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
+    (RECEIPTS/'visibility-maintenance.log').write_text(result.stdout)
+    require(result.returncode==0,'Visibility maintenance failed; inspect receipt')
+    guard();after=json.loads(s.psql(query))
+    value={'status':'PASS','table':'shelly_compact.measurements','commands':commands,
+           'seconds':round(time.monotonic()-started,2),'before':old,'after':after,'live':live_state()}
+    save('visibility-maintenance.json',value)
+    return value
 
 
 def probe():
@@ -296,14 +321,14 @@ def activate():
 
 def main():
     p=argparse.ArgumentParser(description=__doc__)
-    p.add_argument('phase',choices=['preflight','probe','activate','status'])
+    p.add_argument('phase',choices=['preflight','visibility-maintenance','probe','activate','status'])
     a=p.parse_args();require(os.geteuid()==0,'Host runner requires root')
     os.umask(0o077);RECEIPTS.mkdir(mode=0o700,exist_ok=True)
     with open('/run/lock/shelly-compact-stage1.lock','w') as lock:
         fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
         if a.phase=='status':
             guard();ready('http://127.0.0.1:8000');result={'status':'PASS','containers':s.snapshot(),'live':live_state()}
-        else: result={'preflight':preflight,'probe':probe,'activate':activate}[a.phase]()
+        else: result={'preflight':preflight,'visibility-maintenance':visibility_maintenance,'probe':probe,'activate':activate}[a.phase]()
         print(json.dumps(result),flush=True)
 
 

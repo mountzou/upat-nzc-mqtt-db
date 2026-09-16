@@ -2,6 +2,8 @@
 import importlib.util
 import json
 from pathlib import Path
+from urllib.parse import parse_qs, urlsplit
+from types import SimpleNamespace
 import pytest
 from test_postgres_volume_compose import model
 
@@ -16,6 +18,13 @@ def test_only_api_image_and_two_read_flags_change():
     assert after==s.expected_after(before)
     s.s.validate_model(after)
     assert after['services']['shelly-ingestor']==before['services']['shelly-ingestor']
+
+
+def test_probe_intervals_follow_existing_public_api_contract(monkeypatch):
+    monkeypatch.syspath_prepend(str(ROOT/'api'))
+    from monitoring.utils.interval import parse_interval
+    for case in s.cases():
+        parse_interval(parse_qs(urlsplit(case['path']).query)['interval'][0])
 
 
 @pytest.mark.parametrize('name',['iot_postgres','shelly_ingestor','ttn_ingestor','iot_caddy','iot_mosquitto'])
@@ -57,3 +66,22 @@ def test_failed_active_probe_restores_only_api(tmp_path,monkeypatch):
         assert cmd[-1]=='api' and '--no-deps' in cmd and '--no-build' in cmd
         assert not any(x in cmd for x in ['down','restart','shelly-ingestor','iot_postgres'])
     assert json.loads((receipts/'rollback.json').read_text())['original_api_restored']
+
+
+def test_visibility_maintenance_is_bounded_and_only_targets_new_table(tmp_path,monkeypatch):
+    cfg=tmp_path/'compose.yml';cfg.write_text('old')
+    (tmp_path/'before.json').write_text(json.dumps({'compose_sha':s.sha(cfg)}))
+    monkeypatch.setattr(s,'CANONICAL',cfg);monkeypatch.setattr(s,'RECEIPTS',tmp_path)
+    monkeypatch.setattr(s,'artifacts',lambda:None);monkeypatch.setattr(s,'guard',lambda:None)
+    monkeypatch.setattr(s,'live_state',lambda:{})
+    monkeypatch.setattr(s.s,'psql',lambda _:'{"pages":100,"all_visible_pages":99}')
+    commands=[]
+    def run(args,**kwargs):
+        commands.append(args);return SimpleNamespace(returncode=0,stdout='fixture')
+    monkeypatch.setattr(s.subprocess,'run',run)
+    result=s.visibility_maintenance()
+    assert result['status']=='PASS' and len(commands)==1
+    sql=[commands[0][i+1] for i,x in enumerate(commands[0]) if x=='-c']
+    assert sql[-1]=='VACUUM (FULL FALSE, INDEX_CLEANUP OFF, TRUNCATE FALSE, PARALLEL 0, VERBOSE TRUE) shelly_compact.measurements'
+    assert "SET lock_timeout='1s'" in sql and "SET statement_timeout='5min'" in sql
+    assert not any('public.shelly_measurements' in x or 'REINDEX' in x for x in sql)
