@@ -1,9 +1,10 @@
 # PostgreSQL Volume migration preparation — 2026-09-16
 
-Status: preparation and isolated local rehearsal only. Nothing in this directory
-has been installed on the VPS. This is an operator-reviewed procedure, not an
-automatic deployment. Production migration, writer downtime, and cleanup require
-a separate user instruction.
+Status: the separately authorized production cutover completed on 2026-09-16.
+See `DEPLOYMENT-20260916.md` for current ownership, retained-copy restrictions and
+verification receipts. The sections below preserve the reviewed preparation and
+procedure; do not rerun them against the completed migration. Future changes and
+cleanup require a new scoped user instruction.
 
 ## Observed installation
 
