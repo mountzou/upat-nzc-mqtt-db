@@ -108,7 +108,7 @@ def fetch(base, path, token=None, expected=200):
 
 
 def ready(base):
-    for _ in range(40):
+    for _ in range(120):
         try:
             body,_=fetch(base,'/health')
             require(body == {'status':'ok','database':'connected'}, 'Unhealthy API')
@@ -192,7 +192,8 @@ def preview(mode):
     exists=subprocess.run(['docker','container','inspect',name],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
     require(exists.returncode!=0,'Preview container already exists')
     env=dict(x.split('=',1) for x in s.inspect('iot_api')['Config']['Env'])
-    env.update(SHELLY_MEASUREMENTS_READ_STORAGE=mode,SHELLY_MEASUREMENTS_ROUNDING='decimal_1',PYTHONDONTWRITEBYTECODE='1')
+    env.update(SHELLY_MEASUREMENTS_READ_STORAGE=mode,SHELLY_MEASUREMENTS_ROUNDING='decimal_1',
+               PYTHONDONTWRITEBYTECODE='1',NUMBA_CACHE_DIR='/tmp/numba-cache')
     args=['docker','run','-d','--name',name,'--network',s.NETWORK,'--cpus','.75','--memory','384m',
           '--read-only','--tmpfs','/tmp:rw,noexec,nosuid,size=32m','--cap-drop','ALL',
           '--security-opt','no-new-privileges:true','-p','127.0.0.1::8000',
