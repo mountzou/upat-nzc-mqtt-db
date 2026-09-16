@@ -56,7 +56,7 @@ def preflight():
     require(not (R/'state-before.json').exists(),'Maintenance already initialized')
     for p in ['/usr/local/libexec/pg-volume-guard.sh','/usr/local/libexec/upat-pg-host-preflight.py','/etc/upat-nzc/postgres-volume.json','/etc/systemd/system/upat-postgres-volume.service']:
         require(not pathlib.Path(p).exists(),'Refusing to overwrite '+p)
-    run('systemd-analyze','verify',str(R/'upat-postgres-volume.service'))
+    run('systemd-analyze','--generators=yes','verify',str(R/'upat-postgres-volume.service'))
     event('preflight_passed')
 def inspect_image(n): return json.loads(run('docker','image','inspect',n))[0]['Id']
 
@@ -166,7 +166,7 @@ def activate():
     require(payload['NetworkingConfig']['EndpointsConfig'][NETWORK]['Aliases']==['iot_postgres','postgres'],'Wrong network aliases')
     for src,dst,mode in [('guard-entrypoint.sh',s['guard_path'],0o755),('host-preflight.py','/usr/local/libexec/upat-pg-host-preflight.py',0o755),('production-spec.json','/etc/upat-nzc/postgres-volume.json',0o600),('upat-postgres-volume.service','/etc/systemd/system/upat-postgres-volume.service',0o644)]:
         p=pathlib.Path(dst);require(not p.exists(),'Refusing to overwrite '+dst);p.parent.mkdir(exist_ok=True);shutil.copyfile(R/src,p);p.chmod(mode)
-    run('systemd-analyze','verify','/etc/systemd/system/upat-postgres-volume.service')
+    run('systemd-analyze','--generators=yes','verify','/etc/systemd/system/upat-postgres-volume.service')
     run('docker','rename','iot_postgres',OLD)
     run('docker','network','disconnect',NETWORK,OLD)
     ident=create(payload);save('candidate-created.json',{'id':ident});event('candidate_created',id=ident)
