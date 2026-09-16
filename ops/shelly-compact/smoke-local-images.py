@@ -30,6 +30,8 @@ def main():
     info = json.loads(docker("inspect", db))[0]
     assert network in info["NetworkSettings"]["Networks"]
     common = [
+        "--platform",
+        "linux/amd64",
         "--network",
         network,
         "-e",
@@ -96,7 +98,7 @@ for i,value in enumerate([286.1,286.7,286.6,286.4]):
                     with urlopen(base + "/health", timeout=2) as r:
                         assert r.status == 200
                     break
-                except (URLError, TimeoutError):
+                except (URLError, TimeoutError, ConnectionError):
                     time.sleep(0.5)
             else:
                 raise RuntimeError("Local API did not become healthy")
