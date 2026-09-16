@@ -1,3 +1,5 @@
+# PostgreSQL is owned by upat-postgres-volume.service, outside Compose.
+# Run the volume preflight before targeted application deployments.
 x-json-logging: &json-logging
   driver: json-file
   options:
@@ -20,25 +22,6 @@ services:
     depends_on:
       api:
         condition: service_started
-
-  postgres:
-    image: postgres:15
-    container_name: iot_postgres
-    logging: *json-logging
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB}
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
-      start_period: 5s
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql
-      - ./db/migrations:/docker-entrypoint-initdb.d/migrations
 
   mosquitto:
     image: eclipse-mosquitto:2
@@ -69,8 +52,6 @@ services:
       MQTT_USE_TLS: ${MQTT_USE_TLS}
       SHELLY_TOPIC: ${SHELLY_TOPIC}
     depends_on:
-      postgres:
-        condition: service_healthy
       mosquitto:
         condition: service_started
 
@@ -92,9 +73,6 @@ services:
       TTN_USERNAME: ${TTN_USERNAME}
       TTN_PASSWORD: ${TTN_PASSWORD}
       TTN_TOPIC: ${TTN_TOPIC}
-    depends_on:
-      postgres:
-        condition: service_healthy
 
   api:
     image: sha256:d27069f42d0f4cb647d8011a19dfbf81a7dcb71a140b493f033ed847eb788856
@@ -115,9 +93,6 @@ services:
     ports:
       # Backend callers use authenticated HTTPS; retain loopback for operator checks.
       - "127.0.0.1:8000:8000"
-    depends_on:
-      postgres:
-        condition: service_healthy
 
   energy-aggregator:
     image: sha256:c16ade3bf7365c427ef44f261d4fe9a5b06ad3b50e485a58cc3caa01b9d7ffa7
@@ -133,9 +108,6 @@ services:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
-    depends_on:
-      postgres:
-        condition: service_healthy
 
   simulation-recorder:
     build:
@@ -158,9 +130,6 @@ services:
       SIMULATION_POLL_REQUEST_TIMEOUT_SECONDS: ${SIMULATION_POLL_REQUEST_TIMEOUT_SECONDS:-30}
       SIMULATION_POLL_TIMEOUT_SECONDS: ${SIMULATION_POLL_TIMEOUT_SECONDS:-1800}
       SIMULATION_BETWEEN_SCHOOLS_DELAY_SECONDS: ${SIMULATION_BETWEEN_SCHOOLS_DELAY_SECONDS:-15}
-    depends_on:
-      postgres:
-        condition: service_healthy
 
   # Explicit, persistence-free production-host preview. It performs live read
   # calls only when the profile is selected and has no database integration.
@@ -208,9 +177,6 @@ services:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
-    depends_on:
-      postgres:
-        condition: service_healthy
 
   weather-collector:
     build:
@@ -230,11 +196,13 @@ services:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
-    depends_on:
-      postgres:
-        condition: service_healthy
 
 volumes:
-  postgres_data:
   caddy_data:
   caddy_config:
+
+# Reuse the existing application/DB network; Compose must not own its lifecycle.
+networks:
+  default:
+    external: true
+    name: upat-nzc-mqtt-db_default
