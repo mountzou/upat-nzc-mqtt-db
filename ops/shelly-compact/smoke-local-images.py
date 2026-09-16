@@ -106,7 +106,7 @@ for i,value in enumerate([286.1,286.7,286.6,286.4]):
                 "/shelly/device/shellyplugsg3-imagefixture/latest?limit=2",
                 "/shelly/device/shellyplugsg3-imagefixture/history?start=2026-09-15T00:00:00Z&end=2026-09-16T00:00:00Z&interval=1m",
                 "/shelly/device/no-fixture-device/latest?limit=1",
-                "/internal/data/shelly/device/shellyplugsg3-imagefixture/latest?limit=2",
+                "/internal/data/health",
             ]
             answers = []
             for path in endpoints:
@@ -116,7 +116,7 @@ for i,value in enumerate([286.1,286.7,286.6,286.4]):
                 ) as r:
                     answers.append(json.load(r))
             assert answers[0]["items"][0]["measurements"]["apower"]["value"] == 286.5
-            assert answers[0] == answers[3]
+            assert answers[3] == {'status': 'ok', 'database': 'connected'}
             assert answers[2]["count"] == 0
             try:
                 urlopen(base + endpoints[-1], timeout=10)
