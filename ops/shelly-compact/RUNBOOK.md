@@ -130,19 +130,30 @@ PostgreSQL ownership guard and read back all effective image IDs and modes.
 
 ## Phase D: compact-only writes and rollback
 
-Keep dual writes through an agreed observation window. Before compact-only mode,
-pause/drain the ingestor, run a fresh equality check, and capture a reverse checkpoint.
-Run the reverse copy while the two layouts are equal to establish its verified cursor;
-this is idempotent but scans the existing ID ranges. Then resume the ingestor in
-`compact` mode. This makes a later reverse copy cover only the new tail. Confirm
-no other consumer requires fresh rows in the old table.
+The approved stage-3 runner changes only `SHELLY_MEASUREMENTS_WRITE_MODE` from
+`dual` to `compact`, reusing the exact image and leaving the API and PostgreSQL
+untouched. Audit active consumers first. Complete a fresh backup, local restore,
+and Chris checksum readback before activation.
 
-Rollback after compact-only mode is **not** just an environment toggle. Pause/drain
-the ingestor; extend the reverse checkpoint; run `copy --direction reverse`; verify
-full equality; then restore legacy/dual writes and legacy reads. Preserve the shared
-sequence's current value. The tests exercise this tail recovery and ID allocation.
-A longer ingestion gap may be needed for this exceptional rollback; do not silently
-pretend the old table remains current after compact-only writes begin.
+Run `stage3.py preflight` and `stage3.py verify` from the immutable release. The
+full verification uses one read-only repeatable-read snapshot while dual ingestion
+continues. `stage3.py activate` stops/drains only the ingestor, acquires short SHARE
+locks on both measurement tables, and verifies the entire tail after the original
+stage-1 drained-writer barrier. This includes IDs allocated before the recent
+snapshot but committed afterwards. Together with the full verified prefix and
+our audited append-only writer, this certifies equality through the final ID.
+Unexpected historical updates require a new review; this proof assumes immutable
+measurements. A reverse progress row is initialized at that certified ID without
+recopying all historical rows. The canonical Compose flag is then installed and
+only the ingestor is recreated. Use `stage3.py status` afterwards.
+
+Rollback is **not** an environment toggle. `stage3.py rollback` stops the ingestor,
+extends the reverse checkpoint, copies only the newer compact tail in bounded
+batches, and verifies binary tail equality before restoring the saved dual Compose
+configuration. It leaves API reads on compact. Recovery conflicts leave the writer
+stopped instead of silently accepting different measurements. This path is tested
+locally; production rollback is only executed if activation fails or separately
+requested. Preserve the shared sequence value and its current ownership.
 
 The old table and all raw messages remain until a separate cleanup approval. At every
 phase, verify unchanged PostgreSQL container ID/start time, Volume source, healthy

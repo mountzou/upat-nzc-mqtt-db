@@ -223,12 +223,13 @@ def test_autocommit_rejected(db):
     db.autocommit = False
 
 
-def test_actual_mqtt_message_keeps_counters_and_raw_transaction(db, monkeypatch):
+@pytest.mark.parametrize("mode", ["dual", "compact"])
+def test_actual_mqtt_message_keeps_counters_and_raw_transaction(db, monkeypatch, mode):
     monkeypatch.setattr(ingestor, "get_connection", lambda: db)
     monkeypatch.setattr(
         ingestor,
         "insert_measurement",
-        lambda *a, **kw: writer.insert_measurement(*a, **kw, mode="dual"),
+        lambda *a, **kw: writer.insert_measurement(*a, **kw, mode=mode),
     )
     msg = SimpleNamespace(
         topic="shellyplugsg3-test/status/switch:0",
@@ -244,17 +245,19 @@ def test_actual_mqtt_message_keeps_counters_and_raw_transaction(db, monkeypatch)
     assert scalar(db, "SELECT count(*) FROM shelly_raw_messages") == 1
     assert scalar(db, "SELECT count(*) FROM shelly_energy_counters") == 1
     db.commit()
-    assert migration.verify(db)["results"]["forward"]["rows"] == 3
+    assert scalar(db, "SELECT count(*) FROM shelly_compact.measurements") == 3
+    assert scalar(db, "SELECT count(*) FROM public.shelly_measurements") == (3 if mode == "dual" else 0)
 
 
+@pytest.mark.parametrize("mode", ["dual", "compact"])
 def test_message_failure_rolls_back_device_raw_counters_and_measurements(
-    db, monkeypatch
+    db, monkeypatch, mode
 ):
     monkeypatch.setattr(ingestor, "get_connection", lambda: db)
     monkeypatch.setattr(
         ingestor,
         "insert_measurement",
-        lambda *a, **kw: writer.insert_measurement(*a, **kw, mode="dual"),
+        lambda *a, **kw: writer.insert_measurement(*a, **kw, mode=mode),
     )
     with db, db.cursor() as c:
         c.execute("ALTER TABLE shelly_compact.measurements ADD CHECK(value<0)")
