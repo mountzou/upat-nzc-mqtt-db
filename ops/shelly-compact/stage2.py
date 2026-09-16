@@ -102,7 +102,9 @@ def fetch(base, path, token=None, expected=200):
         with urlopen(Request(base+path,headers=headers),timeout=70) as r:
             status=r.status; body=json.load(r)
     except HTTPError as e:
-        status=e.code; body=json.load(e)
+        status=e.code
+        try: body=json.loads(e.read())
+        except ValueError: body={'detail':'Non-JSON HTTP error response'}
     require(status == expected, f'Unexpected HTTP {status} for {path.split("?")[0]}')
     return body,round(time.monotonic()-started,4)
 
@@ -251,15 +253,21 @@ def probe():
                           'expected':new})
             print(json.dumps({'probe':case['name'],'status':'PASS','legacy_seconds':t1,'compact_seconds':t2}),flush=True)
             live_state()
-        # Latest reads are unbounded. Filter one metric and exclude the open minute
-        # when comparing sequential calls, while requiring common closed buckets.
+        # The existing legacy latest query exceeds our 60s preview budget because
+        # it aggregates all history. Use the legacy minute-history endpoint as a
+        # bounded independent oracle for the compact latest's closed buckets.
         path='/shelly/device/shellypro3em-ac15187c7da8/latest?metric=a_act_power&limit=4'
-        left,t1=fetch(bases['legacy'],path);right,t2=fetch(bases['compact'],path)
         cutoff=dt.datetime.now(dt.timezone.utc).replace(second=0,microsecond=0)-dt.timedelta(minutes=1)
+        reference='/shelly/device/shellypro3em-ac15187c7da8/history?'+urlencode({
+            'start':(cutoff-dt.timedelta(minutes=10)).isoformat(),'end':cutoff.isoformat(),
+            'metric':'a_act_power','interval':'1m'})
+        left,t1=fetch(bases['legacy'],reference);right,t2=fetch(bases['compact'],path)
         def closed(body):return {x['event_time']:x for x in body['items'] if dt.datetime.fromisoformat(x['event_time'])<cutoff}
-        l,r=closed(left),closed(right); common=set(l)&set(r)
-        require(len(common)>=1 and all(l[k]==r[k] for k in common),'Latest closed buckets differ')
-        latest={'path':path,'closed_buckets_compared':len(common),'legacy_seconds':t1,'compact_seconds':t2}
+        l,r=closed(left),closed(right)
+        require(len(r)>=1 and sorted(r,reverse=True)==sorted(l,reverse=True)[:len(r)]
+                and all(l[k]==r[k] for k in r),'Latest closed buckets differ')
+        latest={'path':path,'reference_path':reference,'method':'compact latest against bounded legacy minute-history',
+                'closed_buckets_compared':len(r),'legacy_reference_seconds':t1,'compact_seconds':t2}
         authorization=auth_probes(bases['compact'])
         guard();value={'status':'PASS','history_cases':items,'latest':latest,'auth':authorization,
                        'live':live_state(),'created_utc':dt.datetime.now(dt.timezone.utc).isoformat()}
