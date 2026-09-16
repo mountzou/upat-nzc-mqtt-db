@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Certify a reverse-copy baseline, then recover only the compact-only tail."""
 import argparse
+from contextlib import closing
 import datetime as dt
 import importlib.util
 import json
@@ -8,6 +9,8 @@ import os
 from pathlib import Path
 import time
 import psycopg2
+
+EXPECTED_SYSTEM_ID='7618955918777626661'
 
 spec = importlib.util.spec_from_file_location('migration', Path(__file__).with_name('migrate.py'))
 m = importlib.util.module_from_spec(spec)
@@ -75,10 +78,10 @@ def main():
     a=p.parse_args()
     if a.phase != 'verify' and not a.writers_paused: p.error('Drain and stop writer first')
     if a.receipt.exists(): p.error('Receipt already exists')
-    with psycopg2.connect(os.environ['SHELLY_MIGRATION_DSN'],application_name='shelly_writer_cutover') as conn:
+    with closing(psycopg2.connect(os.environ['SHELLY_MIGRATION_DSN'],application_name='shelly_writer_cutover')) as conn:
         with conn.cursor() as cur:
             cur.execute('SELECT system_identifier::text FROM pg_control_system()')
-            if cur.fetchone() != ('7618955918777626661',): raise ValueError('Wrong production cluster')
+            if cur.fetchone() != (EXPECTED_SYSTEM_ID,): raise ValueError('Wrong production cluster')
         conn.commit()
         if a.phase=='verify': result=m.verify(conn)
         elif a.phase=='checkpoint': result=checkpoint(conn,json.loads(a.proof.read_text()))

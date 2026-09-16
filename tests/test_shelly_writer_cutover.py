@@ -72,3 +72,17 @@ def test_reverse_conflict_is_not_silently_accepted(db):
         cur.execute("INSERT INTO public.shelly_measurements SELECT id,device_id,metric,999,unit,event_time FROM shelly_compact.readings WHERE id>%s",(cp['high_water'],))
     with pytest.raises(ValueError,match='Conflicting'):cutover.recover(db,cp['high_water'])
     assert scalar(db,"SELECT last_id FROM shelly_compact.copy_progress WHERE direction='reverse'")==cp['high_water']
+
+
+def test_cli_verification_and_checkpoint_use_independent_transactions(db, monkeypatch, tmp_path):
+    import sys
+    baseline(db)
+    identity=scalar(db,'SELECT system_identifier::text FROM pg_control_system()');db.commit()
+    monkeypatch.setattr(cutover,'EXPECTED_SYSTEM_ID',identity)
+    monkeypatch.setenv('SHELLY_MIGRATION_DSN',DSN)
+    proof_file=tmp_path/'verify.json';checkpoint_file=tmp_path/'checkpoint.json'
+    monkeypatch.setattr(sys,'argv',['writer-cutover.py','verify','--receipt',str(proof_file)])
+    cutover.main()
+    monkeypatch.setattr(sys,'argv',['writer-cutover.py','checkpoint','--receipt',str(checkpoint_file),'--proof',str(proof_file),'--writers-paused'])
+    cutover.main()
+    assert checkpoint_file.exists()
