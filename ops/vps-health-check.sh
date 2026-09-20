@@ -53,7 +53,7 @@ printf '\n## 6. Data freshness by expected device\n\n| Source | Device | Last ev
 # as Excluded and never raise the aggregate health status.
 freshness_rows=''
 if ((docker_ok)) && timeout 5s docker inspect "$DB_CONTAINER" >/dev/null 2>&1; then
-  freshness_rows=$(timeout 30s docker exec "$DB_CONTAINER" psql -U "$DB_USER" -d "$DB_NAME" -At -F $'\t' -c "
+  freshness_rows=$(timeout 90s docker exec "$DB_CONTAINER" psql -U "$DB_USER" -d "$DB_NAME" -At -F $'\t' -c "
     WITH upat_stats AS (
       SELECT device_id::text, max(event_time) AS last_event,
              count(*) FILTER (WHERE event_time >= now()-interval '24 hours') AS events_24h,
