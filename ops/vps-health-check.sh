@@ -5,6 +5,11 @@ ROOT_FS=${ROOT_FS:-/}; DB_MOUNT=${DB_MOUNT:-/mnt/HC_Volume_106884142}; DB_PATH=$
 DB_CONTAINER=${DB_CONTAINER:-iot_postgres}; DB_NAME=${POSTGRES_DB:-iot_db}; DB_USER=${POSTGRES_USER:-postgres}
 EXPECTED_CONTAINERS=(iot_api iot_caddy iot_postgres iot_mosquitto shelly_ingestor ttn_ingestor)
 EXPECTED_TIMERS=(upat-pv-ingestor.timer upat-journal-vacuum.timer upat-iaq-notifications-hourly.timer upat-iaq-notifications-daily.timer)
+# Excluded from expected-device freshness checks after the 2026-09-20
+# read-only audit: these catalog entries are retired/non-operational and have
+# no observed measurements in the audited history window.
+EXCLUDED_DEVICE_IDS=(portable-101 portable-104 portable-105 shellyplugsg3-8cbfeaa29930 shellypro3em-ac15187c76cc)
+EXCLUDED_DEVICE_REASON='retired/non-operational; no observed measurements in audit window'
 green='🟢 Healthy'; yellow='🟡 Warning'; red='🔴 Needs attention'; grey='⚪ Unknown'; overall=0; has_unknown=0
 raise_status(){ (( $1 > overall )) && overall=$1; }
 raise_unknown(){ has_unknown=1; }
