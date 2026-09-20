@@ -48,13 +48,63 @@ printf '\n## 5. PostgreSQL\n\n| PostgreSQL | Container | Readiness | Read-only q
 long_queries=unknown; blocked_queries=unknown
 if ((docker_ok))&&timeout 5s docker inspect "$DB_CONTAINER" >/dev/null 2>&1;then pgstate=$(timeout 5s docker inspect -f '{{.State.Status}}' "$DB_CONTAINER" || printf unknown);pghealth=$(timeout 5s docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}n/a{{end}}' "$DB_CONTAINER" || printf unknown);timeout 5s docker exec "$DB_CONTAINER" pg_isready -U "$DB_USER" -d "$DB_NAME" >/dev/null 2>&1&&pgready=accepting||pgready=failed;timeout 5s docker exec "$DB_CONTAINER" psql -U "$DB_USER" -d "$DB_NAME" -Atqc 'SELECT 1' 2>/dev/null|grep -qx 1&&pgquery=OK||pgquery=failed;mountok=$(timeout 5s docker inspect -f '{{range .Mounts}}{{if eq .Destination "/var/lib/postgresql/data"}}{{.Source}}{{end}}{{end}}' "$DB_CONTAINER" || printf unknown);[[ "$mountok" == "$DB_PATH" ]]&&mountok=correct||mountok=unexpected;connections=$(timeout 5s docker exec "$DB_CONTAINER" psql -U "$DB_USER" -d "$DB_NAME" -Atqc "SELECT count(*) || '/' || current_setting('max_connections') FROM pg_stat_activity" 2>/dev/null||printf unknown);long_queries=$(timeout 5s docker exec "$DB_CONTAINER" psql -U "$DB_USER" -d "$DB_NAME" -Atqc "SELECT count(*) FROM pg_stat_activity WHERE state='active' AND query_start < now()-interval '5 minutes'" 2>/dev/null||printf unknown);blocked_queries=$(timeout 5s docker exec "$DB_CONTAINER" psql -U "$DB_USER" -d "$DB_NAME" -Atqc "SELECT count(*) FROM pg_stat_activity a WHERE cardinality(pg_blocking_pids(a.pid))>0" 2>/dev/null||printf unknown);fi
 pgs=$green;[[ "$pgstate" != running||"$pgready" != accepting||"$pgquery" != OK||"$mountok" != correct ]]&&pgs=$red;[[ "$connections" == unknown || "$long_queries" == unknown || "$blocked_queries" == unknown ]]&&{ [[ "$pgs" == "$green" ]]&&pgs=$grey; raise_unknown; };conn_used=${connections%/*};conn_max=${connections#*/};if [[ "$conn_used" =~ ^[0-9]+$ && "$conn_max" =~ ^[0-9]+$ && "$conn_max" -gt 0 ]];then conn_pct=$((conn_used*100/conn_max));((conn_pct>85))&&pgs=$red&&raise_status 2||{ ((conn_pct>=70))&&[[ "$pgs" == "$green" ]]&&pgs=$yellow&&raise_status 1;};fi;[[ "$long_queries" =~ ^[1-9] ]]&&pgs=$yellow&&raise_status 1;[[ "$blocked_queries" =~ ^[1-9] ]]&&pgs=$red&&raise_status 2;printf '| %s | %s | %s | %s | %s | %s | %s | %s | %s |\n' "$DB_NAME" "$pgstate/$pghealth" "$pgready" "$pgquery" "$connections" "$long_queries" "$blocked_queries" "$mountok" "$pgs"
-printf '\n## 6. Systemd timers and scheduled jobs\n\n| Unit | Type | Enabled | Active | Result | Last run | Next run | Status |\n|---|---|---|---|---|---|---|---|\n'; for unit in "${EXPECTED_TIMERS[@]}";do en=$(timeout 5s systemctl is-enabled "$unit" 2>/dev/null||printf unknown);ac=$(timeout 5s systemctl is-active "$unit" 2>/dev/null||printf unknown);line=$(timeout 5s systemctl list-timers "$unit" --all --no-legend --no-pager 2>/dev/null|head -n1);service=$(awk '{print $NF}'<<<"$line");result=$(timeout 5s systemctl show "$service" -p Result --value 2>/dev/null||printf unknown);last=$(awk '{print $7" "$8" "$9}'<<<"$line");next=$(awk '{print $2" "$3" "$4}'<<<"$line");ts=$green;[[ "$en" == unknown||"$ac" == unknown||"$result" == unknown||-z "$line" ]]&&{ ts=$grey; raise_unknown; };[[ "$en" != enabled||"$ac" != active||"$result" != success ]]&&ts=$red;printf '| %s | timer | %s | %s | %s | %s | %s | %s |\n' "$unit" "$en" "$ac" "${result:-unknown}" "${last:-unknown}" "${next:-unknown}" "$ts";[[ "$ts" == "$red" ]]&&raise_status 2;done
+printf '\n## 6. Data freshness by expected device\n\n| Source | Device | Last event (UTC) | Age | Events 24h | Events 7d | Status | Reason |\n|---|---|---|---:|---:|---:|---|---|\n'
+# Catalog-driven expected devices. Retired/non-operational devices remain visible
+# as Excluded and never raise the aggregate health status.
+freshness_rows=''
+if ((docker_ok)) && timeout 5s docker inspect "$DB_CONTAINER" >/dev/null 2>&1; then
+  freshness_rows=$(timeout 10s docker exec "$DB_CONTAINER" psql -U "$DB_USER" -d "$DB_NAME" -At -F $'\t' -c "
+    WITH expected AS (
+      SELECT 'UPAT'::text AS source, d.device_id::text AS device_id,
+             max(m.event_time) AS last_event,
+             count(*) FILTER (WHERE m.event_time >= now()-interval '24 hours') AS events_24h,
+             count(*) FILTER (WHERE m.event_time >= now()-interval '7 days') AS events_7d
+      FROM upat_devices d LEFT JOIN upat_measurements m ON m.device_id=d.device_id
+      GROUP BY d.device_id
+      UNION ALL
+      SELECT 'Shelly', d.device_id::text, max(m.event_time),
+             count(*) FILTER (WHERE m.event_time >= now()-interval '24 hours'),
+             count(*) FILTER (WHERE m.event_time >= now()-interval '7 days')
+      FROM shelly_devices d LEFT JOIN shelly_measurements m ON m.device_id=d.device_id
+      GROUP BY d.device_id
+    )
+    SELECT source, device_id, coalesce(to_char(last_event AT TIME ZONE 'UTC','YYYY-MM-DD HH24:MI:SS'),'unknown'),
+           CASE WHEN last_event IS NULL THEN 'unknown' ELSE floor(extract(epoch FROM (now()-last_event))/3600)::text END,
+           events_24h::text, events_7d::text
+    FROM expected ORDER BY source, device_id
+  " 2>/dev/null || true)
+fi
+if [[ -z "$freshness_rows" ]]; then
+  printf '| — | — | unknown | — | — | — | %s | freshness query unavailable |\n' "$grey"
+  raise_unknown
+else
+  while IFS=$'\t' read -r source device last_event age events24 events7; do
+    [[ -n "$device" ]] || continue
+    excluded=0
+    for excluded_id in "${EXCLUDED_DEVICE_IDS[@]}"; do [[ "$device" == "$excluded_id" ]] && excluded=1; done
+    if ((excluded)); then
+      printf '| %s | %s | %s | %s | %s | %s | %s | %s |\n' "$source" "$device" "$last_event" "$age" "$events24" "$events7" "$grey Excluded" "$EXCLUDED_DEVICE_REASON"
+      continue
+    fi
+    fs=$grey; reason='missing measurement evidence'
+    if [[ "$age" =~ ^[0-9]+$ ]]; then
+      if (( age <= 24 )); then fs=$green; reason='within 24h freshness window'
+      elif (( age <= 48 )); then fs=$yellow; reason='last event 24-48h ago'; raise_status 1
+      else fs=$red; reason='last event older than 48h'; raise_status 2
+      fi
+    else
+      raise_unknown
+    fi
+    printf '| %s | %s | %s | %sh | %s | %s | %s | %s |\n' "$source" "$device" "$last_event" "$age" "$events24" "$events7" "$fs" "$reason"
+  done <<< "$freshness_rows"
+fi
+printf '\n## 7. Systemd timers and scheduled jobs\n\n| Unit | Type | Enabled | Active | Result | Last run | Next run | Status |\n|---|---|---|---|---|---|---|---|\n'; for unit in "${EXPECTED_TIMERS[@]}";do en=$(timeout 5s systemctl is-enabled "$unit" 2>/dev/null||printf unknown);ac=$(timeout 5s systemctl is-active "$unit" 2>/dev/null||printf unknown);line=$(timeout 5s systemctl list-timers "$unit" --all --no-legend --no-pager 2>/dev/null|head -n1);service=$(awk '{print $NF}'<<<"$line");result=$(timeout 5s systemctl show "$service" -p Result --value 2>/dev/null||printf unknown);last=$(awk '{print $7" "$8" "$9}'<<<"$line");next=$(awk '{print $2" "$3" "$4}'<<<"$line");ts=$green;[[ "$en" == unknown||"$ac" == unknown||"$result" == unknown||-z "$line" ]]&&{ ts=$grey; raise_unknown; };[[ "$en" != enabled||"$ac" != active||"$result" != success ]]&&ts=$red;printf '| %s | timer | %s | %s | %s | %s | %s | %s |\n' "$unit" "$en" "$ac" "${result:-unknown}" "${last:-unknown}" "${next:-unknown}" "$ts";[[ "$ts" == "$red" ]]&&raise_status 2;done
 cron=$(crontab -l 2>/dev/null|grep -F '/opt/upat-nzc-mqtt-db/ops/run-energy-aggregator.sh'||true);if [[ -n "$cron" ]];then cron_log=$(stat -c '%y' /var/log/energy_aggregator.log 2>/dev/null|cut -d. -f1||printf unknown);printf '| energy-aggregator | cron | yes | scheduled | exit result unavailable | %s | next hourly | %s |\n' "$cron_log" "$grey";raise_unknown;else printf '| energy-aggregator | cron | no | missing | unknown | unknown | unknown | %s |\n' "$red";raise_status 2;fi
-printf '\n## 7. Application/API availability\n\n| Check | Path | Transport | HTTP status | Latency | Contract | TLS | Status |\n|---|---|---|---:|---:|---|---|---|\n'; code=unknown;time=unknown;api_status=$grey;if command_exists curl;then read -r code time<<<"$(curl -sS -o /dev/null -w '%{http_code} %{time_total}' --max-time 5 http://127.0.0.1:8000/health 2>/dev/null||printf '000 unknown')";[[ "$code" == 200 ]]&&api_status=$green||api_status=$red;fi;printf '| API local health | /health | loopback HTTP | %s | %ss | read-only GET | n/a | %s |\n' "$code" "$time" "$api_status";[[ "$api_status" == "$red" ]]&&raise_status 2
+printf '\n## 8. Application/API availability\n\n| Check | Path | Transport | HTTP status | Latency | Contract | TLS | Status |\n|---|---|---|---:|---:|---|---|---|\n'; code=unknown;time=unknown;api_status=$grey;if command_exists curl;then read -r code time<<<"$(curl -sS -o /dev/null -w '%{http_code} %{time_total}' --max-time 5 http://127.0.0.1:8000/health 2>/dev/null||printf '000 unknown')";[[ "$code" == 200 ]]&&api_status=$green||api_status=$red;fi;printf '| API local health | /health | loopback HTTP | %s | %ss | read-only GET | n/a | %s |\n' "$code" "$time" "$api_status";[[ "$api_status" == "$red" ]]&&raise_status 2
 public_origin=${PUBLIC_API_ORIGIN:-https://telemetry.schoolheroz.com}; public_code=unknown; public_time=unknown; public_status=$grey; tls_status=$grey
 if command_exists curl; then read -r public_code public_time <<<"$(timeout 15s curl -sS -o /dev/null -w '%{http_code} %{time_total}' --max-time 10 "$public_origin/internal/data/health" 2>/dev/null || printf '000 unknown')"; [[ "$public_code" == 200 || "$public_code" == 401 ]] && public_status=$green || public_status=$red; if [[ "$public_status" == "$green" ]]; then awk -v t="$public_time" 'BEGIN{exit !(t>3)}' && { public_status=$red; raise_status 2; } || { awk -v t="$public_time" 'BEGIN{exit !(t>=1)}' && { public_status=$yellow; raise_status 1; }; }; tls_status=$green; else tls_status=$red; fi; fi
 printf '| Public API health | /internal/data/health | HTTPS/Caddy | %s | %ss | 200 or expected 401 auth boundary | %s | %s |\n' "$public_code" "$public_time" "$tls_status" "$public_status"; [[ "$public_status" == "$red" ]] && raise_status 2
-printf '\n## 8. Scheduler inventory and evidence\n\n| Scheduler source | Entry / unit | Schedule / evidence | Enabled | Active | Result | Status |\n|---|---|---|---|---|---|---|\n'
+printf '\n## 9. Scheduler inventory and evidence\n\n| Scheduler source | Entry / unit | Schedule / evidence | Enabled | Active | Result | Status |\n|---|---|---|---|---|---|---|\n'
 cron_active=$(timeout 5s systemctl is-active cron 2>/dev/null || printf unknown); cron_enabled=$(timeout 5s systemctl is-enabled cron 2>/dev/null || printf unknown); cron_status=$green; [[ "$cron_active" == unknown || "$cron_enabled" == unknown ]]&&{ cron_status=$grey; raise_unknown; }; [[ "$cron_active" != active || "$cron_enabled" != enabled ]]&&{ cron_status=$red; raise_status 2; }; printf '| cron service | cron | — | %s | %s | — | %s |\n' "$cron_enabled" "$cron_active" "$cron_status"
 root_entries=$(timeout 5s crontab -l 2>/dev/null | awk '!/^[[:space:]]*(#|$)/ && $1 !~ /^[A-Za-z_][A-Za-z0-9_]*=/{n++} END{print n+0}' || printf unknown); [[ "$root_entries" == unknown ]]&&raise_unknown; printf '| root crontab | root | %s active entries | yes | %s | inventory only | %s |\n' "$root_entries" "$cron_active" "$([[ "$root_entries" == unknown ]]&&printf "$grey"||printf "$green")"
 for user_cron in /var/spool/cron/crontabs/*; do [[ -f "$user_cron" ]]||continue; user_entries=$(awk '!/^[[:space:]]*(#|$)/ && $1 !~ /^[A-Za-z_][A-Za-z0-9_]*=/{n++} END{print n+0}' "$user_cron" 2>/dev/null || printf unknown); printf '| user crontab | %s | %s active entries | yes | %s | inventory only | %s |\n' "$(basename "$user_cron")" "$user_entries" "$cron_active" "$([[ "$user_entries" == unknown ]]&&printf "$grey"||printf "$green")"; [[ "$user_entries" == unknown ]]&&raise_unknown; done
