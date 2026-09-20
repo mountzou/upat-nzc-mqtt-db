@@ -178,5 +178,49 @@ else
  printf '| Weather / PV D+1 | unknown | unknown | — | 24 | %s | Query failed, timed out or returned no evidence |\n' "$grey"
  raise_unknown
 fi
+printf '\n## 11. Simulation results by active school\n\n'
+printf 'Athens civil-hour contract: six supported schools; nightly simulation is due at 23:40 Athens (23:10 job + 30m grace).\n\n'
+printf '| School | Target date | Latest run | Completed | Requested rooms | Successful rooms | Failed rooms | Status | Reason |\n|---|---|---|---|---:|---:|---:|---|---|\n'
+simulation_sql=$(cat <<'SQL'
+WITH clock AS (SELECT now() AT TIME ZONE 'Europe/Athens' AS local_now), schools(school_id) AS (
+ VALUES ('school_3'),('school_7'),('school_10'),('school_13'),('school_22'),('school_23')
+), latest AS (
+ SELECT s.school_id,c.local_now,
+        r.id,r.day_ahead_date,r.success,r.completed_at,r.requested_rooms,r.successful_rooms,r.failed_rooms
+ FROM schools s CROSS JOIN clock c
+ LEFT JOIN LATERAL (
+   SELECT * FROM simulation_day_ahead_runs r
+   WHERE r.school_id=s.school_id AND r.day_ahead_date=c.local_now::date
+   ORDER BY r.started_at DESC,r.id DESC LIMIT 1
+ ) r ON true
+)
+SELECT school_id,local_now::date,coalesce(id::text,'unknown'),coalesce(to_char(completed_at AT TIME ZONE 'UTC','YYYY-MM-DD HH24:MI:SS'),'unknown'),
+       coalesce(requested_rooms::text,'—'),coalesce(successful_rooms::text,'—'),coalesce(failed_rooms::text,'—'),
+       CASE WHEN id IS NULL AND local_now::time<time '23:40' THEN 'pending'
+            WHEN id IS NULL OR success IS NOT TRUE OR completed_at IS NULL OR coalesce(failed_rooms,0)<>0 THEN 'attention'
+            ELSE 'healthy' END,
+       CASE WHEN id IS NULL AND local_now::time<time '23:40' THEN 'Not due yet; expected after nightly run'
+            WHEN id IS NULL THEN 'No persisted run for today'
+            WHEN success IS NOT TRUE THEN 'Persisted run is unsuccessful'
+            WHEN completed_at IS NULL THEN 'Run has no completion evidence'
+            WHEN coalesce(failed_rooms,0)<>0 THEN 'One or more room results failed'
+            ELSE 'Persisted successful run with no failed rooms' END
+FROM latest ORDER BY school_id;
+SQL
+)
+if simulation_rows=$(timeout 20s docker exec -e PGOPTIONS='-c default_transaction_read_only=on -c statement_timeout=15000 -c lock_timeout=2000' "$DB_CONTAINER" psql -X -v ON_ERROR_STOP=1 -U "$DB_USER" -d "$DB_NAME" -At -F '|' -c "$simulation_sql" 2>/dev/null) && [[ -n "$simulation_rows" ]]; then
+ while IFS='|' read -r school target run completed requested successful failed result reason; do
+  case "$result" in
+   healthy) simulation_status=$green ;;
+   attention) simulation_status=$red; raise_status 2 ;;
+   pending) simulation_status='⚪ Not due yet' ;;
+   *) simulation_status=$grey; raise_unknown ;;
+  esac
+  printf '| %s | %s | %s | %s | %s | %s | %s | %s | %s |\n' "$school" "$target" "$run" "$completed" "$requested" "$successful" "$failed" "$simulation_status" "$reason"
+ done <<< "$simulation_rows"
+else
+ printf '| — | unknown | unknown | unknown | — | — | — | %s | Query failed, timed out or returned no evidence |\n' "$grey"
+ raise_unknown
+fi
 exit_code=$overall; ((has_unknown && overall==0)) && exit_code=3
 printf '\nOverall status: ';((overall>=2))&&printf '%s\n' "$red"||{ ((overall==1))&&printf '%s\n' "$yellow"||{ ((has_unknown))&&printf '%s\n' "$grey"||printf '%s\n' "$green"; };};exit "$exit_code"
