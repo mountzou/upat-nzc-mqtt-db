@@ -124,5 +124,59 @@ for user_cron in /var/spool/cron/crontabs/*; do [[ -f "$user_cron" ]]||continue;
 etc_entries=$(awk '!/^[[:space:]]*(#|$)/ && $1 !~ /^[A-Za-z_][A-Za-z0-9_]*=/{n++} END{print n+0}' /etc/crontab 2>/dev/null || printf unknown); [[ "$etc_entries" == unknown ]]&&raise_unknown; printf '| /etc/crontab | system | %s active entries | yes | %s | inventory only | %s |\n' "$etc_entries" "$cron_active" "$([[ "$etc_entries" == unknown ]]&&printf "$grey"||printf "$green")"
 for cron_file in /etc/cron.d/*; do [[ -f "$cron_file" ]]||continue; entries=$(awk '!/^[[:space:]]*(#|$)/ && $1 !~ /^[A-Za-z_][A-Za-z0-9_]*=/{n++} END{print n+0}' "$cron_file" 2>/dev/null || printf unknown); printf '| /etc/cron.d | %s | %s active entries | yes | %s | inventory only | %s |\n' "$(basename "$cron_file")" "$entries" "$cron_active" "$([[ "$entries" == unknown ]]&&printf "$grey"||printf "$green")"; [[ "$entries" == unknown ]]&&raise_unknown; done
 failed_units=$(timeout 5s systemctl --failed --no-legend 2>/dev/null | awk 'NF{n++} END{print n+0}' || printf unknown); scheduler_status=$green; [[ "$failed_units" == unknown ]]&&{ scheduler_status=$grey; raise_unknown; }; [[ "$failed_units" =~ ^[1-9] ]]&&{ scheduler_status=$red; raise_status 2; }; printf '| systemd failed units | scheduler scope | %s failed units | — | — | failure inventory | %s |\n' "$failed_units" "$scheduler_status"
+printf '\n## 10. Weather / D+1 forecast coverage\n\n'
+printf 'Athens civil-hour contract: 24 unique hours per date. PV tomorrow is due at 23:30 Athens (23:00 job + 30m grace); current-day coverage remains required. Weather refresh due at 23:20 (22:50 + 30m grace).\n\n'
+printf '| Check | Target date | Persisted update / run (UTC) | Valid hours | Expected | Status | Evidence |\n|---|---|---|---:|---:|---|---|\n'
+forecast_sql=$(cat <<'SQL'
+WITH clock AS (
+ SELECT now() AT TIME ZONE 'Europe/Athens' AS local_now
+), dates AS (
+ SELECT local_now::date AS today, local_now,
+ (CASE WHEN local_now::time >= time '23:20' THEN local_now::date ELSE local_now::date-1 END + time '22:50') AT TIME ZONE 'Europe/Athens' AS weather_due
+ FROM clock
+), targets AS (
+ SELECT today AS day FROM dates UNION ALL SELECT today+1 FROM dates
+), weather AS (
+ SELECT t.day,count(w.id) AS rows,
+ count(DISTINCT w.forecast_timestamp) FILTER (WHERE w.forecast_date=t.day AND w.forecast_hour=extract(hour FROM w.forecast_timestamp) AND w.temperature_2m IS NOT NULL AND w.shortwave_radiation IS NOT NULL) AS valid,
+ min(w.fetched_at) AS oldest, max(w.fetched_at) AS newest
+ FROM targets t LEFT JOIN weather_hourly_forecasts w
+ ON w.source='open-meteo' AND w.latitude=37.068 AND w.longitude=22.026 AND w.timezone='Europe/Athens'
+ AND w.forecast_timestamp IN (SELECT generate_series(t.day::timestamp,t.day+time '23:00',interval '1 hour'))
+ GROUP BY t.day
+), pv AS (
+ SELECT t.day,r.id,r.success,r.completed_at,count(h.id) AS rows,
+ count(DISTINCT h.forecast_timestamp) FILTER (WHERE h.forecast_date=t.day AND h.forecast_hour=extract(hour FROM h.forecast_timestamp) AND h.predicted_power_kw IS NOT NULL AND h.predicted_power_kw>=0 AND h.forecast_timestamp IN (SELECT generate_series(t.day::timestamp,t.day+time '23:00',interval '1 hour'))) AS valid
+ FROM targets t LEFT JOIN LATERAL (SELECT * FROM pv_day_ahead_forecast_runs WHERE forecast_date=t.day AND latitude=37.04 AND longitude=22.11 ORDER BY started_at DESC,id DESC LIMIT 1) r ON true
+ LEFT JOIN pv_day_ahead_forecast_hourly h ON h.run_id=r.id
+ GROUP BY t.day,r.id,r.success,r.completed_at
+)
+SELECT 'Weather',w.day,coalesce(to_char(w.newest AT TIME ZONE 'UTC','YYYY-MM-DD HH24:MI:SS'),'unknown'),w.valid,24,
+ CASE WHEN w.rows<>24 OR w.valid<>24 THEN 'attention' WHEN w.oldest<d.weather_due THEN 'warning' ELSE 'healthy' END,
+ 'Open-Meteo 37.068/22.026; all hours must be from latest due refresh'
+ FROM weather w CROSS JOIN dates d
+UNION ALL
+SELECT 'PV D+1',p.day,coalesce('run '||p.id||' / '||to_char(p.completed_at AT TIME ZONE 'UTC','YYYY-MM-DD HH24:MI:SS'),'unknown'),p.valid,24,
+ CASE WHEN p.id IS NULL AND p.day=d.today+1 AND d.local_now::time<time '23:30' THEN 'pending'
+ WHEN p.id IS NULL OR p.success IS NOT TRUE OR p.completed_at IS NULL OR p.rows<>24 OR p.valid<>24 THEN 'attention' ELSE 'healthy' END,
+ CASE WHEN p.id IS NULL AND p.day=d.today+1 AND d.local_now::time<time '23:30' THEN 'Not due yet; expected after nightly run' ELSE 'Latest target-date run; success and exact hourly coverage required' END
+ FROM pv p CROSS JOIN dates d ORDER BY 1,2;
+SQL
+)
+if forecast_rows=$(timeout 20s docker exec -e PGOPTIONS='-c default_transaction_read_only=on -c statement_timeout=15000 -c lock_timeout=2000' "$DB_CONTAINER" psql -X -v ON_ERROR_STOP=1 -U "$DB_USER" -d "$DB_NAME" -At -F '|' -c "$forecast_sql" 2>/dev/null) && [[ -n "$forecast_rows" ]]; then
+ while IFS='|' read -r check target persisted valid expected result evidence; do
+  case "$result" in
+   healthy) forecast_status=$green ;;
+   warning) forecast_status=$yellow; raise_status 1 ;;
+   attention) forecast_status=$red; raise_status 2 ;;
+   pending) forecast_status='⚪ Not due yet' ;;
+   *) forecast_status=$grey; raise_unknown ;;
+  esac
+  printf '| %s | %s | %s | %s | %s | %s | %s |\n' "$check" "$target" "$persisted" "$valid" "$expected" "$forecast_status" "$evidence"
+ done <<< "$forecast_rows"
+else
+ printf '| Weather / PV D+1 | unknown | unknown | — | 24 | %s | Query failed, timed out or returned no evidence |\n' "$grey"
+ raise_unknown
+fi
 exit_code=$overall; ((has_unknown && overall==0)) && exit_code=3
 printf '\nOverall status: ';((overall>=2))&&printf '%s\n' "$red"||{ ((overall==1))&&printf '%s\n' "$yellow"||{ ((has_unknown))&&printf '%s\n' "$grey"||printf '%s\n' "$green"; };};exit "$exit_code"
