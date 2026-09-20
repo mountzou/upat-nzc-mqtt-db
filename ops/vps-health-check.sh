@@ -53,22 +53,23 @@ printf '\n## 6. Data freshness by expected device\n\n| Source | Device | Last ev
 # as Excluded and never raise the aggregate health status.
 freshness_rows=''
 if ((docker_ok)) && timeout 5s docker inspect "$DB_CONTAINER" >/dev/null 2>&1; then
-  freshness_rows=$(timeout 10s docker exec "$DB_CONTAINER" psql -U "$DB_USER" -d "$DB_NAME" -At -F $'\t' -c "
-    WITH expected AS (
-      SELECT 'UPAT'::text AS source, d.device_id::text AS device_id,
-             l.last_event, c.events_24h, c.events_7d
-      FROM upat_devices d
-      LEFT JOIN LATERAL (SELECT max(event_time) AS last_event FROM upat_measurements m WHERE m.device_id=d.device_id) l ON true
-      LEFT JOIN LATERAL (SELECT count(*) FILTER (WHERE event_time >= now()-interval '24 hours') AS events_24h,
-                                count(*) FILTER (WHERE event_time >= now()-interval '7 days') AS events_7d
-                         FROM upat_measurements m WHERE m.device_id=d.device_id) c ON true
+  freshness_rows=$(timeout 30s docker exec "$DB_CONTAINER" psql -U "$DB_USER" -d "$DB_NAME" -At -F $'\t' -c "
+    WITH upat_stats AS (
+      SELECT device_id::text, max(event_time) AS last_event,
+             count(*) FILTER (WHERE event_time >= now()-interval '24 hours') AS events_24h,
+             count(*) FILTER (WHERE event_time >= now()-interval '7 days') AS events_7d
+      FROM upat_measurements GROUP BY device_id
+    ), shelly_stats AS (
+      SELECT device_id::text, max(event_time) AS last_event,
+             count(*) FILTER (WHERE event_time >= now()-interval '24 hours') AS events_24h,
+             count(*) FILTER (WHERE event_time >= now()-interval '7 days') AS events_7d
+      FROM shelly_measurements GROUP BY device_id
+    ), expected AS (
+      SELECT 'UPAT'::text AS source, d.device_id::text, s.last_event, coalesce(s.events_24h,0) events_24h, coalesce(s.events_7d,0) events_7d
+      FROM upat_devices d LEFT JOIN upat_stats s ON s.device_id=d.device_id
       UNION ALL
-      SELECT 'Shelly', d.device_id::text, l.last_event, c.events_24h, c.events_7d
-      FROM shelly_devices d
-      LEFT JOIN LATERAL (SELECT max(event_time) AS last_event FROM shelly_measurements m WHERE m.device_id=d.device_id) l ON true
-      LEFT JOIN LATERAL (SELECT count(*) FILTER (WHERE event_time >= now()-interval '24 hours') AS events_24h,
-                                count(*) FILTER (WHERE event_time >= now()-interval '7 days') AS events_7d
-                         FROM shelly_measurements m WHERE m.device_id=d.device_id) c ON true
+      SELECT 'Shelly', d.device_id::text, s.last_event, coalesce(s.events_24h,0), coalesce(s.events_7d,0)
+      FROM shelly_devices d LEFT JOIN shelly_stats s ON s.device_id=d.device_id
     )
     SELECT source, device_id, coalesce(to_char(last_event AT TIME ZONE 'UTC','YYYY-MM-DD HH24:MI:SS'),'unknown'),
            CASE WHEN last_event IS NULL THEN 'unknown' ELSE floor(extract(epoch FROM (now()-last_event))/3600)::text END,
