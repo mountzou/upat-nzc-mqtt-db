@@ -56,17 +56,19 @@ if ((docker_ok)) && timeout 5s docker inspect "$DB_CONTAINER" >/dev/null 2>&1; t
   freshness_rows=$(timeout 10s docker exec "$DB_CONTAINER" psql -U "$DB_USER" -d "$DB_NAME" -At -F $'\t' -c "
     WITH expected AS (
       SELECT 'UPAT'::text AS source, d.device_id::text AS device_id,
-             max(m.event_time) AS last_event,
-             count(*) FILTER (WHERE m.event_time >= now()-interval '24 hours') AS events_24h,
-             count(*) FILTER (WHERE m.event_time >= now()-interval '7 days') AS events_7d
-      FROM upat_devices d LEFT JOIN upat_measurements m ON m.device_id=d.device_id
-      GROUP BY d.device_id
+             l.last_event, c.events_24h, c.events_7d
+      FROM upat_devices d
+      LEFT JOIN LATERAL (SELECT max(event_time) AS last_event FROM upat_measurements m WHERE m.device_id=d.device_id) l ON true
+      LEFT JOIN LATERAL (SELECT count(*) FILTER (WHERE event_time >= now()-interval '24 hours') AS events_24h,
+                                count(*) FILTER (WHERE event_time >= now()-interval '7 days') AS events_7d
+                         FROM upat_measurements m WHERE m.device_id=d.device_id) c ON true
       UNION ALL
-      SELECT 'Shelly', d.device_id::text, max(m.event_time),
-             count(*) FILTER (WHERE m.event_time >= now()-interval '24 hours'),
-             count(*) FILTER (WHERE m.event_time >= now()-interval '7 days')
-      FROM shelly_devices d LEFT JOIN shelly_measurements m ON m.device_id=d.device_id
-      GROUP BY d.device_id
+      SELECT 'Shelly', d.device_id::text, l.last_event, c.events_24h, c.events_7d
+      FROM shelly_devices d
+      LEFT JOIN LATERAL (SELECT max(event_time) AS last_event FROM shelly_measurements m WHERE m.device_id=d.device_id) l ON true
+      LEFT JOIN LATERAL (SELECT count(*) FILTER (WHERE event_time >= now()-interval '24 hours') AS events_24h,
+                                count(*) FILTER (WHERE event_time >= now()-interval '7 days') AS events_7d
+                         FROM shelly_measurements m WHERE m.device_id=d.device_id) c ON true
     )
     SELECT source, device_id, coalesce(to_char(last_event AT TIME ZONE 'UTC','YYYY-MM-DD HH24:MI:SS'),'unknown'),
            CASE WHEN last_event IS NULL THEN 'unknown' ELSE floor(extract(epoch FROM (now()-last_event))/3600)::text END,
