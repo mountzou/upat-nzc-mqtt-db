@@ -1,0 +1,11 @@
+[Unit]
+Description=Run UPAT VPS read-only health report every 12 hours
+
+[Timer]
+OnBootSec=1min
+OnUnitActiveSec=12h
+Persistent=true
+Unit=upat-vps-health.service
+
+[Install]
+WantedBy=timers.target
