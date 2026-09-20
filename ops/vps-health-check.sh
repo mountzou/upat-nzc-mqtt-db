@@ -64,12 +64,22 @@ if ((docker_ok)) && timeout 5s docker inspect "$DB_CONTAINER" >/dev/null 2>&1; t
              count(*) FILTER (WHERE event_time >= now()-interval '24 hours') AS events_24h,
              count(*) FILTER (WHERE event_time >= now()-interval '7 days') AS events_7d
       FROM shelly_measurements GROUP BY device_id
+    ), pv_stats AS (
+      SELECT device_id, max(observed_at) AS last_event,
+             count(*) FILTER (WHERE observed_at >= now()-interval '24 hours') AS events_24h,
+             count(*) FILTER (WHERE observed_at >= now()-interval '7 days') AS events_7d
+      FROM pv_device_readings_5m GROUP BY device_id
     ), expected AS (
       SELECT 'UPAT'::text AS source, d.device_id::text, s.last_event, coalesce(s.events_24h,0) events_24h, coalesce(s.events_7d,0) events_7d
       FROM upat_devices d LEFT JOIN upat_stats s ON s.device_id=d.device_id
       UNION ALL
       SELECT 'Shelly', d.device_id::text, s.last_event, coalesce(s.events_24h,0), coalesce(s.events_7d,0)
       FROM shelly_devices d LEFT JOIN shelly_stats s ON s.device_id=d.device_id
+      UNION ALL
+      SELECT 'PV', coalesce(d.provider_device_id::text,d.id::text) || ' (' || coalesce(d.device_role,'unknown') || ')',
+             s.last_event, coalesce(s.events_24h,0), coalesce(s.events_7d,0)
+      FROM pv_devices d LEFT JOIN pv_stats s ON s.device_id=d.id
+      WHERE d.is_active IS TRUE
     )
     SELECT source, device_id, coalesce(to_char(last_event AT TIME ZONE 'UTC','YYYY-MM-DD HH24:MI:SS'),'unknown'),
            CASE WHEN last_event IS NULL THEN 'unknown' ELSE floor(extract(epoch FROM (now()-last_event))/3600)::text END,
