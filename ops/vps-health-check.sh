@@ -14,6 +14,16 @@ green='🟢 Healthy'; yellow='🟡 Warning'; red='🔴 Needs attention'; grey='�
 raise_status(){ (( $1 > overall )) && overall=$1; }
 raise_unknown(){ has_unknown=1; }
 pct_status(){ local n=$1; ((n>80))&&printf '%s' "$red"&&return; ((n>=70))&&printf '%s' "$yellow"&&return; printf '%s' "$green"; }
+# Shelly plugs publish about every 60s; Pro3EM about every 7-16s.
+# Compare exact seconds so rounding cannot hide a threshold crossing.
+shelly_freshness_status() {
+  local seconds=$1
+  if [[ ! "$seconds" =~ ^[0-9]+$ ]]; then printf '%s' "$grey"
+  elif ((seconds > 900)); then printf '%s' "$red"
+  elif ((seconds > 300)); then printf '%s' "$yellow"
+  else printf '%s' "$green"
+  fi
+}
 command_exists(){ command -v "$1" >/dev/null 2>&1; }
 printf '# VPS read-only health report\n\nGenerated: %s\n\n' "$(date -Is)"
 printf '## 1. Filesystem and volumes\n\n| Root file system | File system path | Total | Used | Free | In-use | Inodes used | Mount | Status |\n|---|---|---:|---:|---:|---:|---:|---|---|\n'
@@ -53,17 +63,31 @@ printf '\n## 6. Data freshness by expected device\n\n| Source | Device | Last ev
 # as Excluded and never raise the aggregate health status.
 freshness_rows=''
 if ((docker_ok)) && timeout 5s docker inspect "$DB_CONTAINER" >/dev/null 2>&1; then
-  freshness_rows=$(timeout 90s docker exec "$DB_CONTAINER" psql -U "$DB_USER" -d "$DB_NAME" -At -F $'\t' -c "
+  freshness_rows=$(timeout 90s docker exec -e PGOPTIONS="-c default_transaction_read_only=on -c statement_timeout=80000 -c lock_timeout=2000" "$DB_CONTAINER" psql -X -v ON_ERROR_STOP=1 -U "$DB_USER" -d "$DB_NAME" -At -F $'\t' -c "
     WITH upat_stats AS (
       SELECT device_id::text, max(event_time) AS last_event,
              count(*) FILTER (WHERE event_time >= now()-interval '24 hours') AS events_24h,
              count(*) FILTER (WHERE event_time >= now()-interval '7 days') AS events_7d
       FROM upat_measurements GROUP BY device_id
     ), shelly_stats AS (
-      SELECT device_id::text, max(event_time) AS last_event,
-             count(*) FILTER (WHERE event_time >= now()-interval '24 hours') AS events_24h,
-             count(*) FILTER (WHERE event_time >= now()-interval '7 days') AS events_7d
-      FROM shelly_measurements GROUP BY device_id
+      -- Compact-only writer: never fall back to frozen legacy measurements.
+      -- Indexed latest lookup preserves the actual timestamp for stale devices;
+      -- counts scan only the recent seven-day range of each series.
+      SELECT s.device_id::text, max(latest.event_time) AS last_event,
+             sum(recent.events_24h) AS events_24h, sum(recent.events_7d) AS events_7d
+      FROM shelly_compact.series s
+      LEFT JOIN LATERAL (
+        SELECT m.event_time FROM shelly_compact.measurements m
+        WHERE m.series_id=s.series_id AND m.event_time IS NOT NULL
+        ORDER BY m.event_time DESC LIMIT 1
+      ) latest ON true
+      LEFT JOIN LATERAL (
+        SELECT count(*) FILTER (WHERE m.event_time >= now()-interval '24 hours') AS events_24h,
+               count(*) AS events_7d
+        FROM shelly_compact.measurements m
+        WHERE m.series_id=s.series_id AND m.event_time >= now()-interval '7 days'
+      ) recent ON true
+      GROUP BY s.device_id
     ), pv_stats AS (
       SELECT device_id, max(observed_at) AS last_event,
              count(*) FILTER (WHERE observed_at >= now()-interval '24 hours') AS events_24h,
@@ -82,10 +106,12 @@ if ((docker_ok)) && timeout 5s docker inspect "$DB_CONTAINER" >/dev/null 2>&1; t
       WHERE d.is_active IS TRUE
     )
     SELECT source, device_id, coalesce(to_char(last_event AT TIME ZONE 'UTC','YYYY-MM-DD HH24:MI:SS'),'unknown'),
-           CASE WHEN last_event IS NULL THEN 'unknown' ELSE floor(extract(epoch FROM (now()-last_event))/3600)::text END,
+           CASE WHEN last_event IS NULL THEN 'unknown'
+                WHEN source='Shelly' THEN ceil(extract(epoch FROM (now()-last_event)))::text
+                ELSE floor(extract(epoch FROM (now()-last_event))/3600)::text END,
            events_24h::text, events_7d::text
     FROM expected ORDER BY source, device_id
-  " 2>/dev/null || true)
+  " 2>/dev/null) || freshness_rows=''
 fi
 if [[ -z "$freshness_rows" ]]; then
   printf '| — | — | unknown | — | — | — | %s | freshness query unavailable |\n' "$grey"
@@ -95,12 +121,27 @@ else
     [[ -n "$device" ]] || continue
     excluded=0
     for excluded_id in "${EXCLUDED_DEVICE_IDS[@]}"; do [[ "$device" == "$excluded_id" ]] && excluded=1; done
+    age_display=$age
+    if [[ "$age" =~ ^[0-9]+$ ]]; then
+      if [[ "$source" == Shelly ]]; then
+        age_display="$((age / 60))m $((age % 60))s"
+      else age_display="${age}h"
+      fi
+    fi
     if ((excluded)); then
-      printf '| %s | %s | %s | %s | %s | %s | %s | %s |\n' "$source" "$device" "$last_event" "$age" "$events24" "$events7" "$grey Excluded" "$EXCLUDED_DEVICE_REASON"
+      printf '| %s | %s | %s | %s | %s | %s | %s | %s |\n' "$source" "$device" "$last_event" "$age_display" "$events24" "$events7" "⚪ Excluded" "$EXCLUDED_DEVICE_REASON"
       continue
     fi
     fs=$grey; reason='missing measurement evidence'
-    if [[ "$age" =~ ^[0-9]+$ ]]; then
+    if [[ "$source" == Shelly ]]; then
+      fs=$(shelly_freshness_status "$age")
+      case "$fs" in
+        "$green") reason='compact storage; last event <=5m' ;;
+        "$yellow") reason='compact storage; last event >5m and <=15m'; raise_status 1 ;;
+        "$red") reason='compact storage; last event >15m'; raise_status 2 ;;
+        *) reason='compact storage; missing or invalid timestamp'; raise_unknown ;;
+      esac
+    elif [[ "$age" =~ ^[0-9]+$ ]]; then
       if (( age <= 24 )); then fs=$green; reason='within 24h freshness window'
       elif (( age <= 48 )); then fs=$yellow; reason='last event 24-48h ago'; raise_status 1
       else fs=$red; reason='last event older than 48h'; raise_status 2
@@ -108,7 +149,7 @@ else
     else
       raise_unknown
     fi
-    printf '| %s | %s | %s | %sh | %s | %s | %s | %s |\n' "$source" "$device" "$last_event" "$age" "$events24" "$events7" "$fs" "$reason"
+    printf '| %s | %s | %s | %s | %s | %s | %s | %s |\n' "$source" "$device" "$last_event" "$age_display" "$events24" "$events7" "$fs" "$reason"
   done <<< "$freshness_rows"
 fi
 printf '\n## 7. Systemd timers and scheduled jobs\n\n| Unit | Type | Enabled | Active | Result | Last run | Next run | Status |\n|---|---|---|---|---|---|---|---|\n'; for unit in "${EXPECTED_TIMERS[@]}";do en=$(timeout 5s systemctl is-enabled "$unit" 2>/dev/null||printf unknown);ac=$(timeout 5s systemctl is-active "$unit" 2>/dev/null||printf unknown);line=$(timeout 5s systemctl list-timers "$unit" --all --no-legend --no-pager 2>/dev/null|head -n1);service=$(awk '{print $NF}'<<<"$line");result=$(timeout 5s systemctl show "$service" -p Result --value 2>/dev/null||printf unknown);last=$(awk '{print $7" "$8" "$9}'<<<"$line");next=$(awk '{print $2" "$3" "$4}'<<<"$line");ts=$green;[[ "$en" == unknown||"$ac" == unknown||"$result" == unknown||-z "$line" ]]&&{ ts=$grey; raise_unknown; };[[ "$en" != enabled||"$ac" != active||"$result" != success ]]&&ts=$red;printf '| %s | timer | %s | %s | %s | %s | %s | %s |\n' "$unit" "$en" "$ac" "${result:-unknown}" "${last:-unknown}" "${next:-unknown}" "$ts";[[ "$ts" == "$red" ]]&&raise_status 2;done
