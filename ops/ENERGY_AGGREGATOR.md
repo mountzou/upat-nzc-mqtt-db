@@ -1,8 +1,10 @@
 # Scheduled Shelly energy aggregator
 
 The source and Compose service are `jobs/aggregate-energy` and `aggregate-energy`.
-`upat-aggregate-energy.timer` runs every UTC hour at minute 02. It replaces the
-previous root cron without changing the hourly accounting or replay policy.
+`upat-aggregate-energy.timer` runs every UTC hour at minute 02. It replaced the
+previous root cron on 2026-09-29 without changing the hourly accounting or replay
+policy. The first scheduled execution on 2026-09-30 at 00:02 Athens completed
+with exit 0; all 36 refreshed hourly rows matched their counter inputs.
 
 The oneshot service preserves `/var/lock/energy-aggregator.lock` and the worker's
 PostgreSQL advisory lock. Its versioned release overlay selects only the image

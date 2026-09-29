@@ -83,9 +83,10 @@ It rechecks the last three closed UTC hours and upserts per-device energy into
 `SHELLY_COUNTER_START` remains fixed; calendar flags use `OPEN_METEO_TIMEZONE`
 (default `Europe/Athens`).
 
-`upat-aggregate-energy.timer` replaces the root cron at minute 02 of every UTC
-hour. The oneshot service selects the pinned release image, preserves the
-existing flock and PostgreSQL advisory lock, and runs only the `aggregate-energy`
+`upat-aggregate-energy.timer` replaced the root cron on 2026-09-29, retaining
+minute 02 of every UTC hour. The first scheduled run on 2026-09-30 at 00:02 Athens
+completed successfully and its 36 refreshed hourly rows were verified. The
+oneshot service selects the pinned release image, preserves the existing flock and PostgreSQL advisory lock, and runs only the `aggregate-energy`
 Compose service. The `jobs` profile excludes it from an ordinary `up`.
 Use `systemctl start upat-aggregate-energy.service` for an intentional manual
 write; `ops/run-energy-aggregator.sh` forwards to that service.

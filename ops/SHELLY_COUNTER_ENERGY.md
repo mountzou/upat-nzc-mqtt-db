@@ -104,10 +104,10 @@ See `../backups/aggregator-source-alignment-20260907/REPORT.md`.
 
 ## Previous scheduler installation (2026-09-07)
 
-The subsequent installation cleanup is active: cron now calls the repository
-launcher, with the same hourly schedule, flock, pinned image and historical
-cutover. Production Compose is the job configuration; the root `.env` supplies
-its database credentials. Legacy migration scripts/env remain as recovery
+The 7 September installation cleanup moved cron to the repository launcher,
+with the same hourly schedule, flock, pinned image and historical cutover.
+Production Compose became the job configuration; the root `.env` supplied its
+database credentials. Legacy migration scripts/env remained as recovery
 artifacts only. See [ENERGY_AGGREGATOR.md](ENERGY_AGGREGATOR.md) for operation,
 rollback and the first natural-run verification boundary.
 

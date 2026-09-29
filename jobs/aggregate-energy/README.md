@@ -28,6 +28,9 @@ is pinned through `/etc/upat-nzc/aggregate-energy.env` and `compose.release.yml`
 Use `systemctl start upat-aggregate-energy.service` for manual writes and
 `journalctl -u upat-aggregate-energy.service` for logs.
 
-Deployment verification is pending. Receipts, previous configuration, hourly-row
-backups and the guarded rollback script belong in
-`/opt/upat-aggregate-energy-release-20260929/` on the VPS.
+Active on the VPS since 2026-09-29, from source `56c5d83`. The first scheduled
+execution on 2026-09-30 at 00:02 Europe/Athens completed with exit 0 and refreshed
+36 hourly rows across the three-hour replay window. Counter values and working
+flags matched; rows before the cutover and outside the replay stayed unchanged.
+Receipts, exact image ID, previous configuration, hourly-row backups and the
+guarded rollback script are in `/opt/upat-aggregate-energy-release-20260929/`.
