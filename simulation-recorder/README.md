@@ -1,8 +1,8 @@
 # Simulation recorder job compatibility
 
 The recorder submits one `POST /simulate/day-ahead` per admitted school/date attempt.
-It continues to accept the existing synchronous HTTP 200 day-ahead payload, so
-this caller can be released before the backend job migration.
+It continues to accept the synchronous HTTP 200 day-ahead payload while also
+handling the backend's asynchronous job response.
 
 When the backend returns HTTP 504 with `detail.code=simulation_wait_timeout`, the
 recorder validates and commits `run_id` before polling the canonical same-origin
@@ -66,26 +66,30 @@ persistence, and never call weather or EnergyPlus providers.
 
 ## Review and integration status (2026-09-29)
 
-The EnergyPlus backend job patch and the cross-repository integration test are
-already in its main branch (commit e249f52). The integration suite passed 13 tests
-against a disposable local PostgreSQL database, and this recorder's local suite
-passed 45 tests. Those tests do not verify the live backend deployment.
+The EnergyPlus backend job patch and cross-repository integration test are in its
+main branch (commit `e249f52`). The latest Render deployment in its history
+(commit `d3a9d30`) includes that patch, but the service is currently suspended
+by the user. Live job behavior cannot be verified while it is suspended.
 
-Git integration order: reconcile PostgreSQL/Shelly with PR #4, then merge this
-recorder PR after the calendar-day blocker below is resolved. The combined
-production Compose matches the installed VPS file byte-for-byte. Build any
-future recorder image with both `main.py` and `job_client.py`, then verify
-its source/image identity and the deployed backend version before a separately
-authorized rollout. Existing cron time, six-school scope and PostgreSQL service
-remain unchanged. The caller accepts both the old synchronous response and the
-new job response. A backend rollback to synchronous responses does not resolve
-a previously saved pending job; reconcile those handles separately.
+The integration suite passed 13 tests against a disposable local PostgreSQL
+database, and this recorder's local suite passed 50 tests. PR #4 is merged and
+PR #5 was archived. This recorder change can be merged as source code without
+a production rollout. The production Compose matched the installed VPS file
+byte-for-byte at the review on 2026-09-29.
 
-**Calendar-day blocker:** this recorder validates 23, 24, or 25 contiguous
-elapsed one-hour intervals according to the length of the target Athens day.
-The actual backend forecast path rejects 2026-10-25 while preparing its fixed
-timezone EPW, before EnergyPlus runs. Separately, a synthetic cross-repository
-projection check accepted 2026-09-08 but rejected 2026-03-29 and 2026-10-25:
-the backend marked 24 local-clock intervals complete although those days have
-23 and 25 elapsed hours. The backend weather and EnergyPlus output mapping
-still need one shared DST-day policy before this PR is merged.
+For a later rollout, build the recorder image with both `main.py` and
+`job_client.py`, verify its source/image identity and the running backend,
+then validate a job end to end. Existing cron time, six-school scope and
+PostgreSQL service remain unchanged by this PR. The caller accepts both the
+synchronous response and the job response. A backend rollback to synchronous
+responses does not resolve a previously saved pending job; reconcile those
+handles separately.
+
+**Known calendar-day limitation:** the recorder requires 23, 24, or 25
+contiguous elapsed one-hour intervals according to the target Athens day. The
+backend forecast path rejects 2026-10-25 during fixed-timezone EPW preparation,
+before EnergyPlus runs. In synthetic projection checks, the backend's 24
+local-clock intervals were rejected by the recorder for the 23-hour 2026-03-29
+and 25-hour 2026-10-25 days. This existing edge case is not addressed by this
+PR. It is not a merge prerequisite for the independent job compatibility
+change; incomplete hourly results must still be rejected.
