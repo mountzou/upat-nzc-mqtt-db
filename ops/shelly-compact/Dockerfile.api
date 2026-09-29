@@ -1,0 +1,8 @@
+# Build from a git-archive context, preserving the audited deployed dependencies.
+ARG RUNTIME_IMAGE
+FROM ${RUNTIME_IMAGE}
+ARG SOURCE_COMMIT
+LABEL org.opencontainers.image.revision=${SOURCE_COMMIT}
+WORKDIR /app
+COPY api/main.py ./main.py
+COPY api/readers/measurements.py api/readers/shelly_storage.py ./readers/

@@ -1,6 +1,7 @@
 """Latest measurement snapshots, without URL dispatch or JSON serialization."""
 import database
 from schemas import normalize_metrics
+from readers.shelly_storage import source_and_average
 
 
 def round_numeric(value):
@@ -49,6 +50,7 @@ def fetch_device_latest(table_name, device_id, metrics, limit, *, connection_fac
     module directly. The SQL and snapshot limit have the original semantics.
     """
     normalized_metrics = normalize_metrics(metrics)
+    relation, average = source_and_average(table_name)
 
     query_params = []
     query_parts = [f"""
@@ -56,14 +58,14 @@ def fetch_device_latest(table_name, device_id, metrics, limit, *, connection_fac
             SELECT
                 device_id,
                 metric,
-                AVG(value) AS value,
+                {average} AS value,
                 unit,
                 date_bin(
                     INTERVAL '1 minute',
                     event_time,
                     TIMESTAMPTZ '2001-01-01 00:00:00+00'
                 ) AS bucket_time
-            FROM {table_name}
+            FROM {relation}
             WHERE device_id = %s
     """]
     query_params.append(device_id)
