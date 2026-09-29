@@ -1,0 +1,4 @@
+services:
+  forecast-pv:
+    build: !reset null
+    image: ${FORECAST_PV_IMAGE:?Set FORECAST_PV_IMAGE to the reviewed local image ID}

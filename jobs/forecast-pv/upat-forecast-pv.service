@@ -1,0 +1,29 @@
+[Unit]
+Description=Compute and store UPAT day-ahead PV forecasts
+Requires=docker.service
+Wants=network-online.target
+After=docker.service network-online.target upat-postgres-volume.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/upat-nzc-mqtt-db
+EnvironmentFile=/etc/upat-nzc/forecast-pv.env
+UMask=0077
+Restart=no
+TimeoutStartSec=5min
+TimeoutStopSec=45s
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=upat-forecast-pv
+
+# Keep the legacy lock during migration. Manual runs use systemctl start too.
+ExecStart=/usr/bin/flock --no-fork --nonblock /var/lock/pv-prediction.lock /usr/bin/docker compose --project-directory /opt/upat-nzc-mqtt-db --env-file /opt/upat-nzc-mqtt-db/.env --project-name upat-nzc-mqtt-db -f /opt/upat-nzc-mqtt-db/docker-compose.prod.yml -f /opt/upat-nzc-mqtt-db/jobs/forecast-pv/compose.release.yml --profile jobs run --rm --no-deps --pull never -T --name upat-forecast-pv-${INVOCATION_ID} forecast-pv
+# Remove only this invocation's container after failure, stop or timeout.
+ExecStopPost=-/usr/bin/docker rm --force upat-forecast-pv-${INVOCATION_ID}
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/run/lock
+RestrictSUIDSGID=true

@@ -1,0 +1,12 @@
+[Unit]
+Description=Compute UPAT PV forecasts daily at 23:00 Athens time
+
+[Timer]
+OnCalendar=*-*-* 23:00:00 Europe/Athens
+Persistent=false
+AccuracySec=1s
+RandomizedDelaySec=0
+Unit=upat-forecast-pv.service
+
+[Install]
+WantedBy=timers.target
