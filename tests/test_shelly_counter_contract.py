@@ -3,6 +3,7 @@ from datetime import datetime, timedelta, timezone
 import importlib.util
 from pathlib import Path
 import sys
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -18,18 +19,18 @@ def load(name, path):
 
 
 parser = load('shelly_counter_parser', 'shelly-ingestor/counters.py')
-ce = load('counter_energy', 'energy-aggregator/counter_energy.py')
-agg = load('shelly_counter_aggregator', 'energy-aggregator/main.py')
+agg = load('shelly_counter_aggregator', 'jobs/aggregate-energy/main.py')
 START = datetime(2026, 9, 7, 5, tzinfo=timezone.utc)
 
 
 def samples(*, offset=0, start=START, count=61, kind='import', returned=None):
-    return [ce.Sample(start+timedelta(minutes=i, seconds=offset), 1000.0+i,
+    return [agg.Sample(start+timedelta(minutes=i, seconds=offset), 1000.0+i,
                       returned, kind) for i in range(count)]
 
 
 def energy(rows, start=START):
-    return ce.hourly_energy(rows, start, start+ce.HOUR)
+    calculate = agg.plug_hourly_energy if rows and rows[0].counter_kind == 'absolute' else agg.pro3em_hourly_energy
+    return calculate(rows, start, start+agg.HOUR)
 
 
 def test_pro3em_extracts_per_phase_wh_without_total_double_counting():
@@ -68,12 +69,11 @@ def test_power_message_is_not_a_counter_and_wrong_topic_is_rejected():
 def test_boundary_receipt_jitter_preserves_delta(offset):
     result = energy(samples(offset=offset))
     assert result.energy_wh == 60 and result.reason == 'observed'
-    assert result.start_offset_seconds == offset
 
 
 def test_adjacent_hours_share_boundary_and_conserve_total():
     rows = samples(offset=1.3, count=121)
-    assert sum(energy(rows, START+i*ce.HOUR).energy_wh for i in range(2)) == 120
+    assert sum(energy(rows, START+i*agg.HOUR).energy_wh for i in range(2)) == 120
 
 
 def test_ten_minute_gap_preserves_counter_delta_when_boundaries_exist():
@@ -81,39 +81,38 @@ def test_ten_minute_gap_preserves_counter_delta_when_boundaries_exist():
     del rows[20:30]
     result = energy(rows)
     assert result.energy_wh == 60 and result.reason == 'observed'
-    assert result.max_gap_seconds == 660
 
 
 def test_no_post_outage_spike_and_next_complete_hour_recovers():
     rows = samples(count=121)
     del rows[55:65]
     assert energy(rows).energy_wh is None
-    assert energy(rows, START+ce.HOUR).energy_wh is None
-    recovered = samples(start=START+2*ce.HOUR)
-    assert energy(recovered, START+2*ce.HOUR).energy_wh == 60
+    assert energy(rows, START+agg.HOUR).energy_wh is None
+    recovered = samples(start=START+2*agg.HOUR)
+    assert energy(recovered, START+2*agg.HOUR).energy_wh == 60
 
 
 def test_reset_hidden_by_positive_end_minus_start_is_detected():
     rows = samples()
-    rows[30] = ce.Sample(rows[30].observed_at, 0, None, 'import')
+    rows[30] = agg.Sample(rows[30].observed_at, 0, None, 'import')
     assert energy(rows).reason == 'counter_reset'
     assert energy(rows).energy_wh is None
 
 
 def test_returned_counter_reset_is_detected_separately():
     rows = samples(returned=10)
-    rows[30] = ce.Sample(rows[30].observed_at, 1030, 0, 'import')
+    rows[30] = agg.Sample(rows[30].observed_at, 1030, 0, 'import')
     assert energy(rows).reason == 'counter_reset'
 
 
 def test_plug_absolute_energy_excludes_returned_but_pro3em_import_does_not():
-    rows = [ce.Sample(START+timedelta(minutes=i), 1000+2*i, 100+i, 'absolute') for i in range(61)]
+    rows = [agg.Sample(START+timedelta(minutes=i), 1000+2*i, 100+i, 'absolute') for i in range(61)]
     assert energy(rows).energy_wh == 60
-    assert energy([ce.Sample(s.observed_at,s.energy_wh,s.returned_energy_wh,'import') for s in rows]).energy_wh == 120
+    assert energy([agg.Sample(s.observed_at,s.energy_wh,s.returned_energy_wh,'import') for s in rows]).energy_wh == 120
 
 
 def test_real_zero_is_distinct_from_missing():
-    rows = [ce.Sample(s.observed_at, 10, None, 'import') for s in samples()]
+    rows = [agg.Sample(s.observed_at, 10, None, 'import') for s in samples()]
     assert energy(rows).energy_wh == 0
     assert energy([]).energy_wh is None
     assert energy(rows[10:-10]).reason == 'missing_boundary'
@@ -122,19 +121,19 @@ def test_real_zero_is_distinct_from_missing():
 def test_duplicates_are_idempotent_but_conflicts_are_missing():
     rows = samples()
     assert energy(rows+rows[::-1]).energy_wh == 60
-    assert energy(rows+[ce.Sample(rows[20].observed_at, 999, None, 'import')]).reason == 'conflicting_timestamp'
+    assert energy(rows+[agg.Sample(rows[20].observed_at, 999, None, 'import')]).reason == 'conflicting_timestamp'
 
 
 @pytest.mark.parametrize('value', [float('nan'), float('inf'), -2, True])
 def test_invalid_stored_values_cannot_be_counted(value):
     rows = samples()
-    rows[30] = ce.Sample(rows[30].observed_at, value, None, 'import')
+    rows[30] = agg.Sample(rows[30].observed_at, value, None, 'import')
     assert energy(rows).reason == 'invalid_counter'
 
 
 def test_counter_shape_cannot_change_mid_hour():
     rows = samples()
-    rows[30] = ce.Sample(rows[30].observed_at, 1030, 0, 'absolute')
+    rows[30] = agg.Sample(rows[30].observed_at, 1030, 0, 'absolute')
     assert energy(rows).reason == 'counter_shape_changed'
 
 
@@ -153,7 +152,21 @@ def test_dst_uses_distinct_elapsed_hours(stamp):
 def test_naive_bounds_and_partial_hours_are_rejected():
     with pytest.raises(ValueError): agg.parse_hour('2026-09-07T08:00:00')
     with pytest.raises(ValueError): agg.parse_hour('2026-09-07T08:01:00+03:00')
-    with pytest.raises(ValueError): ce.hourly_energy([], START, START+timedelta(minutes=30))
+    with pytest.raises(ValueError): agg.get_hourly_samples([], START, START+timedelta(minutes=30))
+
+
+@pytest.mark.parametrize('device,kind,channels,expected', [
+    ('shellypro3em-test', 'import', ('a', 'b', 'c'), 120),
+    ('shellyplugsg3-test', 'absolute', ('total',), 60),
+])
+def test_device_uses_its_energy_calculation(device, kind, channels, expected):
+    cursor = MagicMock()
+    cursor.fetchall.return_value = [
+        (START+timedelta(minutes=i), 1000+2*i, 100+i, kind) for i in range(61)
+    ]
+    assert list(agg.calculate_device(cursor, device, START, START+agg.HOUR)) == [
+        (START, {channel: agg.Result(expected, 'observed') for channel in channels})
+    ]
 
 
 def test_cli_refuses_writes_without_cutover(monkeypatch):
@@ -171,14 +184,14 @@ def test_cli_refuses_historical_rewrite_before_cutover(monkeypatch):
 
 
 def test_user_boundary_gap_case_and_sixty_second_limit():
-    rows = [ce.Sample(START+timedelta(seconds=-5),100,None,'import'),
-            ce.Sample(START+timedelta(minutes=4,seconds=15),101,None,'import'),
-            ce.Sample(START+ce.HOUR+timedelta(seconds=3),102,None,'import')]
+    rows = [agg.Sample(START+timedelta(seconds=-5),100,None,'import'),
+            agg.Sample(START+timedelta(minutes=4,seconds=15),101,None,'import'),
+            agg.Sample(START+agg.HOUR+timedelta(seconds=3),102,None,'import')]
     assert energy(rows).energy_wh == 2
     assert energy(samples(offset=61)).reason == 'missing_boundary'
 
 
 def test_sixty_second_boundary_tolerance_is_inclusive():
-    rows=[ce.Sample(START-timedelta(seconds=60),100,None,'import'),
-          ce.Sample(START+ce.HOUR+timedelta(seconds=60),102,None,'import')]
+    rows=[agg.Sample(START-timedelta(seconds=60),100,None,'import'),
+          agg.Sample(START+agg.HOUR+timedelta(seconds=60),102,None,'import')]
     assert energy(rows).energy_wh==2

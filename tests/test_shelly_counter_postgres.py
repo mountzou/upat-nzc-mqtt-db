@@ -6,7 +6,7 @@ from pathlib import Path
 import psycopg2
 import pytest
 
-from test_shelly_counter_contract import ROOT, START, parser, ce, agg, samples
+from test_shelly_counter_contract import ROOT, START, parser, agg, samples
 
 DSN = os.getenv('COUNTER_TEST_DSN')
 pytestmark = pytest.mark.skipif(not DSN, reason='Requires isolated local PostgreSQL')
@@ -52,7 +52,7 @@ def seed(db, device='shellypro3em-test', skip_b=(), count=61):
 
 def test_parser_to_hourly_phase_nulls_without_diagnostic_rows(db):
     seed(db,skip_b=range(0,5))
-    counts=agg.aggregate(db,START,START+ce.HOUR)
+    counts=agg.aggregate(db,START,START+agg.HOUR)
     assert counts=={'observed':2,'missing_boundary':1}
     with db.cursor() as cur:
         cur.execute('SELECT a_energy_wh,b_energy_wh,c_energy_wh,total_energy_wh FROM shelly_pro3em_hourly_energy')
@@ -63,7 +63,7 @@ def test_parser_to_hourly_phase_nulls_without_diagnostic_rows(db):
 
 def test_plug_receipt_time_returned_energy_and_idempotent_replay(db):
     seed(db,'shellyplugsg3-test')
-    for _ in range(2): agg.aggregate(db,START,START+ce.HOUR)
+    for _ in range(2): agg.aggregate(db,START,START+agg.HOUR)
     with db.cursor() as cur:
         cur.execute('SELECT energy_wh FROM shelly_plug_hourly_energy')
         assert cur.fetchall()==[(60,)]
@@ -73,12 +73,12 @@ def test_plug_receipt_time_returned_energy_and_idempotent_replay(db):
 
 def test_late_arrival_can_repair_missing_without_accumulating_twice(db):
     seed(db,skip_b=range(0,5))
-    agg.aggregate(db,START,START+ce.HOUR)
+    agg.aggregate(db,START,START+agg.HOUR)
     with db:
         for i in range(0,5):
             parser.insert_counters(db,'shellypro3em-test','shellypro3em-test/status/emdata:0',
                 {'b_total_act_energy':1000+2*i},START+timedelta(minutes=i,seconds=1))
-    agg.aggregate(db,START,START+ce.HOUR)
+    agg.aggregate(db,START,START+agg.HOUR)
     with db.cursor() as cur:
         cur.execute('SELECT total_energy_wh FROM shelly_pro3em_hourly_energy')
         assert cur.fetchone()==(360,)
@@ -86,10 +86,10 @@ def test_late_arrival_can_repair_missing_without_accumulating_twice(db):
 
 def test_missing_replay_removes_stale_hour_without_zero_or_metadata(db):
     seed(db)
-    agg.aggregate(db,START,START+ce.HOUR)
+    agg.aggregate(db,START,START+agg.HOUR)
     with db:
         with db.cursor() as cur: cur.execute('DELETE FROM shelly_energy_counters')
-    agg.aggregate(db,START,START+ce.HOUR)
+    agg.aggregate(db,START,START+agg.HOUR)
     with db.cursor() as cur:
         cur.execute('SELECT count(*) FROM shelly_pro3em_hourly_energy')
         assert cur.fetchone()==(0,)
@@ -97,7 +97,7 @@ def test_missing_replay_removes_stale_hour_without_zero_or_metadata(db):
 
 def test_readonly_preview_does_not_write(db):
     seed(db)
-    assert agg.aggregate(db,START,START+ce.HOUR,dry_run=True)=={'observed':3}
+    assert agg.aggregate(db,START,START+agg.HOUR,dry_run=True)=={'observed':3}
     with db.cursor() as cur:
         cur.execute('SHOW transaction_read_only')
         assert cur.fetchone()==('on',)
@@ -108,7 +108,7 @@ def test_readonly_preview_does_not_write(db):
 def test_migration_is_idempotent_and_preserves_existing_history(db):
     with db:
         with db.cursor() as cur:
-            cur.execute("INSERT INTO shelly_plug_hourly_energy VALUES ('legacy',%s,%s,123,1,1,NOW())",(START,START+ce.HOUR))
+            cur.execute("INSERT INTO shelly_plug_hourly_energy VALUES ('legacy',%s,%s,123,1,1,NOW())",(START,START+agg.HOUR))
     with db.cursor() as cur:
         cur.execute((ROOT/'db/migrations/015_shelly_energy_counters.sql').read_text())
         cur.execute('SELECT energy_wh FROM shelly_plug_hourly_energy')
