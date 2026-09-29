@@ -12,7 +12,7 @@ This project is organized into service directories, each implementing a core par
 - `/shelly-ingestor`: MQTT ingestor for Shelly energy devices
 - `/energy-aggregator`: one-shot Shelly hourly energy aggregation job
 - `/simulation-recorder`: one-shot daily simulation recorder
-- `/pv-prediction`: one-shot day-ahead PV forecasting job
+- `/jobs/forecast-pv`: one-shot day-ahead PV forecasting job
 - `/jobs/forecast-weather`: one-shot Open-Meteo hourly weather forecast collector
 - `/mosquitto`: Mosquitto broker configuration for Shelly message ingestion
 - `/caddy`: production HTTPS reverse-proxy configuration
@@ -58,7 +58,7 @@ Start the local services with Docker Compose:
 docker compose up -d --build
 ```
 
-This starts the long-running services and also executes the non-profiled one-shot `energy-aggregator` and `simulation-recorder` containers once. The `pv-prediction` and `forecast-weather` jobs are enabled only through the `jobs` profile.
+This starts the long-running services and also executes the non-profiled one-shot `energy-aggregator` and `simulation-recorder` containers once. The `forecast-pv` and `forecast-weather` jobs are enabled only through the `jobs` profile.
 
 Check that the containers are running:
 
@@ -116,33 +116,33 @@ For an existing PostgreSQL volume, apply the idempotent day-ahead result migrati
 docker compose exec -T postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -f /docker-entrypoint-initdb.d/migrations/002_simulation_day_ahead_results.sql'
 ```
 
-## PV prediction
+## PV forecast job
 
-The `pv-prediction` service is a one-shot D+1 forecasting job. It fetches hourly Open-Meteo inputs, builds the model features, loads the tracked model artifacts, and optionally stores the 24 hourly predictions in PostgreSQL when `PV_SAVE_TO_DB=true`.
+The `forecast-pv` service is a one-shot D+1 forecasting job under
+[`jobs/forecast-pv`](jobs/forecast-pv/README.md). It reads tomorrow's weather from `weather_hourly_forecasts`, builds the model features, loads the tracked model artifact, and stores the 24 hourly predictions in PostgreSQL by default.
 
-The tracked operational model is `rf_operational_20260806`, a `RandomForestRegressor` trained on a short summer reference dataset (39 dates and 903 rows). Its feature contract and provenance are recorded in `pv-prediction/pv_model_manifest_rf_operational_20260806.json`; the associated model and feature artifacts are versioned in the same directory. Treat this model as an operational evaluation baseline rather than a fully validated year-round model.
+The tracked operational model is `rf_operational_20260806`, a `RandomForestRegressor` trained on a short summer reference dataset (39 dates and 903 rows). Its feature contract and provenance are recorded in `jobs/forecast-pv/model_manifest.json`; the model artifact is versioned in the same directory and includes the ordered feature names in `feature_names_in_`. Treat this model as an operational evaluation baseline rather than a fully validated year-round model.
 
 Model evaluation belongs in a separate workspace. The former `pv-shadow-prediction` replay runner and its evaluation snapshots have been removed from this worktree; their implementation remains available in Git history (introduced in `03dd9ca`). The historical migration `007_pv_shadow_forecasts.sql` is retained for existing installations but is no longer included in fresh database initialization. This cleanup does not drop existing tables or data.
 
-The current Random Forest feature contract excludes `lag_1h`. `PV_LATEST_ACTIVE_POWER_KW`, `PV_LAG_1H_KW`, and the corresponding nullable database fields are retained only for schema and CLI compatibility; changing them does not affect current RF predictions. When neither legacy value is explicitly supplied, new RF rows store `NULL` rather than manufacturing a measured-power value.
+The current Random Forest uses weather and time features only. Legacy lag inputs have been removed; the existing `lag_1h_kw` database columns remain `NULL` for new runs and hourly predictions.
 
-Open-Meteo collection retries transient network and HTTP failures up to four attempts with 10, 20, and 40 second backoff delays. Retries happen before inference and database persistence, so a failed weather request cannot create duplicate forecast rows.
+The job requires `forecast-weather` to have stored all 24 local hourly slots for tomorrow, with finite values and `fetched_at` no older than 24 hours (`WEATHER_MAX_AGE_HOURS` in the job code). It uses the same `OPEN_METEO_LATITUDE`, `OPEN_METEO_LONGITUDE`, and `OPEN_METEO_TIMEZONE` settings as the collector. Stored wind speed must be in m/s and is multiplied by 3.6 for the model. Missing or stale inputs stop the job before inference and persistence; there is no HTTP fallback. The old `--forecast-days` option is removed because the query selects tomorrow directly.
 
 Preview a forecast without writing to PostgreSQL:
 
 ```bash
 docker compose --profile jobs run --rm \
-  -e PV_SAVE_TO_DB=false \
-  pv-prediction --no-save-to-db
+  forecast-pv --no-save-to-db
 ```
 
 Run the normal persisted job:
 
 ```bash
-docker compose --profile jobs run --rm pv-prediction
+docker compose --profile jobs run --rm forecast-pv
 ```
 
-The normal command writes to PostgreSQL when `PV_SAVE_TO_DB=true`, which is the default in the Compose service. Use the preview command for manual validation.
+Both direct Python execution and the normal Compose command write to PostgreSQL by default. Use `--no-save-to-db` for manual validation without saving predictions; weather inputs are still read from PostgreSQL.
 
 For an existing PostgreSQL volume, apply the idempotent PV forecast migration before saving the first run:
 
@@ -217,14 +217,15 @@ A recommended production order for the day-ahead jobs is below, using `Europe/At
 
 Weather runs through `upat-forecast-weather.timer` at 22:50 Europe/Athens.
 The remaining PV and simulation cron entries use an explicit Athens time guard
-and `flock`. Verify them against the live crontab before applying changes:
+and `flock`. The PV entry below is the legacy deployment: it still calls
+`pv-prediction`, which is absent from this checkout's renamed Compose services.
+Deploying the new PV Compose configuration requires a separate scheduler cutover.
+Verify these entries against the live crontab before applying changes:
 
 ```cron
 * * * * * /usr/bin/env TZ=Europe/Athens /bin/sh -c '[ "$(/bin/date +\%H:\%M)" = "23:00" ] || exit 0; cd /opt/upat-nzc-mqtt-db && /usr/bin/flock -n /var/lock/pv-prediction.lock /usr/bin/docker compose -f docker-compose.prod.yml --profile jobs run --rm --no-deps pv-prediction' >> /var/log/pv_prediction.log 2>&1
 * * * * * /usr/bin/env TZ=Europe/Athens /bin/sh -c '[ "$(/bin/date +\%H:\%M)" = "23:10" ] || exit 0; cd /opt/upat-nzc-mqtt-db && /usr/bin/flock -n /var/lock/simulation-recorder.lock /usr/bin/docker compose -f docker-compose.prod.yml run --rm --no-deps -e SIMULATION_SCHOOL_IDS=school_3,school_7,school_10,school_13,school_22,school_23 simulation-recorder' >> /var/log/simulation_recorder.log 2>&1
 ```
-
-The recommended PV entry intentionally omits the legacy lag variables, so new RF rows store `NULL` in those fields unless a real value is supplied explicitly.
 
 ## API service
 

@@ -188,7 +188,7 @@ WITH clock AS (
 ), pv AS (
  SELECT t.day,r.id,r.success,r.completed_at,count(h.id) AS rows,
  count(DISTINCT h.forecast_timestamp) FILTER (WHERE h.forecast_date=t.day AND h.forecast_hour=extract(hour FROM h.forecast_timestamp) AND h.predicted_power_kw IS NOT NULL AND h.predicted_power_kw>=0 AND h.forecast_timestamp IN (SELECT generate_series(t.day::timestamp,t.day+time '23:00',interval '1 hour'))) AS valid
- FROM targets t LEFT JOIN LATERAL (SELECT * FROM pv_day_ahead_forecast_runs WHERE forecast_date=t.day AND latitude=37.04 AND longitude=22.11 ORDER BY started_at DESC,id DESC LIMIT 1) r ON true
+ FROM targets t LEFT JOIN LATERAL (SELECT * FROM pv_day_ahead_forecast_runs WHERE forecast_date=t.day ORDER BY started_at DESC,id DESC LIMIT 1) r ON true
  LEFT JOIN pv_day_ahead_forecast_hourly h ON h.run_id=r.id
  GROUP BY t.day,r.id,r.success,r.completed_at
 )
