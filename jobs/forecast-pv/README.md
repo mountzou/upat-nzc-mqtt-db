@@ -34,3 +34,10 @@ python -m unittest discover -s jobs/forecast-pv -p 'test_*.py'
 
 VPS migration is pending. The legacy cron calls `pv-prediction`; switching to
 `upat-forecast-pv` requires a separate deployment and scheduler cutover.
+
+The prepared `upat-forecast-pv.service` / `.timer` run daily at 23:00
+Europe/Athens, after the weather refresh. The release overlay pins the image
+through `/etc/upat-nzc/forecast-pv.env` (`FORECAST_PV_IMAGE=sha256:...`).
+Use `systemctl start upat-forecast-pv.service` for manual production runs and
+`journalctl -u upat-forecast-pv.service` for logs after cutover.
+`verify.sql` checks a saved run using the `run_id` and invocation `since` values.
