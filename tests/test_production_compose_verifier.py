@@ -37,7 +37,7 @@ class ProductionComposeVerifierTests(unittest.TestCase):
                     "environment": {"TOKEN": "fixture-private-value"},
                     "ports": ["127.0.0.1:8000:8000"]},
             "collector": {"container_name": "collector", "image": "old-collector"},
-            "energy-aggregator": {"container_name": "energy_aggregator",
+            "aggregate-energy": {"container_name": "aggregate_energy",
                                   "image": "current-aggregator", "profiles": ["jobs"],
                                   "environment": {"SHELLY_COUNTER_START": "2026-09-07T08:00:00+00:00"}},
             "optional-job": {"profiles": ["jobs"], "image": "optional-release"},
@@ -50,7 +50,7 @@ class ProductionComposeVerifierTests(unittest.TestCase):
         self.containers = [
             self.container("iot_api", "api-id", self.base, ["TOKEN=fixture-private-value"]),
             self.container("collector", "collector-id", self.collector),
-            self.container("energy_aggregator", "historical-job-id", self.historical,
+            self.container("aggregate_energy", "historical-job-id", self.historical,
                            ["SHELLY_COUNTER_START=historical"], running=False),
         ]
         self.inspect_count = 0
@@ -121,8 +121,8 @@ class ProductionComposeVerifierTests(unittest.TestCase):
         self.assertTrue(self.check()["ok"])
 
     def test_wrong_cutover_is_rejected(self):
-        self.proposed["services"]["energy-aggregator"]["environment"]["SHELLY_COUNTER_START"] = "wrong"
-        self.assertIn("/services/energy-aggregator/environment/SHELLY_COUNTER_START", self.check()["difference_paths"])
+        self.proposed["services"]["aggregate-energy"]["environment"]["SHELLY_COUNTER_START"] = "wrong"
+        self.assertIn("/services/aggregate-energy/environment/SHELLY_COUNTER_START", self.check()["difference_paths"])
 
     def test_wrong_api_port_is_rejected(self):
         self.proposed["services"]["api"]["ports"] = ["8000:8000"]

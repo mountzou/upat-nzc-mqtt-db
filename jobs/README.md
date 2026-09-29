@@ -11,10 +11,10 @@ prefix; VPS job and systemd unit names use `upat-<job-name>`.
 | Job | Directory / Compose service | VPS name | Migration status |
 | --- | --- | --- | --- |
 | Weather forecast | `forecast-weather` | `upat-forecast-weather` | Active since 2026-09-29; manual and scheduled runs/data verified |
-| Shelly energy aggregation | `aggregate-energy` / `energy-aggregator` | Pending | Source moved; Compose service and VPS scheduler unchanged |
+| Shelly energy aggregation | `aggregate-energy` | `upat-aggregate-energy` | Active since 2026-09-29; first scheduled run/data verified |
 | PV forecast | `forecast-pv` | `upat-forecast-pv` | Active since 2026-09-29; manual and scheduled runs/data verified |
 
-See [forecast-weather](forecast-weather/README.md) and
+See [aggregate-energy](aggregate-energy/README.md), [forecast-weather](forecast-weather/README.md) and
 [forecast-pv](forecast-pv/README.md) for local commands.
 
 ## Migration

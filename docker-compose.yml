@@ -107,10 +107,12 @@ services:
     depends_on:
       - postgres
 
-  energy-aggregator:
+  aggregate-energy:
+    profiles:
+      - jobs
     build:
       context: ./jobs/aggregate-energy
-    container_name: energy_aggregator
+    container_name: aggregate_energy
     logging: *json-logging
     environment:
       SHELLY_COUNTER_START: ${SHELLY_COUNTER_START:-}

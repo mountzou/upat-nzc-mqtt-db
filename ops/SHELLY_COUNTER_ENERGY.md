@@ -102,11 +102,18 @@ image and private `aggregator.env`, with the original cutover unchanged. Schedul
 simplification and Compose reconciliation remain separate work.
 See `../backups/aggregator-source-alignment-20260907/REPORT.md`.
 
-## Current scheduler installation
+## Previous scheduler installation (2026-09-07)
 
-The subsequent installation cleanup is active: cron now calls the repository
-launcher, with the same hourly schedule, flock, pinned image and historical
-cutover. Production Compose is the job configuration; the root `.env` supplies
-its database credentials. Legacy migration scripts/env remain as recovery
+The 7 September installation cleanup moved cron to the repository launcher,
+with the same hourly schedule, flock, pinned image and historical cutover.
+Production Compose became the job configuration; the root `.env` supplied its
+database credentials. Legacy migration scripts/env remained as recovery
 artifacts only. See [ENERGY_AGGREGATOR.md](ENERGY_AGGREGATOR.md) for operation,
 rollback and the first natural-run verification boundary.
+
+## Hourly systemd scheduler
+
+The `jobs/aggregate-energy` migration replaces that cron with
+`upat-aggregate-energy.timer`, at the same minute 02 of every UTC hour. The
+service keeps both writer locks and the historical cutover. See
+[ENERGY_AGGREGATOR.md](ENERGY_AGGREGATOR.md) for current operation and rollback.

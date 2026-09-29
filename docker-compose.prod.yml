@@ -100,11 +100,11 @@ services:
       # Backend callers use authenticated HTTPS; retain loopback for operator checks.
       - "127.0.0.1:8000:8000"
 
-  energy-aggregator:
+  aggregate-energy:
     image: sha256:c16ade3bf7365c427ef44f261d4fe9a5b06ad3b50e485a58cc3caa01b9d7ffa7
     profiles:
       - jobs
-    container_name: energy_aggregator
+    container_name: aggregate_energy
     logging: *json-logging
     environment:
       # Fixed historical cutover; changing it requires a separate data review.
