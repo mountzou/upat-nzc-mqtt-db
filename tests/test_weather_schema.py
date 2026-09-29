@@ -13,7 +13,7 @@ RENAME_MIGRATION = (
 )
 INIT_SQL = ROOT / "db" / "init.sql"
 API_SOURCE = ROOT / "api" / "main.py"
-COLLECTOR_SOURCE = ROOT / "weather-collector" / "main.py"
+COLLECTOR_SOURCE = ROOT / "jobs" / "forecast-weather" / "main.py"
 
 RENAMES = (
     ("temperature_2m_c", "temperature_2m"),
@@ -70,7 +70,7 @@ class WeatherSchemaTests(unittest.TestCase):
     def test_collector_has_no_open_meteo_to_database_name_mapping(self):
         source = COLLECTOR_SOURCE.read_text(encoding="utf-8")
         self.assertNotIn("DB_COLUMNS_BY_VARIABLE", source)
-        self.assertIn("*HOURLY_VARIABLES", source)
+        self.assertIn("*CLIMATIC_VARIABLES", source)
 
     def test_api_preserves_existing_unit_explicit_response_contract(self):
         source = API_SOURCE.read_text(encoding="utf-8").lower()

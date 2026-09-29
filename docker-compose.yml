@@ -195,10 +195,10 @@ services:
     security_opt:
       - no-new-privileges:true
 
-  weather-collector:
+  forecast-weather:
     build:
-      context: ./weather-collector
-    container_name: weather_collector
+      context: ./jobs/forecast-weather
+    container_name: upat-forecast-weather
     logging: *json-logging
     profiles:
       - jobs

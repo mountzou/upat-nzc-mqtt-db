@@ -13,7 +13,7 @@ This project is organized into service directories, each implementing a core par
 - `/energy-aggregator`: one-shot Shelly hourly energy aggregation job
 - `/simulation-recorder`: one-shot daily simulation recorder
 - `/pv-prediction`: one-shot day-ahead PV forecasting job
-- `/weather-collector`: one-shot Open-Meteo hourly weather forecast collector
+- `/jobs/forecast-weather`: one-shot Open-Meteo hourly weather forecast collector
 - `/mosquitto`: Mosquitto broker configuration for Shelly message ingestion
 - `/caddy`: production HTTPS reverse-proxy configuration
 
@@ -58,7 +58,7 @@ Start the local services with Docker Compose:
 docker compose up -d --build
 ```
 
-This starts the long-running services and also executes the non-profiled one-shot `energy-aggregator` and `simulation-recorder` containers once. The `pv-prediction` and `weather-collector` jobs are enabled only through the `jobs` profile.
+This starts the long-running services and also executes the non-profiled one-shot `energy-aggregator` and `simulation-recorder` containers once. The `pv-prediction` and `forecast-weather` jobs are enabled only through the `jobs` profile.
 
 Check that the containers are running:
 
@@ -150,9 +150,14 @@ For an existing PostgreSQL volume, apply the idempotent PV forecast migration be
 docker compose exec -T postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -f /docker-entrypoint-initdb.d/migrations/003_pv_day_ahead_forecasts.sql'
 ```
 
-## Weather collector
+## Weather forecast job
 
-The `weather-collector` service is a one-shot container intended to be run by VPS cron. It fetches an 8-day hourly forecast from Open-Meteo for the configured latitude/longitude and permanently upserts the rows into `weather_hourly_forecasts`. The extra day keeps the API's current 7-day simulation window complete after midnight and before the next nightly collector run.
+The `forecast-weather` service is a one-shot container. Its implementation lives in
+[`jobs/forecast-weather`](jobs/forecast-weather/README.md). The local source move
+and Compose rename are prepared; the VPS still requires a separate scheduler
+cutover from the legacy `weather-collector` cron to `upat-forecast-weather`.
+
+It fetches an 8-day hourly forecast from Open-Meteo for the configured latitude/longitude and permanently upserts the rows into `weather_hourly_forecasts`. The extra day keeps the API's current 7-day simulation window complete after midnight and before the next nightly collector run.
 
 The meteorological columns in `weather_hourly_forecasts` use the exact Open-Meteo hourly variable names. The public weather API keeps its existing unit-explicit response keys for compatibility with the EnergyPlus consumer.
 
@@ -169,7 +174,7 @@ forecast window: 8 local dates, from today through today + 7 days
 Run it manually:
 
 ```bash
-docker compose --profile jobs run --rm weather-collector
+docker compose --profile jobs run --rm forecast-weather
 ```
 
 For an existing PostgreSQL volume, apply the idempotent weather forecast migration before the first run:
@@ -209,7 +214,11 @@ A recommended production order for the day-ahead jobs is below, using `Europe/At
 2. `23:00` — generate and persist the D+1 PV forecast.
 3. `23:10` — run and persist the D+1 EnergyPlus demand simulation for all supported schools.
 
-The cron daemon invokes each entry every minute, while an explicit `TZ=Europe/Athens` time guard selects the intended local time across daylight-saving changes. `flock` prevents overlapping runs. These are the repository-recommended entries; verify them against the live VPS crontab before applying changes:
+The cron daemon invokes each entry every minute, while an explicit `TZ=Europe/Athens` time guard selects the intended local time across daylight-saving changes. `flock` prevents overlapping runs. The weather entry below documents the legacy scheduler before the pending
+`upat-forecast-weather` cutover. It requires the old deployed Compose service
+`weather-collector` and cannot run against the renamed service in this checkout.
+Do not install it alongside the future timer. Verify all entries against the
+live VPS crontab before applying changes:
 
 ```cron
 * * * * * /usr/bin/env TZ=Europe/Athens /bin/sh -c '[ "$(/bin/date +\%H:\%M)" = "22:50" ] || exit 0; cd /opt/upat-nzc-mqtt-db && /usr/bin/flock -n /var/lock/weather-collector.lock /usr/bin/docker compose -f docker-compose.prod.yml --profile jobs run --rm --no-deps weather-collector' >> /var/log/weather-collector.log 2>&1
