@@ -47,6 +47,7 @@ def _weather_row():
         "longitude": Decimal("22.026"),
         "timezone": "Europe/Athens",
         "forecast_timestamp": datetime(2026, 8, 26, 12),
+        "forecast_instant": datetime(2026, 8, 26, 9, tzinfo=timezone.utc),
         "forecast_date": date(2026, 8, 26),
         "forecast_hour": 12,
         "fetched_at": datetime(2026, 8, 25, 19, 50, tzinfo=timezone.utc),
@@ -69,6 +70,10 @@ class WeatherApiContractTests(unittest.TestCase):
 
         self.assertEqual(1, response["count"])
         self.assertEqual(set(main.WEATHER_FIELDS), set(response["items"][0]["values"]))
+        self.assertEqual(
+            datetime(2026, 8, 26, 9, tzinfo=timezone.utc),
+            response["items"][0]["instant"],
+        )
 
         normalized_query = " ".join(cursor.query.lower().split())
         for fragment in (
@@ -77,6 +82,7 @@ class WeatherApiContractTests(unittest.TestCase):
             "shortwave_radiation as shortwave_radiation_w_m2",
             "wind_speed_10m as wind_speed_10m_ms",
             "cloud_cover as cloud_cover_percent",
+            "order by forecast_instant asc",
         ):
             self.assertIn(fragment, normalized_query)
 

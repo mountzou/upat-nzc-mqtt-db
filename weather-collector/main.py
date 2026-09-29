@@ -1,7 +1,7 @@
 import os
 import sys
 import time
-from datetime import datetime, timedelta
+from datetime import date, datetime, time as calendar_time, timedelta, timezone
 from decimal import Decimal, InvalidOperation
 from urllib.parse import urlencode
 from zoneinfo import ZoneInfo
@@ -101,6 +101,7 @@ def build_forecast_request():
         "longitude": OPEN_METEO_LONGITUDE,
         "hourly": ",".join(HOURLY_VARIABLES),
         "timezone": OPEN_METEO_TIMEZONE,
+        "timeformat": "unixtime",
         "wind_speed_unit": OPEN_METEO_WIND_SPEED_UNIT,
         "start_date": start_date.isoformat(),
         "end_date": end_date.isoformat(),
@@ -119,6 +120,9 @@ def fetch_forecast_json(url):
 
 
 def validate_hourly_payload(data):
+    response_timezone = data.get("timezone")
+    if response_timezone is not None and response_timezone != OPEN_METEO_TIMEZONE:
+        raise ValueError("Open-Meteo response timezone does not match the request")
     hourly = data.get("hourly")
     if not isinstance(hourly, dict):
         raise ValueError("Open-Meteo response missing hourly object")
@@ -144,9 +148,18 @@ def validate_hourly_payload(data):
 def iter_hourly_rows(data, request_params):
     hourly = data["hourly"]
     times = hourly["time"]
+    zone = ZoneInfo(OPEN_METEO_TIMEZONE)
 
-    for idx, timestamp_text in enumerate(times):
-        timestamp = datetime.fromisoformat(timestamp_text)
+    for idx, epoch_seconds in enumerate(times):
+        if isinstance(epoch_seconds, bool) or not isinstance(epoch_seconds, int):
+            raise ValueError("Open-Meteo hourly.time must contain UNIX epoch seconds")
+        if epoch_seconds % 3600:
+            raise ValueError("Open-Meteo hourly.time must align to an exact UTC hour")
+        try:
+            instant = datetime.fromtimestamp(epoch_seconds, tz=timezone.utc)
+        except (OverflowError, OSError, ValueError) as exc:
+            raise ValueError("Open-Meteo hourly.time contains an invalid epoch") from exc
+        local_time = instant.astimezone(zone)
         raw_values = {
             variable: hourly[variable][idx]
             for variable in HOURLY_VARIABLES
@@ -156,9 +169,10 @@ def iter_hourly_rows(data, request_params):
             "latitude": Decimal(str(OPEN_METEO_LATITUDE)),
             "longitude": Decimal(str(OPEN_METEO_LONGITUDE)),
             "timezone": OPEN_METEO_TIMEZONE,
-            "forecast_timestamp": timestamp,
-            "forecast_date": timestamp.date(),
-            "forecast_hour": timestamp.hour,
+            "forecast_timestamp": local_time.replace(tzinfo=None),
+            "forecast_instant": instant,
+            "forecast_date": local_time.date(),
+            "forecast_hour": local_time.hour,
             "raw_values": raw_values,
             "raw_request": request_params,
         }
@@ -173,6 +187,23 @@ def iter_hourly_rows(data, request_params):
         yield row
 
 
+def validate_hourly_row_coverage(rows, request_params):
+    """Require one real hourly instant across the requested local calendar range."""
+    zone = ZoneInfo(OPEN_METEO_TIMEZONE)
+    start_date = date.fromisoformat(request_params["start_date"])
+    end_date = date.fromisoformat(request_params["end_date"])
+    if end_date < start_date:
+        raise ValueError("Forecast end_date precedes start_date")
+    cursor = datetime.combine(start_date, calendar_time.min, tzinfo=zone).astimezone(timezone.utc)
+    stop = datetime.combine(end_date + timedelta(days=1), calendar_time.min, tzinfo=zone).astimezone(timezone.utc)
+    for row in rows:
+        if row["forecast_instant"] != cursor:
+            raise ValueError(f"Missing or out-of-order forecast hour at {cursor.isoformat()}")
+        cursor += timedelta(hours=1)
+    if cursor != stop:
+        raise ValueError(f"Incomplete forecast coverage ending at {cursor.isoformat()}")
+
+
 def save_hourly_rows(conn, rows):
     columns = [
         "source",
@@ -180,6 +211,7 @@ def save_hourly_rows(conn, rows):
         "longitude",
         "timezone",
         "forecast_timestamp",
+        "forecast_instant",
         "forecast_date",
         "forecast_hour",
         *HOURLY_VARIABLES,
@@ -190,7 +222,7 @@ def save_hourly_rows(conn, rows):
     update_columns = [
         column
         for column in columns
-        if column not in {"source", "latitude", "longitude", "forecast_timestamp"}
+        if column not in {"source", "latitude", "longitude", "forecast_instant"}
     ]
 
     placeholders = ", ".join(["%s"] * len(columns))
@@ -202,7 +234,7 @@ def save_hourly_rows(conn, rows):
     query = f"""
         INSERT INTO weather_hourly_forecasts ({column_sql})
         VALUES ({placeholders})
-        ON CONFLICT (source, latitude, longitude, forecast_timestamp)
+        ON CONFLICT (source, latitude, longitude, forecast_instant)
         DO UPDATE SET
                         {update_sql},
                         fetched_at = NOW(),
@@ -230,6 +262,7 @@ def main():
     validate_hourly_payload(data)
 
     rows = list(iter_hourly_rows(data, request_params))
+    validate_hourly_row_coverage(rows, request_params)
     with db_connect() as conn:
         saved_count = save_hourly_rows(conn, rows)
 

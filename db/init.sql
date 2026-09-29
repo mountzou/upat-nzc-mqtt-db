@@ -292,6 +292,7 @@ CREATE TABLE IF NOT EXISTS weather_hourly_forecasts (
     longitude NUMERIC NOT NULL,
     timezone TEXT NOT NULL,
     forecast_timestamp TIMESTAMP NOT NULL,
+    forecast_instant TIMESTAMPTZ NOT NULL,
     forecast_date DATE NOT NULL,
     forecast_hour SMALLINT NOT NULL CHECK (forecast_hour >= 0 AND forecast_hour <= 23),
     temperature_2m NUMERIC,
@@ -313,7 +314,8 @@ CREATE TABLE IF NOT EXISTS weather_hourly_forecasts (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 
-    UNIQUE (source, latitude, longitude, forecast_timestamp)
+    CONSTRAINT weather_hourly_forecasts_instant_key
+        UNIQUE (source, latitude, longitude, forecast_instant)
 );
 
 CREATE INDEX IF NOT EXISTS idx_weather_hourly_forecasts_time
@@ -321,6 +323,9 @@ CREATE INDEX IF NOT EXISTS idx_weather_hourly_forecasts_time
 
 CREATE INDEX IF NOT EXISTS idx_weather_hourly_forecasts_date_time
     ON weather_hourly_forecasts (forecast_date DESC, forecast_timestamp ASC);
+
+CREATE INDEX IF NOT EXISTS idx_weather_hourly_forecasts_instant
+    ON weather_hourly_forecasts (forecast_instant ASC);
 
 -- Keep fresh database initialization aligned with actual PV telemetry.
 \ir migrations/010_pv_actual_telemetry.sql

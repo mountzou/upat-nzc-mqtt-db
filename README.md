@@ -155,6 +155,9 @@ docker compose exec -T postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB
 The `weather-collector` service is a one-shot container intended to be run by VPS cron. It fetches an 8-day hourly forecast from Open-Meteo for the configured latitude/longitude and permanently upserts the rows into `weather_hourly_forecasts`. The extra day keeps the API's current 7-day simulation window complete after midnight and before the next nightly collector run.
 
 The meteorological columns in `weather_hourly_forecasts` use the exact Open-Meteo hourly variable names. The public weather API keeps its existing unit-explicit response keys for compatibility with the EnergyPlus consumer.
+The collector stores each hour's UTC `forecast_instant` alongside its Athens-local
+`forecast_timestamp`. This keeps both occurrences of `03:00` on the autumn
+clock-change day; a local day can contain 23, 24, or 25 hourly rows.
 
 Default configuration:
 
@@ -407,6 +410,9 @@ The response includes `run_id`, `forecast_date`, `daily_energy_kwh`, model and f
 ### `GET /weather/hourly/forecast`
 
 Returns stored Open-Meteo hourly forecasts. If `start` and `end` are omitted, the endpoint returns the default 7-day local forecast window from today through today + 6 days.
+Each item retains the existing local `timestamp` and adds an offset-aware UTC
+`instant`. Items are ordered by `instant`, so a repeated local hour remains
+unambiguous.
 
 Query parameters:
 

@@ -104,6 +104,7 @@ def numeric_or_none(value):
 def format_weather_forecast_hour(row):
     return {
         "timestamp": row["forecast_timestamp"],
+        "instant": row["forecast_instant"],
         "date": row["forecast_date"],
         "hour": row["forecast_hour"],
         "values": {
@@ -1185,6 +1186,7 @@ def get_weather_hourly_forecast(
                     longitude,
                     timezone,
                     forecast_timestamp,
+                    forecast_instant,
                     forecast_date,
                     forecast_hour,
                     temperature_2m AS temperature_2m_c,
@@ -1204,7 +1206,7 @@ def get_weather_hourly_forecast(
                 FROM weather_hourly_forecasts
                 WHERE forecast_timestamp >= %s
                   AND forecast_timestamp <= %s
-                ORDER BY forecast_timestamp ASC;
+                ORDER BY forecast_instant ASC;
                 """,
                 (start_time, end_time),
             )
@@ -1220,12 +1222,7 @@ def get_weather_hourly_forecast(
 
 @app.get("/weather/hourly/latest")
 def get_latest_weather_forecast_hour():
-    local_now = datetime.now(WEATHER_LOCAL_TZ).replace(
-        minute=0,
-        second=0,
-        microsecond=0,
-        tzinfo=None,
-    )
+    now_utc = datetime.now(timezone.utc).replace(minute=0, second=0, microsecond=0)
 
     with get_connection() as conn:
         with conn.cursor() as cur:
@@ -1237,6 +1234,7 @@ def get_latest_weather_forecast_hour():
                     longitude,
                     timezone,
                     forecast_timestamp,
+                    forecast_instant,
                     forecast_date,
                     forecast_hour,
                     temperature_2m AS temperature_2m_c,
@@ -1254,11 +1252,11 @@ def get_latest_weather_forecast_hour():
                     cloud_cover AS cloud_cover_percent,
                     fetched_at
                 FROM weather_hourly_forecasts
-                WHERE forecast_timestamp >= %s
-                ORDER BY forecast_timestamp ASC
+                WHERE forecast_instant >= %s
+                ORDER BY forecast_instant ASC
                 LIMIT 1;
                 """,
-                (local_now,),
+                (now_utc,),
             )
             row = cur.fetchone()
 
