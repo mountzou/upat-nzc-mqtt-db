@@ -1,0 +1,7 @@
+[Unit]
+Description=UPAT VPS read-only health report
+
+[Service]
+Type=oneshot
+ExecStart=/opt/upat-nzc-mqtt-db/ops/vps-health-check.sh
+SuccessExitStatus=0 1 2 3
