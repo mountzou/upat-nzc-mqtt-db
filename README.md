@@ -58,7 +58,7 @@ Start the local services with Docker Compose:
 docker compose up -d --build
 ```
 
-This starts the long-running services and also executes the non-profiled one-shot `energy-aggregator` and `simulation-recorder` containers once. The `forecast-pv` and `forecast-weather` jobs are enabled only through the `jobs` profile.
+This starts the long-running services and also executes the non-profiled one-shot `simulation-recorder` container once. The `aggregate-energy`, `forecast-pv` and `forecast-weather` jobs are enabled only through the `jobs` profile.
 
 Check that the containers are running:
 
@@ -77,22 +77,21 @@ docker compose logs --tail=50 api
 
 ## Energy aggregator
 
-The Shelly counter aggregator source lives in `jobs/aggregate-energy`. Its Compose
-service remains `energy-aggregator` until the scheduler migration.
+The Shelly counter aggregator lives in [`jobs/aggregate-energy`](jobs/aggregate-energy/README.md).
+It rechecks the last three closed UTC hours and upserts per-device energy into
+`shelly_plug_hourly_energy` and `shelly_pro3em_hourly_energy`. The historical
+`SHELLY_COUNTER_START` remains fixed; calendar flags use `OPEN_METEO_TIMEZONE`
+(default `Europe/Athens`).
 
-The production Shelly counter aggregator is an hourly one-shot job. It rechecks
-the last three closed UTC hours, respecting the fixed historical cutover, and
-upserts per-device energy into `shelly_plug_hourly_energy` and
-`shelly_pro3em_hourly_energy`. Calendar flags use `Europe/Athens`.
+`upat-aggregate-energy.timer` replaces the root cron at minute 02 of every UTC
+hour. The oneshot service selects the pinned release image, preserves the
+existing flock and PostgreSQL advisory lock, and runs only the `aggregate-energy`
+Compose service. The `jobs` profile excludes it from an ordinary `up`.
+Use `systemctl start upat-aggregate-energy.service` for an intentional manual
+write; `ops/run-energy-aggregator.sh` forwards to that service.
 
-Root cron invokes `ops/run-energy-aggregator.sh` at minute 02. The launcher owns
-the existing flock and selects only the pinned production Compose service. Its
-`jobs` profile excludes it from an ordinary production `up`. The development
-Compose still has a local build and is not the production scheduler entrypoint.
-Do not execute the writer merely for a health check.
-
-See [the aggregator operations guide](ops/ENERGY_AGGREGATOR.md) for configuration,
-read-only validation and rollback.
+See [the aggregator operations guide](ops/ENERGY_AGGREGATOR.md) for validation
+and rollback.
 
 ## Simulation recorder
 
@@ -644,7 +643,7 @@ curl -s "http://localhost:8000/shelly/device/shellypro3em-example/history?start=
 
 ### Shelly hourly-energy endpoints
 
-The following endpoints read the hourly rows produced by `energy-aggregator`:
+The following endpoints read the hourly rows produced by `aggregate-energy`:
 
 - `GET /shelly/hourly-energy` returns hourly rows for one or more devices. Repeat the required `device_id` parameter to select multiple devices.
 - `GET /shelly/device/{device_id}/hourly-energy` returns hourly rows for one device.

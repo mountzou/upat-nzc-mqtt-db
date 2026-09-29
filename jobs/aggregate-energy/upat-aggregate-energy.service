@@ -1,0 +1,29 @@
+[Unit]
+Description=Aggregate and store UPAT hourly Shelly energy
+Requires=docker.service
+Wants=network-online.target
+After=docker.service network-online.target upat-postgres-volume.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/upat-nzc-mqtt-db
+EnvironmentFile=/etc/upat-nzc/aggregate-energy.env
+UMask=0077
+Restart=no
+TimeoutStartSec=5min
+TimeoutStopSec=45s
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=upat-aggregate-energy
+
+# Keep the legacy lock during migration. Manual runs use systemctl start too.
+ExecStart=/usr/bin/flock --no-fork --nonblock /var/lock/energy-aggregator.lock /usr/bin/docker compose --project-directory /opt/upat-nzc-mqtt-db --env-file /opt/upat-nzc-mqtt-db/.env --project-name upat-nzc-mqtt-db -f /opt/upat-nzc-mqtt-db/docker-compose.prod.yml -f /opt/upat-nzc-mqtt-db/jobs/aggregate-energy/compose.release.yml --profile jobs run --rm --no-deps --pull never -T --interactive=false --name upat-aggregate-energy-${INVOCATION_ID} aggregate-energy
+# Remove only this invocation's container after failure, stop or timeout.
+ExecStopPost=-/usr/bin/docker rm --force upat-aggregate-energy-${INVOCATION_ID}
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/run/lock
+RestrictSUIDSGID=true

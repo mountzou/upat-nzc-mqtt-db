@@ -1,0 +1,4 @@
+services:
+  aggregate-energy:
+    build: !reset null
+    image: ${AGGREGATE_ENERGY_IMAGE:?Set AGGREGATE_ENERGY_IMAGE to the reviewed local image ID}
