@@ -26,7 +26,7 @@ OPEN_METEO_WIND_SPEED_UNIT = os.getenv("OPEN_METEO_WIND_SPEED_UNIT", "ms")
 OPEN_METEO_FORECAST_DAYS = int(os.getenv("OPEN_METEO_FORECAST_DAYS", "8"))
 OPEN_METEO_TIMEOUT_SECONDS = float(os.getenv("OPEN_METEO_TIMEOUT_SECONDS", "30"))
 
-HOURLY_VARIABLES = [
+CLIMATIC_VARIABLES = [
     "temperature_2m",
     "dew_point_2m",
     "relative_humidity_2m",
@@ -89,9 +89,9 @@ def int_or_none(value):
 
 
 def get_forecast_dates():
-    today = datetime.now(ZoneInfo(OPEN_METEO_TIMEZONE)).date()
-    end_date = today + timedelta(days=OPEN_METEO_FORECAST_DAYS - 1)
-    return today, end_date
+    start_date = datetime.now(ZoneInfo(OPEN_METEO_TIMEZONE)).date()
+    end_date = start_date + timedelta(days=OPEN_METEO_FORECAST_DAYS - 1)
+    return start_date, end_date
 
 
 def build_forecast_request():
@@ -99,7 +99,7 @@ def build_forecast_request():
     params = {
         "latitude": OPEN_METEO_LATITUDE,
         "longitude": OPEN_METEO_LONGITUDE,
-        "hourly": ",".join(HOURLY_VARIABLES),
+        "hourly": ",".join(CLIMATIC_VARIABLES),
         "timezone": OPEN_METEO_TIMEZONE,
         "wind_speed_unit": OPEN_METEO_WIND_SPEED_UNIT,
         "start_date": start_date.isoformat(),
@@ -111,26 +111,26 @@ def build_forecast_request():
 def fetch_forecast_json(url):
     response = requests.get(
         url,
-        headers={"User-Agent": "weather-collector/1.0"},
+        headers={"User-Agent": "upat-forecast-weather/1.0"},
         timeout=OPEN_METEO_TIMEOUT_SECONDS,
     )
     response.raise_for_status()
     return response.json()
 
 
-def validate_hourly_payload(data):
+def validate_forecast_payload(data):
     hourly = data.get("hourly")
     if not isinstance(hourly, dict):
         raise ValueError("Open-Meteo response missing hourly object")
 
     times = hourly.get("time")
-    if not times:
-        raise ValueError("Open-Meteo response missing hourly.time")
+    if not isinstance(times, list) or not times:
+        raise ValueError(
+            "Open-Meteo response hourly.time must be a non-empty array"
+        )
 
-    for variable in HOURLY_VARIABLES:
+    for variable in CLIMATIC_VARIABLES:
         values = hourly.get(variable)
-        if values is None:
-            raise ValueError(f"Open-Meteo response missing hourly.{variable}")
         if not isinstance(values, list):
             raise ValueError(
                 f"Open-Meteo response hourly.{variable} must be an array"
@@ -141,15 +141,16 @@ def validate_hourly_payload(data):
             )
 
 
-def iter_hourly_rows(data, request_params):
+def build_forecast_rows(data, request_params):
     hourly = data["hourly"]
     times = hourly["time"]
+    rows = []
 
     for idx, timestamp_text in enumerate(times):
         timestamp = datetime.fromisoformat(timestamp_text)
         raw_values = {
             variable: hourly[variable][idx]
-            for variable in HOURLY_VARIABLES
+            for variable in CLIMATIC_VARIABLES
         }
         row = {
             "source": "open-meteo",
@@ -163,17 +164,19 @@ def iter_hourly_rows(data, request_params):
             "raw_request": request_params,
         }
 
-        for variable in HOURLY_VARIABLES:
+        for variable in CLIMATIC_VARIABLES:
             value = raw_values.get(variable)
             if variable == "weather_code":
                 row[variable] = int_or_none(value)
             else:
                 row[variable] = decimal_or_none(value)
 
-        yield row
+        rows.append(row)
+
+    return rows
 
 
-def save_hourly_rows(conn, rows):
+def store_forecast_rows(conn, rows):
     columns = [
         "source",
         "latitude",
@@ -182,7 +185,7 @@ def save_hourly_rows(conn, rows):
         "forecast_timestamp",
         "forecast_date",
         "forecast_hour",
-        *HOURLY_VARIABLES,
+        *CLIMATIC_VARIABLES,
         "raw_values",
         "raw_request",
     ]
@@ -227,11 +230,11 @@ def main():
     print(f"GET {url}")
 
     data = fetch_forecast_json(url)
-    validate_hourly_payload(data)
+    validate_forecast_payload(data)
 
-    rows = list(iter_hourly_rows(data, request_params))
+    rows = build_forecast_rows(data, request_params)
     with db_connect() as conn:
-        saved_count = save_hourly_rows(conn, rows)
+        saved_count = store_forecast_rows(conn, rows)
 
     print(
         "Saved Open-Meteo hourly forecast rows: "
@@ -244,5 +247,5 @@ if __name__ == "__main__":
     try:
         raise SystemExit(main())
     except (requests.RequestException, psycopg2.Error, ValueError) as exc:
-        print(f"weather-collector failed: {exc}", file=sys.stderr)
+        print(f"upat-forecast-weather failed: {exc}", file=sys.stderr)
         raise SystemExit(1)

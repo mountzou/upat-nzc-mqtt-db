@@ -187,10 +187,10 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
 
-  weather-collector:
+  forecast-weather:
     build:
-      context: ./weather-collector
-    container_name: weather_collector
+      context: ./jobs/forecast-weather
+    container_name: upat-forecast-weather
     logging: *json-logging
     profiles:
       - jobs
