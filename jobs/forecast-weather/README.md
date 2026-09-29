@@ -18,7 +18,7 @@ python -m unittest discover -s jobs/forecast-weather -p 'test_*.py'
 python -m unittest discover -s tests -p 'test_weather_schema.py'
 ```
 
-VPS migration is pending: the legacy cron calls `weather-collector`, which is
-absent from the updated Compose files. Replace it with `upat-forecast-weather`
-as part of the [scheduler cutover](CUTOVER.md), preserving
-`22:50 Europe/Athens`.
+VPS: `upat-forecast-weather.timer` runs daily at `22:50 Europe/Athens`.
+The legacy cron was removed on 2026-09-29; the manual run stored and verified
+192 hours. Manual VPS runs use `systemctl start upat-forecast-weather.service`.
+The [cutover guide](CUTOVER.md) is retained until the first daily run is verified.

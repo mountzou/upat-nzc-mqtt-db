@@ -1,6 +1,12 @@
 # Production cutover
 
-Prepared for `/opt/upat-nzc-mqtt-db`; activation is pending. Keep the VPS's
+Activated on 2026-09-29 from commit `9920730`; the manual service run and
+192 stored hours passed verification. The first daily run at 22:50 Athens is
+pending. Remove this document after that run is verified.
+
+Release receipts and rollback backup: `/opt/upat-forecast-weather-release-9920730/`.
+
+Procedure for `/opt/upat-nzc-mqtt-db`. Keep the VPS's
 existing `.env`, `docker-compose.yml` symlink and unrelated deployment changes.
 Do not use `git pull`, reset, or an untargeted Compose command on that checkout.
 
