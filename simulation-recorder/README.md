@@ -81,10 +81,11 @@ remain unchanged. The caller accepts both the old synchronous response and the
 new job response. A backend rollback to synchronous responses does not resolve
 a previously saved pending job; reconcile those handles separately.
 
-**Calendar-day blocker:** on Europe/Athens daylight-saving transitions the
-backend currently emits 24 local-clock intervals while this recorder requires
-24 contiguous elapsed one-hour intervals spanning the target local day. A
-synthetic cross-repository check accepted 2026-09-08 but rejected 2026-03-29
-and 2026-10-25 even though the backend marked those profiles complete. Define
-and test one shared DST-day interval policy in both repositories before merging
-this PR. Do not relax the recorder's coverage check independently.
+**Calendar-day blocker:** this recorder validates 23, 24, or 25 contiguous
+elapsed one-hour intervals according to the length of the target Athens day.
+The actual backend forecast path rejects 2026-10-25 while preparing its fixed
+timezone EPW, before EnergyPlus runs. Separately, a synthetic cross-repository
+projection check accepted 2026-09-08 but rejected 2026-03-29 and 2026-10-25:
+the backend marked 24 local-clock intervals complete although those days have
+23 and 25 elapsed hours. The backend weather and EnergyPlus output mapping
+still need one shared DST-day policy before this PR is merged.

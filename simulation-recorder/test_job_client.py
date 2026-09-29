@@ -1,4 +1,6 @@
 from unittest.mock import Mock
+from datetime import date, datetime, time, timedelta, timezone
+from zoneinfo import ZoneInfo
 
 import pytest
 import requests
@@ -67,21 +69,24 @@ def test_poll_budget_expires_without_submission(monkeypatch):
     post.assert_not_called()
 
 
-def valid_result():
-    from datetime import datetime, timedelta
-    start = datetime.fromisoformat("2026-09-08T00:00:00+03:00")
+def valid_result(target_date=BODY["target_date"]):
+    zone = ZoneInfo("Europe/Athens")
+    day = date.fromisoformat(target_date)
+    start = datetime.combine(day, time.min, tzinfo=zone).astimezone(timezone.utc)
+    stop = datetime.combine(day + timedelta(days=1), time.min, tzinfo=zone).astimezone(timezone.utc)
+    hours = int((stop - start) / timedelta(hours=1))
     return {
         "status": "completed_with_warnings", "simulation_engine": "energyplus",
-        "run_id": RUN, "school_id": BODY["school_id"], "day_ahead_date": BODY["target_date"],
+        "run_id": RUN, "school_id": BODY["school_id"], "day_ahead_date": target_date,
         "summary": {"requested_rooms": 1, "successful_rooms": 1, "failed_rooms": 0},
         "room_results": [{"room_id": "classroom", "status": "success",
                           "metrics": {"facility_kwh": 0.0, "cooling_kwh": None}}],
         "school_totals": {"facility_kwh": 0.0, "cooling_kwh": None},
         "hourly_load": {"complete": True, "unit": "kWh", "interval_minutes": 60,
-                        "expected_intervals": 24, "items": [
-            {"interval_start": (start + timedelta(hours=h)).isoformat(),
-             "interval_end": (start + timedelta(hours=h+1)).isoformat(),
-             "predicted_energy_kwh": 0.0} for h in range(24)]},
+                        "expected_intervals": hours, "items": [
+            {"interval_start": (start + timedelta(hours=h)).astimezone(zone).isoformat(),
+             "interval_end": (start + timedelta(hours=h+1)).astimezone(zone).isoformat(),
+             "predicted_energy_kwh": 0.0} for h in range(hours)]},
     }
 
 
@@ -89,6 +94,38 @@ def test_valid_zero_and_missing_optional_metrics_are_preserved():
     payload = valid_result()
     assert client.validate_day_ahead_result(payload, BODY) == payload["room_results"]
     assert payload["school_totals"] == {"facility_kwh": 0.0, "cooling_kwh": None}
+
+
+@pytest.mark.parametrize("target_date,hours", [
+    ("2026-03-29", 23), ("2026-09-08", 24), ("2026-10-25", 25),
+])
+def test_civil_day_requires_every_elapsed_hour(target_date, hours):
+    body = {**BODY, "target_date": target_date}
+    payload = valid_result(target_date)
+    assert payload["hourly_load"]["expected_intervals"] == hours
+    starts = [item["interval_start"] for item in payload["hourly_load"]["items"]]
+    if target_date == "2026-03-29":
+        assert starts[2:4] == ["2026-03-29T02:00:00+02:00", "2026-03-29T04:00:00+03:00"]
+    if target_date == "2026-10-25":
+        assert starts[3:5] == ["2026-10-25T03:00:00+03:00", "2026-10-25T03:00:00+02:00"]
+    assert client.validate_day_ahead_result(payload, body) == payload["room_results"]
+
+
+@pytest.mark.parametrize("target_date", ["2026-03-29", "2026-10-25"])
+def test_dst_day_rejects_synthetic_24_local_clock_intervals(target_date):
+    body = {**BODY, "target_date": target_date}
+    payload = valid_result(target_date)
+    zone = ZoneInfo("Europe/Athens")
+    midnight = datetime.combine(date.fromisoformat(target_date), time.min, tzinfo=zone)
+    payload["hourly_load"]["expected_intervals"] = 24
+    payload["hourly_load"]["items"] = [
+        {"interval_start": (midnight + timedelta(hours=h)).isoformat(),
+         "interval_end": (midnight + timedelta(hours=h + 1)).isoformat(),
+         "predicted_energy_kwh": 0.0}
+        for h in range(24)
+    ]
+    with pytest.raises(client.SimulationTerminalFailure):
+        client.validate_day_ahead_result(payload, body)
 
 
 @pytest.mark.parametrize("damage", [

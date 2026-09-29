@@ -122,14 +122,17 @@ def validate_day_ahead_result(payload, request_body, *, expected_run_id=None):
     hourly = payload.get("hourly_load") or {}
     if not isinstance(hourly, dict):
         raise SimulationTerminalFailure("Invalid hourly load")
-    points = hourly.get("items")
-    if (hourly.get("complete") is not True or hourly.get("unit") != "kWh"
-            or hourly.get("interval_minutes") != 60 or hourly.get("expected_intervals") != 24
-            or not isinstance(points, list) or len(points) != 24):
-        raise SimulationTerminalFailure("Simulation hourly load is incomplete")
     zone = ZoneInfo("Europe/Athens")
     day = datetime.fromisoformat(request_body["target_date"]).date()
     cursor = datetime.combine(day, calendar_time.min, tzinfo=zone).astimezone(timezone.utc)
+    stop = datetime.combine(day + timedelta(days=1), calendar_time.min, tzinfo=zone).astimezone(timezone.utc)
+    expected_intervals = int((stop - cursor) / timedelta(hours=1))
+    points = hourly.get("items")
+    if (hourly.get("complete") is not True or hourly.get("unit") != "kWh"
+            or hourly.get("interval_minutes") != 60
+            or hourly.get("expected_intervals") != expected_intervals
+            or not isinstance(points, list) or len(points) != expected_intervals):
+        raise SimulationTerminalFailure("Simulation hourly load is incomplete")
     total = 0.0
     for point in points:
         try:
@@ -145,7 +148,6 @@ def validate_day_ahead_result(payload, request_body, *, expected_run_id=None):
             raise SimulationTerminalFailure("Invalid hourly load bounds or energy") from exc
         cursor = end.astimezone(timezone.utc)
         total += value
-    stop = datetime.combine(day + timedelta(days=1), calendar_time.min, tzinfo=zone).astimezone(timezone.utc)
     totals = payload.get("school_totals")
     if not isinstance(totals, dict):
         raise SimulationTerminalFailure("Invalid school totals")
