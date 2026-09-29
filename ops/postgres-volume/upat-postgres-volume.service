@@ -1,0 +1,20 @@
+# PREPARED ONLY. Do not install until an approved, verified storage cutover.
+[Unit]
+Description=UPAT PostgreSQL on verified Hetzner Volume
+Requires=docker.service
+After=docker.service mnt-HC_Volume_106884142.mount
+RequiresMountsFor=/mnt/HC_Volume_106884142
+BindsTo=mnt-HC_Volume_106884142.mount
+
+[Service]
+Type=simple
+ExecStartPre=/usr/bin/python3 /usr/local/libexec/upat-pg-host-preflight.py /etc/upat-nzc/postgres-volume.json
+ExecStart=/usr/bin/docker start --attach iot_postgres
+ExecStop=/usr/bin/docker stop --signal SIGINT --timeout -1 iot_postgres
+Restart=no
+TimeoutStartSec=120
+TimeoutStopSec=infinity
+KillMode=process
+
+[Install]
+WantedBy=multi-user.target

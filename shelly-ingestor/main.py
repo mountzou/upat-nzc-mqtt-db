@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 import paho.mqtt.client as mqtt
 import psycopg2
 from counters import insert_counters
+from measurements import insert_measurement
 
 BROKER_HOST = os.getenv("MQTT_HOST", "mosquitto")
 BROKER_PORT = int(os.getenv("MQTT_INTERNAL_PORT", "1883"))
@@ -77,18 +78,6 @@ def insert_raw_message(conn, device_id, topic, payload_obj, event_time=None):
             VALUES (%s, %s, %s::jsonb, %s)
             """,
             (device_id, topic, json.dumps(payload_obj), event_time),
-        )
-
-
-# Insert a Shelly device measurement into the `shelly_measurements` table for timeseries analysis
-def insert_measurement(conn, device_id, metric, value, unit=None, event_time=None):
-    with conn.cursor() as cur:
-        cur.execute(
-            """
-            INSERT INTO shelly_measurements (device_id, metric, value, unit, event_time)
-            VALUES (%s, %s, %s, %s, %s)
-            """,
-            (device_id, metric, value, unit, event_time),
         )
 
 
@@ -212,23 +201,28 @@ def on_message(client, userdata, msg):
         insert_counters(conn, device_id, msg.topic, payload_obj, received_at)
 
 
-# Set up MQTT client
-client = mqtt.Client()
-client.username_pw_set(MQTT_USERNAME, MQTT_PASSWORD)
-client.on_connect = on_connect
-client.on_message = on_message
+def main():
+    # Set up MQTT client
+    client = mqtt.Client()
+    client.username_pw_set(MQTT_USERNAME, MQTT_PASSWORD)
+    client.on_connect = on_connect
+    client.on_message = on_message
 
-if MQTT_USE_TLS:
-    client.tls_set()
+    if MQTT_USE_TLS:
+        client.tls_set()
 
-print("Starting Shelly ingestor...")
-print(f"MQTT_HOST={BROKER_HOST}")
-print(f"MQTT_INTERNAL_PORT={BROKER_PORT}")
-print(f"MQTT_USERNAME={'set' if MQTT_USERNAME else 'not set'}")
-print(f"MQTT_USE_TLS={MQTT_USE_TLS}")
-print(f"SHELLY_TOPIC={SHELLY_TOPIC}")
-print(f"VERBOSE_LOGGING={VERBOSE_LOGGING}")
+    print("Starting Shelly ingestor...")
+    print(f"MQTT_HOST={BROKER_HOST}")
+    print(f"MQTT_INTERNAL_PORT={BROKER_PORT}")
+    print(f"MQTT_USERNAME={'set' if MQTT_USERNAME else 'not set'}")
+    print(f"MQTT_USE_TLS={MQTT_USE_TLS}")
+    print(f"SHELLY_TOPIC={SHELLY_TOPIC}")
+    print(f"VERBOSE_LOGGING={VERBOSE_LOGGING}")
 
-# Connect to the MQTT broker and start the loop to process messages
-client.connect(BROKER_HOST, BROKER_PORT, 60)
-client.loop_forever()
+    # Connect to the MQTT broker and start the loop to process messages
+    client.connect(BROKER_HOST, BROKER_PORT, 60)
+    client.loop_forever()
+
+
+if __name__ == '__main__':
+    main()

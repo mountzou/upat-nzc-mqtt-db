@@ -10,9 +10,6 @@ services:
   caddy:
     image: caddy:2.11.4-alpine
     container_name: iot_caddy
-    networks:
-      - default
-      - energyplus
     logging: *json-logging
     restart: unless-stopped
     ports:
@@ -43,7 +40,7 @@ services:
     logging: *json-logging
     restart: on-failure
     environment:
-      SHELLY_MEASUREMENTS_WRITE_MODE: compact
+      SHELLY_MEASUREMENTS_WRITE_MODE: dual
       POSTGRES_HOST: ${POSTGRES_HOST}
       POSTGRES_INTERNAL_PORT: ${POSTGRES_INTERNAL_PORT}
       POSTGRES_USER: ${POSTGRES_USER}
@@ -116,8 +113,6 @@ services:
       POSTGRES_DB: ${POSTGRES_DB}
 
   simulation-recorder:
-    image: nzc-simulation-recorder:vps-20260928
-    pull_policy: never
     build:
       context: ./simulation-recorder
     container_name: simulation_recorder
@@ -128,7 +123,6 @@ services:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
-      SIMULATION_API_BASE_URL: ${SIMULATION_API_BASE_URL:-https://telemetry.schoolheroz.com}
       SIMULATION_API_USERNAME: ${SIMULATION_API_USERNAME:-}
       SIMULATION_API_PASSWORD: ${SIMULATION_API_PASSWORD:-}
       SIMULATION_SCHOOL_IDS: ${SIMULATION_SCHOOL_IDS:-school_3,school_7,school_10,school_13,school_22,school_23}
@@ -215,6 +209,3 @@ networks:
   default:
     external: true
     name: upat-nzc-mqtt-db_default
-  energyplus:
-    external: true
-    name: nzc-energyplus
