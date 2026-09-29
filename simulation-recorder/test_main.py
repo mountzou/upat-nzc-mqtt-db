@@ -143,6 +143,7 @@ class SimulationRecorderRequestContractTests(unittest.TestCase):
                 main.SIMULATION_CONNECT_TIMEOUT_SECONDS,
                 main.SIMULATION_REQUEST_TIMEOUT_SECONDS,
             ),
+            allow_redirects=False,
         )
 
     @patch("main.requests.post")

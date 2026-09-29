@@ -1,6 +1,5 @@
 import json
 import os
-import random
 import sys
 import time
 from datetime import date, datetime, timedelta, timezone
@@ -11,6 +10,11 @@ from zoneinfo import ZoneInfo
 import psycopg2
 import requests
 from psycopg2.extras import Json
+
+from job_client import (
+    SimulationPending, SimulationTerminalFailure, canonical_handle,
+    poll_simulation, validate_day_ahead_result,
+)
 
 DB_HOST = os.getenv("POSTGRES_HOST", "postgres")
 DB_PORT = int(os.getenv("POSTGRES_INTERNAL_PORT", "5432"))
@@ -42,18 +46,10 @@ SIMULATION_CONNECT_TIMEOUT_SECONDS = float(
 SIMULATION_REQUEST_TIMEOUT_SECONDS = float(
     os.getenv("SIMULATION_REQUEST_TIMEOUT_SECONDS", "600")
 )
-SIMULATION_REQUEST_RETRIES = int(os.getenv("SIMULATION_REQUEST_RETRIES", "5"))
-SIMULATION_REQUEST_RETRY_DELAY_SECONDS = float(
-    os.getenv("SIMULATION_REQUEST_RETRY_DELAY_SECONDS", "10")
-)
-SIMULATION_REQUEST_MAX_RETRY_DELAY_SECONDS = float(
-    os.getenv("SIMULATION_REQUEST_MAX_RETRY_DELAY_SECONDS", "120")
-)
 SIMULATION_BETWEEN_SCHOOLS_DELAY_SECONDS = float(
     os.getenv("SIMULATION_BETWEEN_SCHOOLS_DELAY_SECONDS", "15")
 )
 SIMULATION_RECORDING_TIMEZONE = "Europe/Athens"
-SIMULATION_RETRYABLE_HTTP_STATUSES = {408, 425, 429, 500, 502, 503, 504}
 LOCAL_TZ = ZoneInfo(SIMULATION_RECORDING_TIMEZONE)
 
 
@@ -245,6 +241,10 @@ def find_successful_day_ahead_run_id(conn, school_id, target_date):
             WHERE school_id = %s
               AND day_ahead_date = %s
               AND success IS TRUE
+              AND status IN ('success', 'completed_with_warnings')
+              AND requested_rooms > 0 AND successful_rooms = requested_rooms
+              AND failed_rooms = 0
+              AND response_json->'hourly_load'->>'complete' = 'true'
             ORDER BY completed_at DESC NULLS LAST, id DESC
             LIMIT 1;
             """,
@@ -263,6 +263,7 @@ def finish_failed_day_ahead_run(conn, run_id, http_status, response_json, error_
                 completed_at = %s,
                 http_status = %s,
                 success = FALSE,
+                status = 'failed',
                 response_json = %s,
                 error_text = %s,
                 updated_at = NOW()
@@ -340,84 +341,19 @@ def build_simulation_request_body(school_id, target_date=None):
     }
 
 
-def get_retry_after_seconds(response):
-    retry_after = response.headers.get("Retry-After")
-    if not retry_after:
-        return None
-
-    try:
-        retry_after_seconds = float(retry_after)
-    except ValueError:
-        return None
-
-    if retry_after_seconds < 0:
-        return None
-
-    return min(retry_after_seconds, SIMULATION_REQUEST_MAX_RETRY_DELAY_SECONDS)
-
-
-def get_retry_delay_seconds(attempt, response=None):
-    if response is not None:
-        retry_after_seconds = get_retry_after_seconds(response)
-        if retry_after_seconds is not None:
-            return retry_after_seconds
-
-    exponential_delay = SIMULATION_REQUEST_RETRY_DELAY_SECONDS * (2 ** (attempt - 1))
-    capped_delay = min(exponential_delay, SIMULATION_REQUEST_MAX_RETRY_DELAY_SECONDS)
-    jitter = random.uniform(0, min(3, capped_delay * 0.2))
-    return capped_delay + jitter
-
-
-def log_response_trace(response):
-    trace_headers = []
-    for header_name in ("rndr-id", "cf-ray", "x-render-origin-server"):
-        header_value = response.headers.get(header_name)
-        if header_value:
-            trace_headers.append(f"{header_name}={header_value}")
-
-    if trace_headers:
-        return ", ".join(trace_headers)
-
-    return "no upstream trace headers"
-
-
 def fetch_simulation_response(request_url, request_body, access_token):
-    for attempt in range(1, SIMULATION_REQUEST_RETRIES + 1):
-        try:
-            response = requests.post(
-                request_url,
-                json=request_body,
-                headers={"Authorization": f"Bearer {access_token}"},
-                timeout=(
-                    SIMULATION_CONNECT_TIMEOUT_SECONDS,
-                    SIMULATION_REQUEST_TIMEOUT_SECONDS,
-                ),
-            )
-
-            if response.status_code not in SIMULATION_RETRYABLE_HTTP_STATUSES:
-                return response
-
-            if attempt >= SIMULATION_REQUEST_RETRIES:
-                return response
-
-            retry_delay = get_retry_delay_seconds(attempt, response)
-            print(
-                "Simulation API returned retryable HTTP status "
-                f"(attempt {attempt}/{SIMULATION_REQUEST_RETRIES}, "
-                f"http_status={response.status_code}, "
-                f"retry_delay_seconds={retry_delay:.1f}, "
-                f"{log_response_trace(response)})"
-            )
-            time.sleep(retry_delay)
-        except requests.RequestException as exc:
-            print(
-                "Simulation request failed "
-                f"(attempt {attempt}/{SIMULATION_REQUEST_RETRIES}, "
-                f"not retried because server-side completion is unknown): {exc}"
-            )
-            raise
-
-    raise RuntimeError("Simulation request retry loop ended unexpectedly")
+    # A POST can start work even if its response is lost or is an HTTP 5xx.
+    # Only status GETs may be retried; a new POST is never a retry strategy.
+    try:
+        return requests.post(
+            request_url, json=request_body,
+            headers={"Authorization": f"Bearer {access_token}"},
+            timeout=(SIMULATION_CONNECT_TIMEOUT_SECONDS, SIMULATION_REQUEST_TIMEOUT_SECONDS),
+            allow_redirects=False,
+        )
+    except requests.RequestException:
+        print("Simulation request not retried because server-side completion is unknown")
+        raise
 
 
 def extract_room_results(response_json):
@@ -518,84 +454,130 @@ def insert_day_ahead_room_results(conn, run_id, school_id, recording_date, room_
     return inserted_count
 
 
+def find_day_ahead_attempt(conn, school_id, target_date):
+    """An unresolved previous admission must never be replaced automatically."""
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT id, external_run_id, status, response_json
+            FROM simulation_day_ahead_runs
+            WHERE school_id = %s
+              AND (day_ahead_date = %s OR request_body->>'target_date' = %s)
+            ORDER BY id DESC LIMIT 1;
+            """, (school_id, target_date, target_date.isoformat()),
+        )
+        return cur.fetchone()
+
+
+def remember_admission(conn, run_id, target_date, *, handle=None, message=None,
+                       response_json=None, http_status=None):
+    """Commit the handle before polling, independently of eventual result writes."""
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            UPDATE simulation_day_ahead_runs SET
+                external_run_id = COALESCE(%s, external_run_id),
+                day_ahead_date = %s, status = %s, success = FALSE,
+                error_text = %s, response_json = COALESCE(%s, response_json),
+                http_status = COALESCE(%s, http_status),
+                completed_at = NULL, updated_at = NOW()
+            WHERE id = %s;
+            """,
+            (handle['run_id'] if handle else None, target_date,
+             'pending' if handle else 'submission_unknown', message,
+             Json(response_json) if response_json is not None else None, http_status, run_id),
+        )
+    conn.commit()
+
+
 def run_school(conn, request_url, school_id, access_token):
     started_at = utc_now()
     recording_date = started_at.astimezone(LOCAL_TZ).date()
     target_date = recording_date + timedelta(days=1)
     request_body = build_simulation_request_body(school_id, target_date)
-
-    existing_run_id = find_successful_day_ahead_run_id(
-        conn,
-        school_id,
-        target_date,
-    )
-    if existing_run_id is not None:
-        print(
-            "Skipping day-ahead simulation: "
-            f"school_id={school_id}, target_date={target_date.isoformat()}, "
-            f"existing_successful_run_id={existing_run_id}"
-        )
+    existing_success = find_successful_day_ahead_run_id(conn, school_id, target_date)
+    if existing_success is not None:
+        print(f"Skipping day-ahead simulation: school_id={school_id}, existing_successful_run_id={existing_success}")
         return None
 
-    print(
-        "Starting day-ahead simulation: "
-        f"school_id={school_id}, request_body={json.dumps(request_body, sort_keys=True)}"
-    )
-
-    run_id = create_day_ahead_run(
-        conn,
-        school_id,
-        recording_date,
-        request_url,
-        SIMULATION_API_PATH,
-        request_body,
-        started_at,
-    )
-
+    previous = find_day_ahead_attempt(conn, school_id, target_date)
+    handle = None
     response_json = None
     http_status = None
-
-    try:
-        response = fetch_simulation_response(
-            request_url,
-            request_body,
-            access_token,
-        )
-        http_status = response.status_code
-        try:
-            response_json = response.json()
-        except ValueError:
-            response_json = None
-
-        if not response.ok:
-            raise requests.HTTPError(
-                f"Simulation API returned HTTP {http_status}",
-                response=response,
+    if previous is not None:
+        run_id, external_id, previous_status, response_json = previous
+        if previous_status == 'failed' or external_id is None:
+            return SimulationPending(
+                f"Existing recording {run_id} requires reconciliation; no new POST was sent"
             )
+        # A completed but rejected legacy result also needs explicit reconciliation.
+        if previous_status not in ('pending', 'submission_unknown'):
+            return SimulationPending(f"Recording {run_id} is not a trusted completed forecast")
+        try:
+            handle = canonical_handle({'run_id': external_id})
+        except SimulationPending as exc:
+            return exc
+    else:
+        run_id = create_day_ahead_run(
+            conn, school_id, recording_date, request_url, SIMULATION_API_PATH,
+            request_body, started_at,
+        )
+        # A crash after this commit is an unknown submission, never permission to repost.
+        remember_admission(conn, run_id, target_date)
 
-        if response_json is None:
-            raise ValueError("Simulation response is not valid JSON")
-
-        room_results = extract_room_results(response_json)
+    result_ready = False
+    conn.commit()  # Close the lookup transaction before waiting on HTTP.
+    try:
+        if handle is None:
+            response = fetch_simulation_response(request_url, request_body, access_token)
+            http_status = response.status_code
+            try:
+                response_json = response.json()
+            except ValueError:
+                response_json = None
+            detail = response_json.get('detail') if isinstance(response_json, dict) else None
+            if http_status == 504 and isinstance(detail, dict) and detail.get('code') == 'simulation_wait_timeout':
+                handle = canonical_handle(detail)
+                remember_admission(conn, run_id, target_date, handle=handle,
+                                   response_json=response_json, http_status=http_status)
+            elif http_status in (502, 503) and isinstance(detail, dict) and detail.get('code') in ('simulation_failed', 'simulation_worker_unavailable'):
+                handle = canonical_handle(detail)
+                remember_admission(conn, run_id, target_date, handle=handle,
+                                   response_json=response_json, http_status=http_status)
+                raise SimulationTerminalFailure(f"Simulation job {handle['run_id']} failed")
+            elif http_status == 200:
+                validate_day_ahead_result(response_json, request_body)
+                handle = canonical_handle({'run_id': response_json['run_id']})
+                remember_admission(conn, run_id, target_date, handle=handle,
+                                   response_json=response_json, http_status=http_status)
+                result_ready = True
+            elif 400 <= http_status < 500 and http_status not in (408, 425, 429):
+                raise SimulationTerminalFailure(f"Simulation request rejected: HTTP {http_status}")
+            else:
+                raise SimulationPending(f"Submission HTTP {http_status}; outcome requires reconciliation")
+        if handle is not None and not result_ready:
+            response_json = poll_simulation(request_url, handle, request_body, access_token)
+            http_status = 200
+        room_results = validate_day_ahead_result(response_json, request_body)
         finish_successful_day_ahead_run(conn, run_id, http_status, response_json)
         result_count = insert_day_ahead_room_results(
-            conn,
-            run_id,
-            school_id,
-            recording_date,
-            room_results,
+            conn, run_id, school_id, recording_date, room_results,
         )
-        print(
-            "Day-ahead simulation completed: "
-            f"school_id={school_id}, run_id={run_id}, room_results={result_count}"
-        )
+        conn.commit()
+        print(f"Day-ahead simulation completed: school_id={school_id}, run_id={run_id}, room_results={result_count}")
         return None
-    except (ValueError, requests.RequestException) as exc:
+    except (SimulationPending, requests.RequestException) as exc:
+        message = str(exc) if isinstance(exc, SimulationPending) else 'Transport failed; server-side completion is unknown'
+        remember_admission(conn, run_id, target_date, handle=handle, message=message,
+                           response_json=response_json, http_status=http_status)
+        print(f"Day-ahead simulation pending: school_id={school_id}, run_id={run_id}, reason={message}")
+        return SimulationPending(message)
+    except ValueError as exc:
+        # Roll back any incomplete result/room writes; the admission was already committed.
+        conn.rollback()
         finish_failed_day_ahead_run(conn, run_id, http_status, response_json, str(exc))
-        print(
-            "Day-ahead simulation failed: "
-            f"school_id={school_id}, run_id={run_id}, error={exc}"
-        )
+        conn.commit()
+        print(f"Day-ahead simulation failed: school_id={school_id}, run_id={run_id}, error={exc}")
         return exc
 
 
