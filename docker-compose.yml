@@ -145,20 +145,18 @@ services:
       postgres:
         condition: service_healthy
 
-  pv-prediction:
+  forecast-pv:
     build:
-      context: ./pv-prediction
-    container_name: pv_prediction
+      context: ./jobs/forecast-pv
+    container_name: upat-forecast-pv
     logging: *json-logging
     profiles:
       - jobs
     environment:
-      # Optional legacy metadata; excluded from the current RF feature contract.
-      PV_LATEST_ACTIVE_POWER_KW: ${PV_LATEST_ACTIVE_POWER_KW:-}
-      PV_LAG_1H_KW: ${PV_LAG_1H_KW:-}
-      # Active inference and persistence controls.
-      PV_NIGHT_GHI_THRESHOLD_WM2: ${PV_NIGHT_GHI_THRESHOLD_WM2:-20.0}
-      PV_SAVE_TO_DB: ${PV_SAVE_TO_DB:-true}
+      # Read the same location and timezone as forecast-weather.
+      OPEN_METEO_LATITUDE: ${OPEN_METEO_LATITUDE:-37.068}
+      OPEN_METEO_LONGITUDE: ${OPEN_METEO_LONGITUDE:-22.026}
+      OPEN_METEO_TIMEZONE: ${OPEN_METEO_TIMEZONE:-Europe/Athens}
       POSTGRES_HOST: ${POSTGRES_HOST}
       POSTGRES_INTERNAL_PORT: ${POSTGRES_INTERNAL_PORT}
       POSTGRES_USER: ${POSTGRES_USER}

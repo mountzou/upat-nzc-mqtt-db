@@ -48,13 +48,10 @@
     "joblib": "1.5.3"
   },
   "artifacts": {
-    "pv_forecasting_model_rf_operational_20260806.pkl": {
+    "model.pkl": {
       "bytes": 2362707,
       "sha256": "9af48b930b67c640cbdd6814b97c05d70f69f3e9624bc02650abb60e80a51a13"
-    },
-    "pv_features_rf_operational_20260806.pkl": {
-      "bytes": 144,
-      "sha256": "96e7a7ef2a93f0e4d14ea863387b3cbf806dde940de3e09a6670beea3f7bb9d2"
     }
-  }
+  },
+  "feature_names_source": "model.feature_names_in_"
 }
