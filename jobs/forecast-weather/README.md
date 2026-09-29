@@ -20,5 +20,5 @@ python -m unittest discover -s tests -p 'test_weather_schema.py'
 
 VPS migration is pending: the legacy cron calls `weather-collector`, which is
 absent from the updated Compose files. Replace it with `upat-forecast-weather`
-as part of the [scheduler cutover](../README.md#migration), preserving
+as part of the [scheduler cutover](CUTOVER.md), preserving
 `22:50 Europe/Athens`.
