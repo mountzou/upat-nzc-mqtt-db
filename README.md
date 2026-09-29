@@ -23,6 +23,14 @@ This project follows a container-based architecture, where each core service is 
 
 Each Python service directory contains its own `Dockerfile`. At the project root, `docker-compose.yml` defines the local development setup, while `docker-compose.prod.yml` defines the production deployment setup.
 
+**Command scope:** unqualified `docker compose` commands in this README, including
+`up`, `run`, and `exec postgres`, refer to the local development Compose and
+its local database. On the VPS the default Compose file points to the production
+file, and PostgreSQL is owned by `upat-postgres-volume.service` outside Compose.
+Do not run those development commands on the VPS. Use the current
+[production ownership guide](ops/postgres-volume/COMPOSE-OWNERSHIP.md) and an
+explicit, reviewed service command for production work.
+
 ## Environment variables
 
 Before starting the services, copy `.env.example` to `.env` and fill in the required PostgreSQL, MQTT, TTN, API, forecasting, and collector settings:
