@@ -1,6 +1,7 @@
 -- Preserve both occurrences of a repeated local forecast hour.
 -- Prepare in a separately reviewed release before the new collector/API images.
--- Keep the legacy unique key so the old collector still works before cutover.
+-- Keep the new column nullable and the legacy unique key so the old collector
+-- can continue inserting local timestamps before the controlled writer cutover.
 BEGIN;
 SET LOCAL lock_timeout = '5s';
 SET LOCAL statement_timeout = '120s';
@@ -32,9 +33,6 @@ END $$;
 UPDATE public.weather_hourly_forecasts
 SET forecast_instant = forecast_timestamp AT TIME ZONE timezone
 WHERE forecast_instant IS NULL;
-
-ALTER TABLE public.weather_hourly_forecasts
-    ALTER COLUMN forecast_instant SET NOT NULL;
 
 DO $$
 BEGIN

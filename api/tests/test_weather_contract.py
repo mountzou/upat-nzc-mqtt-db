@@ -25,6 +25,9 @@ class _FakeCursor:
     def fetchall(self):
         return self.rows
 
+    def fetchone(self):
+        return self.rows[0] if self.rows else None
+
 
 class _FakeConnection:
     def __init__(self, cursor):
@@ -85,6 +88,21 @@ class WeatherApiContractTests(unittest.TestCase):
             "order by forecast_instant asc",
         ):
             self.assertIn(fragment, normalized_query)
+
+    @patch("main.get_connection")
+    def test_latest_weather_hour_uses_utc_instant_not_ambiguous_local_time(
+        self,
+        get_connection,
+    ):
+        cursor = _FakeCursor([_weather_row()])
+        get_connection.return_value = _FakeConnection(cursor)
+
+        response = main.get_latest_weather_forecast_hour()
+
+        self.assertEqual(response["instant"], _weather_row()["forecast_instant"])
+        self.assertIn("where forecast_instant >= %s", " ".join(cursor.query.lower().split()))
+        self.assertEqual(cursor.params[0].tzinfo, timezone.utc)
+        self.assertEqual((cursor.params[0].minute, cursor.params[0].second), (0, 0))
 
 
 if __name__ == "__main__":

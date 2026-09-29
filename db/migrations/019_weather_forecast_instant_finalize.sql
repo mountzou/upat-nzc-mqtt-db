@@ -1,8 +1,37 @@
--- Apply only after the new UTC-instant collector and API are verified active.
--- The old collector's ON CONFLICT key stops working after this transaction.
+-- Apply only after the old collector writer is stopped and a compatible new
+-- collector/API release is ready. The old ON CONFLICT key stops working after
+-- this transaction; resume collection only with the new images.
 BEGIN;
 SET LOCAL lock_timeout = '5s';
-SET LOCAL statement_timeout = '30s';
+SET LOCAL statement_timeout = '120s';
+
+-- The old collector may have written NULL instants since migration 018. Refuse
+-- ambiguous legacy hours and roll back the entire transaction if any exist.
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1
+        FROM public.weather_hourly_forecasts
+        WHERE forecast_instant IS NULL
+          AND (
+              (forecast_timestamp AT TIME ZONE timezone) AT TIME ZONE timezone
+                  <> forecast_timestamp
+              OR ((forecast_timestamp AT TIME ZONE timezone) - INTERVAL '1 hour')
+                  AT TIME ZONE timezone = forecast_timestamp
+              OR ((forecast_timestamp AT TIME ZONE timezone) + INTERVAL '1 hour')
+                  AT TIME ZONE timezone = forecast_timestamp
+          )
+    ) THEN
+        RAISE EXCEPTION 'Ambiguous legacy forecast local hour; reconcile before finalization';
+    END IF;
+END $$;
+
+UPDATE public.weather_hourly_forecasts
+SET forecast_instant = forecast_timestamp AT TIME ZONE timezone
+WHERE forecast_instant IS NULL;
+
+ALTER TABLE public.weather_hourly_forecasts
+    ALTER COLUMN forecast_instant SET NOT NULL;
 
 DO $$
 BEGIN
