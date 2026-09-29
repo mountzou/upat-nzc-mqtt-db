@@ -1,0 +1,29 @@
+[Unit]
+Description=Collect and store UPAT weather forecasts
+Requires=docker.service
+Wants=network-online.target
+After=docker.service network-online.target upat-postgres-volume.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/upat-nzc-mqtt-db
+EnvironmentFile=/etc/upat-nzc/forecast-weather.env
+UMask=0077
+Restart=no
+TimeoutStartSec=5min
+TimeoutStopSec=45s
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=upat-forecast-weather
+
+# Keep the legacy lock during migration. Manual runs use systemctl start too.
+ExecStart=/usr/bin/flock --no-fork --nonblock /var/lock/weather-collector.lock /usr/bin/docker compose --project-directory /opt/upat-nzc-mqtt-db --env-file /opt/upat-nzc-mqtt-db/.env --project-name upat-nzc-mqtt-db -f /opt/upat-nzc-mqtt-db/docker-compose.prod.yml -f /opt/upat-nzc-mqtt-db/jobs/forecast-weather/compose.release.yml --profile jobs run --rm --no-deps --pull never -T --name upat-forecast-weather-${INVOCATION_ID} forecast-weather
+# Remove only this invocation's container after failure, stop or timeout.
+ExecStopPost=-/usr/bin/docker rm --force upat-forecast-weather-${INVOCATION_ID}
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/run/lock
+RestrictSUIDSGID=true

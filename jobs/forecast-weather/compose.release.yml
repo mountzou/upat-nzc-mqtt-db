@@ -1,0 +1,4 @@
+services:
+  forecast-weather:
+    build: !reset null
+    image: ${FORECAST_WEATHER_IMAGE:?Set FORECAST_WEATHER_IMAGE to the reviewed local image ID}
