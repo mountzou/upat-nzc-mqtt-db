@@ -109,11 +109,12 @@ services:
 
   energy-aggregator:
     build:
-      context: ./energy-aggregator
+      context: ./jobs/aggregate-energy
     container_name: energy_aggregator
     logging: *json-logging
     environment:
       SHELLY_COUNTER_START: ${SHELLY_COUNTER_START:-}
+      OPEN_METEO_TIMEZONE: ${OPEN_METEO_TIMEZONE:-Europe/Athens}
       POSTGRES_HOST: ${POSTGRES_HOST}
       POSTGRES_INTERNAL_PORT: ${POSTGRES_INTERNAL_PORT}
       POSTGRES_USER: ${POSTGRES_USER}

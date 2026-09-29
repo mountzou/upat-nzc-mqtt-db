@@ -109,6 +109,7 @@ services:
     environment:
       # Fixed historical cutover; changing it requires a separate data review.
       SHELLY_COUNTER_START: "2026-09-07T08:00:00+00:00"
+      OPEN_METEO_TIMEZONE: ${OPEN_METEO_TIMEZONE:-Europe/Athens}
       POSTGRES_HOST: ${POSTGRES_HOST}
       POSTGRES_INTERNAL_PORT: ${POSTGRES_INTERNAL_PORT}
       POSTGRES_USER: ${POSTGRES_USER}

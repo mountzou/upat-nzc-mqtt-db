@@ -10,7 +10,7 @@ This project is organized into service directories, each implementing a core par
 - `/api`: FastAPI retrieval service
 - `/ttn-ingestor`: MQTT ingestor for UPAT environmental devices
 - `/shelly-ingestor`: MQTT ingestor for Shelly energy devices
-- `/energy-aggregator`: one-shot Shelly hourly energy aggregation job
+- `/jobs/aggregate-energy`: one-shot Shelly hourly energy aggregation job
 - `/simulation-recorder`: one-shot daily simulation recorder
 - `/jobs/forecast-pv`: one-shot day-ahead PV forecasting job
 - `/jobs/forecast-weather`: one-shot Open-Meteo hourly weather forecast collector
@@ -76,6 +76,9 @@ docker compose logs --tail=50 api
 ```
 
 ## Energy aggregator
+
+The Shelly counter aggregator source lives in `jobs/aggregate-energy`. Its Compose
+service remains `energy-aggregator` until the scheduler migration.
 
 The production Shelly counter aggregator is an hourly one-shot job. It rechecks
 the last three closed UTC hours, respecting the fixed historical cutover, and
