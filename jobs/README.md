@@ -11,7 +11,7 @@ prefix; VPS job and systemd unit names use `upat-<job-name>`.
 | Job | Directory / Compose service | VPS name | Migration status |
 | --- | --- | --- | --- |
 | Weather forecast | `forecast-weather` | `upat-forecast-weather` | Active since 2026-09-29; manual run/data verified; first daily run pending |
-| PV forecast | `forecast-pv` | `upat-forecast-pv` | Local source and Compose moved; VPS migration pending |
+| PV forecast | `forecast-pv` | `upat-forecast-pv` | Active since 2026-09-29; manual run/data verified; first daily run pending |
 
 See [forecast-weather](forecast-weather/README.md) and
 [forecast-pv](forecast-pv/README.md) for local commands.

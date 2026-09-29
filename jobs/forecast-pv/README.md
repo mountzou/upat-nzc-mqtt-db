@@ -32,12 +32,17 @@ docker compose --profile jobs run --rm forecast-pv
 python -m unittest discover -s jobs/forecast-pv -p 'test_*.py'
 ```
 
-VPS migration is pending. The legacy cron calls `pv-prediction`; switching to
-`upat-forecast-pv` requires a separate deployment and scheduler cutover.
-
-The prepared `upat-forecast-pv.service` / `.timer` run daily at 23:00
-Europe/Athens, after the weather refresh. The release overlay pins the image
+The VPS uses `upat-forecast-pv.service` / `.timer` daily at 23:00
+Europe/Athens, after the 22:50 weather refresh. The legacy PV cron was removed
+on 2026-09-29. The release overlay pins the image
 through `/etc/upat-nzc/forecast-pv.env` (`FORECAST_PV_IMAGE=sha256:...`).
 Use `systemctl start upat-forecast-pv.service` for manual production runs and
-`journalctl -u upat-forecast-pv.service` for logs after cutover.
+`journalctl -u upat-forecast-pv.service` for logs.
 `verify.sql` checks a saved run using the `run_id` and invocation `since` values.
+
+Deployed source: `0eb7114649f68353bf6486dacf7e16f992e236c7`.
+Image: `sha256:5c0338d91a07c9603ddd17f312dfb4487aa087470aa69f718022974bf83c9040`.
+The manual service run saved run `141` for 2026-09-30: 24 distinct hours and
+289.926523378398 kWh, with stored weather inputs and energy totals verified.
+The first scheduled run is pending. Backups, verification receipts and the
+guarded rollback script are in `/opt/upat-forecast-pv-release-0eb7114/` on the VPS.

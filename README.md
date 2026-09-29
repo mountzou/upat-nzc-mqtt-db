@@ -215,15 +215,16 @@ A recommended production order for the day-ahead jobs is below, using `Europe/At
 2. `23:00` — generate and persist the D+1 PV forecast.
 3. `23:10` — run and persist the D+1 EnergyPlus demand simulation for all supported schools.
 
-Weather runs through `upat-forecast-weather.timer` at 22:50 Europe/Athens.
-The remaining PV and simulation cron entries use an explicit Athens time guard
-and `flock`. The PV entry below is the legacy deployment: it still calls
-`pv-prediction`, which is absent from this checkout's renamed Compose services.
-Deploying the new PV Compose configuration requires a separate scheduler cutover.
-Verify these entries against the live crontab before applying changes:
+Weather runs through `upat-forecast-weather.timer` at 22:50 and PV through
+`upat-forecast-pv.timer` at 23:00, both in Europe/Athens. Both use pinned release
+images and retain their existing `flock` locks. The PV service reads the stored
+weather; its manual run and persisted output were verified during the cutover.
+See the [PV job README](jobs/forecast-pv/README.md) for the deployed release.
+
+The simulation cron retains its explicit Athens time guard and `flock`.
+Verify the entry against the live crontab before applying changes:
 
 ```cron
-* * * * * /usr/bin/env TZ=Europe/Athens /bin/sh -c '[ "$(/bin/date +\%H:\%M)" = "23:00" ] || exit 0; cd /opt/upat-nzc-mqtt-db && /usr/bin/flock -n /var/lock/pv-prediction.lock /usr/bin/docker compose -f docker-compose.prod.yml --profile jobs run --rm --no-deps pv-prediction' >> /var/log/pv_prediction.log 2>&1
 * * * * * /usr/bin/env TZ=Europe/Athens /bin/sh -c '[ "$(/bin/date +\%H:\%M)" = "23:10" ] || exit 0; cd /opt/upat-nzc-mqtt-db && /usr/bin/flock -n /var/lock/simulation-recorder.lock /usr/bin/docker compose -f docker-compose.prod.yml run --rm --no-deps -e SIMULATION_SCHOOL_IDS=school_3,school_7,school_10,school_13,school_22,school_23 simulation-recorder' >> /var/log/simulation_recorder.log 2>&1
 ```
 
