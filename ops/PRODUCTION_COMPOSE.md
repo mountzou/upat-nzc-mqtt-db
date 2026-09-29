@@ -1,5 +1,12 @@
 # Production Compose consolidation
 
+**Current ownership (verified 29 September 2026):** PostgreSQL is managed by systemd on
+the Hetzner Volume, outside Compose. Use [the current Compose ownership guide](postgres-volume/COMPOSE-OWNERSHIP.md)
+and its read-only checker. The pre-cutover descriptions and verifier below are historical. Do not run their
+old commands as a current deployment procedure. The canonical production Compose
+now matches the repository file and pins the current API, Shelly and simulation
+images; their source revisions have separate release histories.
+
 Status (7 September 2026): **activated and verified**. The active VPS API now
 records one production Compose file. Only the API container was recreated; its
 image and runtime settings are unchanged. PostgreSQL and its mounts, Caddy,

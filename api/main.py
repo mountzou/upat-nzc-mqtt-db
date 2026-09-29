@@ -13,6 +13,7 @@ from fastapi.exception_handlers import request_validation_exception_handler
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from readers.measurements import fetch_device_latest, format_response_object
+from readers.shelly_storage import source_and_average
 from readers.shelly_energy import (
     fetch_shelly_hourly_energy_rows,
     normalize_device_ids,
@@ -222,6 +223,7 @@ def format_pv_forecast_hour(row):
 
 
 def fetch_device_history(table_name, device_id, params):
+    relation, average = source_and_average(table_name)
     metrics = params.resolved_metrics
     end_time = params.resolved_end_time or datetime.now(timezone.utc)
     start_time = params.resolved_start_time or (end_time - timedelta(days=1))
@@ -235,10 +237,10 @@ def fetch_device_history(table_name, device_id, params):
             SELECT
                 device_id,
                 metric,
-                AVG(value) AS value,
+                {average} AS value,
                 unit,
                 {bucket_sql} AS bucket_time
-            FROM {table_name}
+            FROM {relation}
             WHERE device_id = %s
     """]
     query_params = [bucket_interval, device_id]

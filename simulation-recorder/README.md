@@ -64,10 +64,27 @@ The tests create a separate temporary schema per case. They connect the real
 caller to FastAPI with a mocked engine, exercise the actual job queue and SQL
 persistence, and never call weather or EnergyPlus providers.
 
-Release the compatible recorder first, then the backend job patch (including
-`GET /simulations/{run_id}?result_format=day-ahead`). Build the recorder image with
-both `main.py` and `job_client.py`. Verify the exact VPS source/image and preserve
-unrelated checkout changes before deployment. Existing cron time, six-school
-scope and PostgreSQL service remain unchanged. Rolling back the backend to the
-synchronous API remains compatible with the new caller for new requests; saved
-pending jobs require reconciliation if their backend status is no longer available.
+## Review and integration status (2026-09-29)
+
+The EnergyPlus backend job patch and the cross-repository integration test are
+already in its main branch (commit e249f52). The integration suite passed 13 tests
+against a disposable local PostgreSQL database, and this recorder's local suite
+passed 45 tests. Those tests do not verify the live backend deployment.
+
+Git integration order: reconcile PostgreSQL/Shelly with PR #4, then merge this
+recorder PR after the calendar-day blocker below is resolved. The combined
+production Compose matches the installed VPS file byte-for-byte. Build any
+future recorder image with both `main.py` and `job_client.py`, then verify
+its source/image identity and the deployed backend version before a separately
+authorized rollout. Existing cron time, six-school scope and PostgreSQL service
+remain unchanged. The caller accepts both the old synchronous response and the
+new job response. A backend rollback to synchronous responses does not resolve
+a previously saved pending job; reconcile those handles separately.
+
+**Calendar-day blocker:** on Europe/Athens daylight-saving transitions the
+backend currently emits 24 local-clock intervals while this recorder requires
+24 contiguous elapsed one-hour intervals spanning the target local day. A
+synthetic cross-repository check accepted 2026-09-08 but rejected 2026-03-29
+and 2026-10-25 even though the backend marked those profiles complete. Define
+and test one shared DST-day interval policy in both repositories before merging
+this PR. Do not relax the recorder's coverage check independently.
