@@ -153,9 +153,10 @@ docker compose exec -T postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB
 ## Weather forecast job
 
 The `forecast-weather` service is a one-shot container. Its implementation lives in
-[`jobs/forecast-weather`](jobs/forecast-weather/README.md). The local source move
-and Compose rename are prepared; the VPS still requires a separate scheduler
-cutover from the legacy `weather-collector` cron to `upat-forecast-weather`.
+[`jobs/forecast-weather`](jobs/forecast-weather/README.md). The VPS uses
+`upat-forecast-weather.service` and `.timer`, activated on 2026-09-29. The legacy
+weather cron has been removed. A manual service run and its 192 stored hours
+were verified; the first daily timer execution remains pending.
 
 It fetches an 8-day hourly forecast from Open-Meteo for the configured latitude/longitude and permanently upserts the rows into `weather_hourly_forecasts`. The extra day keeps the API's current 7-day simulation window complete after midnight and before the next nightly collector run.
 
@@ -214,14 +215,11 @@ A recommended production order for the day-ahead jobs is below, using `Europe/At
 2. `23:00` — generate and persist the D+1 PV forecast.
 3. `23:10` — run and persist the D+1 EnergyPlus demand simulation for all supported schools.
 
-The cron daemon invokes each entry every minute, while an explicit `TZ=Europe/Athens` time guard selects the intended local time across daylight-saving changes. `flock` prevents overlapping runs. The weather entry below documents the legacy scheduler before the pending
-`upat-forecast-weather` cutover. It requires the old deployed Compose service
-`weather-collector` and cannot run against the renamed service in this checkout.
-Do not install it alongside the future timer. Verify all entries against the
-live VPS crontab before applying changes:
+Weather runs through `upat-forecast-weather.timer` at 22:50 Europe/Athens.
+The remaining PV and simulation cron entries use an explicit Athens time guard
+and `flock`. Verify them against the live crontab before applying changes:
 
 ```cron
-* * * * * /usr/bin/env TZ=Europe/Athens /bin/sh -c '[ "$(/bin/date +\%H:\%M)" = "22:50" ] || exit 0; cd /opt/upat-nzc-mqtt-db && /usr/bin/flock -n /var/lock/weather-collector.lock /usr/bin/docker compose -f docker-compose.prod.yml --profile jobs run --rm --no-deps weather-collector' >> /var/log/weather-collector.log 2>&1
 * * * * * /usr/bin/env TZ=Europe/Athens /bin/sh -c '[ "$(/bin/date +\%H:\%M)" = "23:00" ] || exit 0; cd /opt/upat-nzc-mqtt-db && /usr/bin/flock -n /var/lock/pv-prediction.lock /usr/bin/docker compose -f docker-compose.prod.yml --profile jobs run --rm --no-deps pv-prediction' >> /var/log/pv_prediction.log 2>&1
 * * * * * /usr/bin/env TZ=Europe/Athens /bin/sh -c '[ "$(/bin/date +\%H:\%M)" = "23:10" ] || exit 0; cd /opt/upat-nzc-mqtt-db && /usr/bin/flock -n /var/lock/simulation-recorder.lock /usr/bin/docker compose -f docker-compose.prod.yml run --rm --no-deps -e SIMULATION_SCHOOL_IDS=school_3,school_7,school_10,school_13,school_22,school_23 simulation-recorder' >> /var/log/simulation_recorder.log 2>&1
 ```
