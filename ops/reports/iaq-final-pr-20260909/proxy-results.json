@@ -1,0 +1,27 @@
+[
+  {
+    "method": "GET",
+    "path": "/notifications",
+    "status": 401
+  },
+  {
+    "method": "PATCH",
+    "path": "/notifications/1/read",
+    "status": 401
+  },
+  {
+    "method": "OPTIONS",
+    "path": "/notifications",
+    "status": 200
+  },
+  {
+    "method": "OPTIONS",
+    "path": "/notifications/1/read",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/not-an-api-route",
+    "status": 404
+  }
+]

@@ -41,7 +41,7 @@ telemetry.schoolheroz.com {
 	}
 
 	@monitoring_public {
-        path /auth/login /auth/me /auth/preferences /catalog/schools /catalog/schools/*/rooms /energy/* /indoor_environment/* /thermal-comfort/*
+        path /notifications /notifications/*/read /auth/login /auth/me /auth/preferences /catalog/schools /catalog/schools/*/rooms /energy/* /indoor_environment/* /thermal-comfort/*
     }
     handle @monitoring_public {
         reverse_proxy api:8000 {

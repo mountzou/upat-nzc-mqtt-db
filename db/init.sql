@@ -349,3 +349,6 @@ CREATE TABLE IF NOT EXISTS shelly_energy_counters (
     timestamp_basis TEXT NOT NULL DEFAULT 'received_at' CHECK (timestamp_basis = 'received_at'),
     PRIMARY KEY (device_id, channel, observed_at)
 );
+
+-- Persistent IAQ notifications and per-account read state.
+\ir migrations/016_iaq_notifications.sql

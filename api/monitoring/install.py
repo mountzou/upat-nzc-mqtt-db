@@ -2,7 +2,7 @@
 from fastapi import Depends, HTTPException, Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
-from monitoring.routes import auth, catalog, energy_demand, indoor_environment, production
+from monitoring.routes import auth, catalog, energy_demand, indoor_environment, production, notifications
 from monitoring.services import authentication
 
 class SessionRequest(BaseModel):
@@ -14,7 +14,7 @@ def install(app, service_dependency):
         allow_origin_regex=r'https?://(localhost|127\.0\.0\.1)(:\d+)?',
         allow_methods=['GET','POST','PATCH','OPTIONS'],allow_headers=['Authorization','Content-Type','Accept'],
         expose_headers=['Server-Timing','Retry-After'],allow_credentials=True)
-    for router in [auth.router,catalog.router,energy_demand.router,indoor_environment.router,production.router]:
+    for router in [auth.router,catalog.router,energy_demand.router,indoor_environment.router,production.router,notifications.router]:
         app.include_router(router)
 
     # Render can validate VPS-issued sessions for EnergyPlus through the existing
