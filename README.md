@@ -155,8 +155,8 @@ docker compose exec -T postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB
 The `forecast-weather` service is a one-shot container. Its implementation lives in
 [`jobs/forecast-weather`](jobs/forecast-weather/README.md). The VPS uses
 `upat-forecast-weather.service` and `.timer`, activated on 2026-09-29. The legacy
-weather cron has been removed. A manual service run and its 192 stored hours
-were verified; the first daily timer execution remains pending.
+weather cron has been removed. The manual run and first daily timer execution
+on 2026-09-29 at 22:50 were verified, including all 192 refreshed hours.
 
 It fetches an 8-day hourly forecast from Open-Meteo for the configured latitude/longitude and permanently upserts the rows into `weather_hourly_forecasts`. The extra day keeps the API's current 7-day simulation window complete after midnight and before the next nightly collector run.
 
@@ -218,7 +218,8 @@ A recommended production order for the day-ahead jobs is below, using `Europe/At
 Weather runs through `upat-forecast-weather.timer` at 22:50 and PV through
 `upat-forecast-pv.timer` at 23:00, both in Europe/Athens. Both use pinned release
 images and retain their existing `flock` locks. The PV service reads the stored
-weather; its manual run and persisted output were verified during the cutover.
+weather; its manual run and first scheduled run on 2026-09-29 at 23:00
+were verified against the persisted output and weather inputs.
 See the [PV job README](jobs/forecast-pv/README.md) for the deployed release.
 
 The simulation cron retains its explicit Athens time guard and `flock`.

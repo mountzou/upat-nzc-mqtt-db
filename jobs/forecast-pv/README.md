@@ -44,5 +44,9 @@ Deployed source: `0eb7114649f68353bf6486dacf7e16f992e236c7`.
 Image: `sha256:5c0338d91a07c9603ddd17f312dfb4487aa087470aa69f718022974bf83c9040`.
 The manual service run saved run `141` for 2026-09-30: 24 distinct hours and
 289.926523378398 kWh, with stored weather inputs and energy totals verified.
-The first scheduled run is pending. Backups, verification receipts and the
-guarded rollback script are in `/opt/upat-forecast-pv-release-0eb7114/` on the VPS.
+The first scheduled execution on 2026-09-29 at 23:00 Europe/Athens saved run
+`142` for 2026-09-30: 24 distinct hours and 325.1877180169188 kWh. Stored inputs
+match the scheduled weather refresh, including wind conversion by 3.6; the
+night mask, model metadata and energy totals were verified. Backups, verification
+receipts and the guarded rollback script remain in
+`/opt/upat-forecast-pv-release-0eb7114/` on the VPS.
