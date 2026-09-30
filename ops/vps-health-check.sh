@@ -103,7 +103,9 @@ if ((docker_ok)) && timeout 5s docker inspect "$DB_CONTAINER" >/dev/null 2>&1; t
       SELECT 'PV', coalesce(d.provider_device_id::text,d.id::text) || ' (' || coalesce(d.device_role,'unknown') || ')',
              s.last_event, coalesce(s.events_24h,0), coalesce(s.events_7d,0)
       FROM pv_devices d LEFT JOIN pv_stats s ON s.device_id=d.id
-      WHERE d.is_active IS TRUE
+      -- Loggers are communication gateways, not expected measurement sources.
+      -- Keep unknown roles in scope so missing catalog evidence stays visible.
+      WHERE d.is_active IS TRUE AND d.device_role IS DISTINCT FROM 'logger'
     )
     SELECT source, device_id, coalesce(to_char(last_event AT TIME ZONE 'UTC','YYYY-MM-DD HH24:MI:SS'),'unknown'),
            CASE WHEN last_event IS NULL THEN 'unknown'
