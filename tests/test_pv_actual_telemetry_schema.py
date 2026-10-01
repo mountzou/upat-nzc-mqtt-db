@@ -64,9 +64,7 @@ class PvActualTelemetrySchemaTests(unittest.TestCase):
         self.assertNotRegex(self.normalized, r"create\s+index[^;]+extra_kpis")
         self.assertNotIn(" using gin ", f" {self.normalized} ")
 
-    def test_live_pipeline_source_contract_is_accepted(self):
-        self.assertIn("'fusion_live'", self.normalized)
-        self.assertIn("'fusion_live_device_derived'", self.normalized)
+    def test_retains_provider_collection_timestamps(self):
         self.assertIn("provider_collect_time_ms bigint", self.normalized)
 
     def test_does_not_modify_existing_forecast_tables(self):
@@ -84,6 +82,10 @@ class PvActualTelemetrySchemaTests(unittest.TestCase):
             r"\ir migrations/010_pv_actual_telemetry.sql",
             init_sql,
         )
+        self.assertIn(r"\ir migrations/018_pv_unified_collection.sql", init_sql)
+        self.assertIn(r"\ir migrations/019_pv_drop_site_key.sql", init_sql)
+        self.assertIn(r"\ir migrations/020_pv_drop_source_kind.sql", init_sql)
+        self.assertIn(r"\ir migrations/021_pv_drop_code_version.sql", init_sql)
 
 
 if __name__ == "__main__":

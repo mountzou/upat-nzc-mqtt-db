@@ -5,11 +5,12 @@ import unittest
 from datetime import date, datetime, timezone
 from pathlib import Path
 
-from pipeline import (
+from processing import (
     PipelineValidationError,
     build_ingestion_batch,
     build_request_window,
     default_target_date,
+    normalize_devices,
 )
 
 
@@ -33,12 +34,11 @@ class PipelineTests(unittest.TestCase):
         return build_ingestion_batch(
             plant_code=data["plant_code"],
             request_window=self.window,
-            device_list_payload=data["device_list"],
+            devices=normalize_devices(data["device_list"]),
             history_by_device_type={
                 int(key): value
                 for key, value in data["history_by_device_type"].items()
             },
-            source_kind="fixture",
             api_calls=data["api_calls"],
             collected_at=datetime(2026, 8, 25, tzinfo=timezone.utc),
         )
@@ -47,20 +47,12 @@ class PipelineTests(unittest.TestCase):
         batch = self.build_batch()
 
         self.assertEqual("pv-ingestion-batch-v1", batch["schema_version"])
-        self.assertEqual("fixture", batch["source_kind"])
-        self.assertTrue(batch["run_key"].startswith("fixture:"))
-        self.assertTrue(
-            all(
-                row["source_kind"] == "fixture"
-                for row in batch["device_readings"]
-            )
-        )
         self.assertEqual("not_attempted", batch["persistence"]["status"])
         self.assertEqual(0, batch["persistence"]["rows_written"])
         self.assertEqual(4, len(batch["devices"]))
         self.assertEqual(7, len(batch["device_readings"]))
         self.assertEqual(3, len(batch["plant_readings"]))
-        self.assertEqual(1, batch["quality"]["partial_plant_timestamp_count"])
+        self.assertEqual("partial", batch["quality"]["status"])
 
     def test_preserves_typed_and_extra_kpis_without_sensitive_device_fields(self):
         batch = self.build_batch()
@@ -118,6 +110,12 @@ class PipelineTests(unittest.TestCase):
         )
 
         with self.assertRaisesRegex(PipelineValidationError, "duplicate history"):
+            self.build_batch(fixture)
+
+    def test_timestamp_outside_five_minute_grid_is_rejected(self):
+        fixture = copy.deepcopy(self.fixture)
+        fixture["history_by_device_type"]["1"]["data"][0]["collectTime"] += 1
+        with self.assertRaisesRegex(PipelineValidationError, "5-minute grid"):
             self.build_batch(fixture)
 
     def test_request_window_is_dst_aware(self):

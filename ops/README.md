@@ -94,14 +94,18 @@ sudo logrotate --debug /etc/logrotate.conf
 Rolling back these configuration files does not restore journal entries or
 rotated logs that have already expired.
 
-## PV ingestor schedule
+## PV collection schedule
 
 The PV collector is a systemd oneshot service with a daily timer at
-`01:15 Europe/Athens`. The service template uses the shared
-`ops/pv-ingestor-run.sh` launcher, a separately validated image digest, and a
-persistent API ledger for scheduled and manual/backfill requests. It retains
-the three completed Athens dates, `upat-pv` site key, scheduled provenance,
-20-minute timeout, and no automatic restart.
+`01:15 Europe/Athens`. Its source, shared launcher and prepared systemd units
+now live in [jobs/collect-pv](../jobs/collect-pv/README.md). The VPS still uses
+`upat-pv-ingestor.service` / `.timer` until the production rename is reviewed.
+The launcher uses a separately validated image digest and a
+persistent API ledger for scheduled and manual requests. It retains
+the three completed Athens dates, 20-minute timeout, and no automatic restart.
+
+The prepared job always fetches the last three completed dates. There is no
+separate backfill mode or configurable lookback window after cutover.
 
 The initial shared-control installation was completed on 2026-09-05. Its
 historical receipt and activation/rollback procedure are documented in

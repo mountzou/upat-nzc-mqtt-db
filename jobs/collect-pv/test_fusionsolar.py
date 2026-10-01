@@ -3,7 +3,7 @@ import tempfile
 import json
 from email.utils import formatdate
 import requests
-from api_control import ApiControl, ApiControlError, initialize, DAY
+from api_limits import ApiControl, ApiControlError, initialize, DAY
 
 from fusionsolar import (
     FusionSolarClient,
@@ -46,7 +46,7 @@ def client_with_responses(testcase, responses):
     initialize(directory.name, "user", now=0)
     current = [DAY + 1.0]
     events = []
-    control = ApiControl(directory.name, "user", "manual", clock=lambda: current[0],
+    control = ApiControl(directory.name, "user", clock=lambda: current[0],
                          sleep=lambda seconds: current.__setitem__(0, current[0]+seconds),
                          event_sink=events.append)
     control.__enter__()
@@ -63,15 +63,6 @@ def client_with_responses(testcase, responses):
 
 
 class FusionSolarClientTests(unittest.TestCase):
-    def test_rejects_non_https_or_non_third_data_base_url(self):
-        with self.assertRaises(ValueError):
-            FusionSolarClient(
-                base_url="http://example.test/api",
-                username="user",
-                system_code="secret",
-                control=None,
-            )
-
     def test_login_token_is_reused_and_never_appears_in_call_report(self):
         client, session = client_with_responses(self,
             [

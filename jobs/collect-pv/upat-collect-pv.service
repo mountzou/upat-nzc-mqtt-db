@@ -12,16 +12,16 @@ TimeoutStartSec=20min
 TimeoutStopSec=30s
 StandardOutput=journal
 StandardError=journal
-SyslogIdentifier=upat-pv-ingestor
+SyslogIdentifier=upat-collect-pv
 
 # The shared launcher requires a validated digest in the private environment
-# file and binds the same API ledger for scheduled and manual/backfill runs.
+# file and binds the shared API ledger for every collection.
 # Installing this template alone does not install or initialize that ledger.
-ExecStart=/usr/local/sbin/upat-pv-ingestor scheduled
+ExecStart=/usr/local/sbin/upat-collect-pv run
 
 # If systemd stops or times out the attached Docker client, remove only this
-# job's fixed-name container. A normally completed --rm run is already absent.
-ExecStopPost=-/usr/bin/docker rm --force upat-pv-ingestor-scheduled
+# service invocation's container. A normally completed --rm run is already absent.
+ExecStopPost=-/usr/bin/docker rm --force upat-collect-pv-${INVOCATION_ID}
 
 # Harden the host-side Docker client. The container has its own controls above.
 NoNewPrivileges=true

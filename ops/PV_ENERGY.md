@@ -6,7 +6,7 @@ Legacy retirement: completed in production on 2026-09-06 with image `schoolheroz
 
 ## Endpoints
 
-Both endpoints use the existing monitoring Bearer JWT and shared `upat-pv` installation access policy.
+Both endpoints use the existing monitoring Bearer JWT and shared PV installation access policy.
 
 ```http
 GET /energy/production/history?start_date=2026-09-01&end_date=2026-09-05&interval=1h

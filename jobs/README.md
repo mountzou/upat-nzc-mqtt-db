@@ -12,10 +12,12 @@ prefix; VPS job and systemd unit names use `upat-<job-name>`.
 | --- | --- | --- | --- |
 | Weather forecast | `forecast-weather` | `upat-forecast-weather` | Active since 2026-09-29; manual and scheduled runs/data verified |
 | Shelly energy aggregation | `aggregate-energy` | `upat-aggregate-energy` | Active since 2026-09-29; first scheduled run/data verified |
+| PV telemetry collection | `collect-pv` | `upat-collect-pv` | Local migration complete; VPS still uses `upat-pv-ingestor` until cutover |
 | PV forecast | `forecast-pv` | `upat-forecast-pv` | Active since 2026-09-29; manual and scheduled runs/data verified |
 
-See [aggregate-energy](aggregate-energy/README.md), [forecast-weather](forecast-weather/README.md) and
-[forecast-pv](forecast-pv/README.md) for local commands.
+See [aggregate-energy](aggregate-energy/README.md), [collect-pv](collect-pv/README.md),
+[forecast-weather](forecast-weather/README.md) and [forecast-pv](forecast-pv/README.md)
+for local commands.
 
 ## Migration
 

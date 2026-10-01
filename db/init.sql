@@ -324,6 +324,10 @@ CREATE INDEX IF NOT EXISTS idx_weather_hourly_forecasts_date_time
 
 -- Keep fresh database initialization aligned with actual PV telemetry.
 \ir migrations/010_pv_actual_telemetry.sql
+\ir migrations/018_pv_unified_collection.sql
+\ir migrations/019_pv_drop_site_key.sql
+\ir migrations/020_pv_drop_source_kind.sql
+\ir migrations/021_pv_drop_code_version.sql
 
 -- Keep fresh database initialization aligned with application auth identities.
 \ir migrations/011_app_users.sql

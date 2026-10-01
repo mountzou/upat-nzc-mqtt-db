@@ -19,7 +19,7 @@ class _FakeCursor:
     def __exit__(self, exc_type, exc, traceback):
         return False
 
-    def execute(self, query, params):
+    def execute(self, query, params=None):
         self.query = query
         self.params = params
 
@@ -69,7 +69,7 @@ class PvActualsTests(unittest.TestCase):
         )
 
         self.assertEqual(payload["source_id"], "postgres-pv-plant-readings")
-        self.assertEqual(payload["site_key"], "upat-pv")
+        self.assertNotIn("site_key", payload)
         self.assertEqual(payload["count"], 1)
         self.assertEqual(payload["points"][0]["active_power_kw"], 42.125)
         self.assertEqual(payload["points"][0]["reactive_power_kvar"], 1.25)
@@ -79,7 +79,6 @@ class PvActualsTests(unittest.TestCase):
         self.assertEqual(
             cursor.params,
             (
-                "upat-pv",
                 datetime(2026, 8, 31, 21, 0, tzinfo=timezone.utc),
                 datetime(2026, 9, 2, 21, 0, tzinfo=timezone.utc),
             ),
@@ -156,7 +155,6 @@ class PvActualsTests(unittest.TestCase):
         self.assertEqual(
             cursor.params,
             (
-                "upat-pv",
                 datetime(2026, 10, 24, 21, 0, tzinfo=timezone.utc),
                 datetime(2026, 10, 25, 22, 0, tzinfo=timezone.utc),
             ),
@@ -196,7 +194,8 @@ class PvActualsTests(unittest.TestCase):
 
         self.assertEqual(payload["min_date"], "2026-05-07")
         self.assertEqual(payload["max_date"], "2026-09-02")
-        self.assertEqual(cursor.params, ("upat-pv",))
+        self.assertNotIn("site_key", payload)
+        self.assertIsNone(cursor.params)
         normalized_query = " ".join(cursor.query.split()).lower()
         self.assertTrue(normalized_query.startswith("select "))
         self.assertNotIn("insert ", normalized_query)

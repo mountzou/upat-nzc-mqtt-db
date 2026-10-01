@@ -1,5 +1,17 @@
 # PV API accounting and shared request control
 
+The collector source, launcher and prepared `upat-collect-pv` units now live in
+[jobs/collect-pv](../jobs/collect-pv/README.md). This is a local migration; the VPS
+still uses `upat-pv-ingestor` and its existing private env file and account ledger.
+The installation record below describes the historical activation.
+The prepared job has one `run` command for timer and manual execution. It fetches
+the last three completed dates and persists the collected data.
+All runs share the 12-call history budget, with no scheduled reserve or trigger
+field. Migration `018_pv_unified_collection.sql` removes the PostgreSQL field;
+`019_pv_drop_site_key.sql` removes the redundant plant label; `020` and `021`
+remove `source_kind` and `code_version`. Update the EnergyPlus PV adapter and API
+readers before applying `019`, and stop the old collector before `018`–`021`.
+
 Historical installation record: deployed on the VPS on 2026-09-05 after explicit approval. The exact
 image is `upat-nzc-mqtt-db-pv-ingestor@sha256:76b2d48b42d0a84ad88ba2cd099cb21239eaca1977b3dfb7df5b7d3c37750eb6`.
 At that deployment check the timer was enabled and active; initialization and
@@ -21,10 +33,9 @@ Existing ingestion transactions and telemetry upserts are unchanged.
 
 ## Policy and boundaries
 
-| Control | Initial local policy |
+| Control | Prepared local policy |
 | --- | --- |
 | History budget | 12 attempted requests per rolling 24 hours, across all device types |
-| Scheduled reserve | Manual/backfill requests cannot increase usage beyond 10; scheduled runs may reach 12 |
 | History pacing | At least 65 seconds between request start times, including across runs |
 | Login | At most 5 attempts per rolling 10 minutes |
 | Device discovery | At most 12 attempts per rolling 24 hours |
@@ -42,24 +53,24 @@ cooldown expires. No endpoint is called to probe whether the account is blocked.
 The next permitted call happens only in a requested or scheduled run.
 
 At the normal two history calls per run, a daily scheduled run leaves room for
-four additional full manual/backfill runs inside that rolling window. This is
+five additional full runs inside that rolling window. This is
 a maximum, not a target. A one-day request costs the same history-call budget
-as a three-day request. `--skip-meter` uses one history call, when explicitly
-appropriate, and preflight reserves only that one.
+as a three-day request. Preflight checks capacity for both history calls;
+the meter request runs whenever a meter is present.
 
-All updated live entry points require the account ledger. The launcher fixes
-its host path to `/var/lib/upat-nzc/pv-api`, binds it to `/state`, and supplies
+All updated live entry points require the account ledger. The initial launcher
+used `/var/lib/upat-nzc/pv-api`; the installed launcher now selects the existing
+account ledger. It binds that directory to `/state` and supplies
 `PV_API_STATE_DIR=/state`. It uses a root-owned private Docker env file without
 shell-sourcing credentials, a digest-pinned image with `--pull=never`, and the
-existing runtime limits. Scheduled containers keep their original fixed name;
-manual/backfill containers have different names, so scheduled cleanup cannot
-remove a manual job. A file lock prevents simultaneous API sections across
+existing runtime limits. Container names identify individual executions;
+service cleanup removes only its invocation's container.
+A file lock prevents simultaneous API sections across
 processes. This lock is separate from the unchanged PostgreSQL advisory lock.
 
 An old image, a different ledger, or an external client cannot be accounted for
 by this local mechanism. All callers using the same Huawei account must use
-this launcher/ledger or be disabled. `scheduled` is a trusted operational mode,
-not an authorization boundary against a host administrator.
+this launcher/ledger or be disabled.
 
 ## Durable evidence
 
@@ -80,7 +91,8 @@ device IDs, or provider-supplied messages are stored in this ledger.
 
 State is not auto-created during live runs, auto-reset at midnight, or deleted
 when the temporary container exits. No reset/purge operation is provided.
-Policy/account mismatch or inaccessible/corrupt state fails closed. Preserve
+The obsolete reserve setting is ignored when reading an existing ledger.
+Other policy/account mismatches or inaccessible/corrupt state fail closed. Preserve
 the ledger directory through image upgrades and rollbacks. This small API
 ledger is not a telemetry backup; retain the existing PostgreSQL backups.
 
@@ -101,21 +113,16 @@ ledger. Each future production change requires its own scoped authorization.
 3. Review `/etc/upat-nzc/pv-ingestor.env` privately. The launcher uses Docker
    env-file syntax: unquoted literal `KEY=value`, no shell expansion. Existing
    systemd quoting must be adapted without changing credential values. Add the
-   verified `PV_INGESTOR_IMAGE=repository@sha256:...` and
-   `PV_INGESTOR_CODE_VERSION=...` (the exact Git revision; the launcher also
-   accepts `sha256:<source fingerprint>` for historical release records).
+   verified `PV_INGESTOR_IMAGE=repository@sha256:...`.
    Keep root ownership and mode 0600; do not copy
    the blank example over the existing credentials.
-4. Create only the dedicated API state directory, owned by UID/GID 65534 with
-   mode 0700. Install the launcher and reviewed service template. Example
-   installation commands, for the approved maintenance window:
-
-   ```bash
-   sudo install -d -o 65534 -g 65534 -m 0700 /var/lib/upat-nzc/pv-api
-   sudo install -m 0755 ops/pv-ingestor-run.sh /usr/local/sbin/upat-pv-ingestor
-   sudo install -m 0644 ops/systemd/upat-pv-ingestor.service /etc/systemd/system/upat-pv-ingestor.service
-   sudo systemd-analyze verify /etc/systemd/system/upat-pv-ingestor.service /etc/systemd/system/upat-pv-ingestor.timer
-   ```
+4. The initial activation created a dedicated API state directory, owned by
+   UID/GID 65534 with mode 0700, and installed the reviewed launcher and units.
+   The source files now live in `jobs/collect-pv/run.sh` and
+   `jobs/collect-pv/upat-collect-pv.service` / `.timer`. Future cutover must retain
+   the installed account ledger. Stop the old scheduler, wait for active runs,
+   and apply migrations `018`–`021` before starting the new collector. The initial
+   directory-creation procedure is not an upgrade step.
 
 5. Initialize once via `sudo /usr/local/sbin/upat-pv-ingestor initialize`.
    This launches the candidate image with **network disabled**, writes only the
@@ -135,18 +142,17 @@ ledger. Each future production change requires its own scoped authorization.
    ingestion persistence using bounded read-only checks. On a throttle, inspect
    the recorded endpoint, device type, HTTP/failCode and cooldown; do not retry.
 
-After activation, authorized manual commands must use the launcher:
+After the prepared `upat-collect-pv` cutover, manual commands use the launcher:
 
 ```bash
-# Consumes quota; telemetry preview only.
-sudo /usr/local/sbin/upat-pv-ingestor manual --no-save-to-db
-# Explicitly authorized historical ingestion with normal PostgreSQL upserts.
-sudo /usr/local/sbin/upat-pv-ingestor backfill --target-date=2026-09-01 --lookback-days=1 --save-to-db
+# Run the same service used by the timer; consumes quota and persists telemetry.
+sudo systemctl start upat-collect-pv.service
 # Purely local evidence, no network and no telemetry writes.
-sudo /usr/local/sbin/upat-pv-ingestor status
+sudo /usr/local/sbin/upat-collect-pv status
 ```
 
 If activation must be withdrawn, pause the PV timer and retain the ledger and
 database. Re-enabling an old collector would bypass these controls; do not
 automatically fall back to it. Inspect and approve any subsequent recovery
-separately. No database rollback is part of this change.
+separately. The old collector requires the removed columns; do not restart it
+against the schema after migrations `018`–`021`.

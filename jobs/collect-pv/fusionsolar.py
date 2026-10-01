@@ -7,11 +7,10 @@ import time
 import math
 from email.utils import parsedate_to_datetime
 from typing import Any
-from urllib.parse import urlparse
 
 import requests
 
-from api_control import ApiControl
+from api_limits import ApiControl
 
 
 CONNECT_TIMEOUT_SECONDS = 10
@@ -34,20 +33,6 @@ class FusionSolarTransportError(FusionSolarError):
     """The request could not complete at the HTTP transport layer."""
 
 
-def validate_base_url(base_url: str) -> str:
-    normalized = base_url.strip().rstrip("/")
-    parsed = urlparse(normalized)
-    if (
-        parsed.scheme != "https"
-        or not parsed.netloc
-        or not parsed.path.endswith("/thirdData")
-    ):
-        raise ValueError(
-            "FUSIONSOLAR_BASE_URL must be an HTTPS FusionSolar /thirdData endpoint"
-        )
-    return normalized
-
-
 def _response_json(response: requests.Response, endpoint: str) -> dict[str, Any]:
     try:
         body = response.json()
@@ -61,12 +46,9 @@ def _response_json(response: requests.Response, endpoint: str) -> dict[str, Any]
 
 
 def _extract_token(response: requests.Response) -> str | None:
-    direct = response.headers.get("XSRF-TOKEN")
-    if direct:
-        return direct
-    cookie = response.cookies.get("XSRF-TOKEN")
-    if cookie:
-        return cookie
+    token = response.headers.get("XSRF-TOKEN") or response.cookies.get("XSRF-TOKEN")
+    if token:
+        return token
     match = re.search(
         r"(?:^|[,;]\s*)XSRF-TOKEN=([^;,]+)",
         response.headers.get("set-cookie", ""),
@@ -101,7 +83,7 @@ class FusionSolarClient:
     ) -> None:
         if not username or not system_code:
             raise ValueError("FusionSolar username and system code are required")
-        self.base_url = validate_base_url(base_url)
+        self.base_url = base_url.strip().rstrip("/")
         self.username = username
         self.system_code = system_code
         self.session = session or requests.Session()

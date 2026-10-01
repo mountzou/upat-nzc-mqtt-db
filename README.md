@@ -11,6 +11,7 @@ This project is organized into service directories, each implementing a core par
 - `/ttn-ingestor`: MQTT ingestor for UPAT environmental devices
 - `/shelly-ingestor`: MQTT ingestor for Shelly energy devices
 - `/jobs/aggregate-energy`: one-shot Shelly hourly energy aggregation job
+- `/jobs/collect-pv`: one-shot FusionSolar PV telemetry collection job
 - `/simulation-recorder`: one-shot daily simulation recorder
 - `/jobs/forecast-pv`: one-shot day-ahead PV forecasting job
 - `/jobs/forecast-weather`: one-shot Open-Meteo hourly weather forecast collector
@@ -188,27 +189,24 @@ docker compose exec -T postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB
 docker compose exec -T postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -f /docker-entrypoint-initdb.d/migrations/013_weather_open_meteo_column_names.sql'
 ```
 
-## Persistence-free PV ingestion preview
+## PV collection job
 
-The `pv-ingestor` service is available in both Compose files only through the
-explicit `pv-ingestor-preview` profile. It performs sequential FusionSolar read
-calls, validates and post-processes the returned device data, and stops before
-persistence. It has no PostgreSQL or Firestore configuration, dependency,
-volume, or exposed port.
+The [`collect-pv` job](jobs/collect-pv/README.md) performs bounded FusionSolar
+collection and stores actual PV telemetry. Its source, launcher and prepared
+`upat-collect-pv.service` / `.timer` definitions live in `jobs/collect-pv`.
+The local migration is complete; the VPS still uses `upat-pv-ingestor.timer`
+daily at `01:15 Europe/Athens` until a separately reviewed cutover.
 
-On the production host, build and execute one completed Athens-local day
-manually with:
+Run the offline tests for local validation:
 
 ```bash
-docker compose -f docker-compose.prod.yml --profile pv-ingestor-preview build pv-ingestor
-docker compose -f docker-compose.prod.yml --profile pv-ingestor-preview run --rm --no-deps pv-ingestor --live --lookback-days 1
+cd jobs/collect-pv
+python -m unittest discover -p 'test_*.py'
 ```
 
-This preview remains intentionally absent from the production cron entries.
-The separate persistent production path uses the reviewed
-`upat-pv-ingestor.service` and `upat-pv-ingestor.timer` units under
-`ops/systemd/`; see `ops/README.md`. Do not enable that timer while any legacy
-FusionSolar scheduler is active.
+Live runs require the existing shared account ledger and the approved VPS
+launcher. Preserve that ledger during the future rename; never initialize a
+replacement. See [the API control policy](ops/PV_API_CONTROL.md).
 
 ## Production day-ahead schedule
 

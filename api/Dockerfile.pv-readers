@@ -1,0 +1,6 @@
+ARG BASE_IMAGE=nzc-mqtt-api:runtime-81ba07c4
+FROM ${BASE_IMAGE}
+ARG SOURCE_REVISION
+LABEL com.schoolheroz.pv-readers-revision=${SOURCE_REVISION}
+COPY main.py /app/main.py
+COPY monitoring/services/energy_production/energy.py /app/monitoring/services/energy_production/energy.py

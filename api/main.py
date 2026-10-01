@@ -46,7 +46,6 @@ AUTH_VERIFY_RATE_LIMITER = AuthVerifyRateLimiter()
 WEATHER_TIMEZONE = os.getenv("OPEN_METEO_TIMEZONE", "Europe/Athens")
 WEATHER_LOCAL_TZ = ZoneInfo(WEATHER_TIMEZONE)
 PV_ACTUALS_MAX_DAYS = 90
-PV_ACTUALS_SITE_KEY = "upat-pv"
 PV_ACTUALS_TIMEZONE = "Europe/Athens"
 PV_ACTUALS_LOCAL_TZ = ZoneInfo(PV_ACTUALS_TIMEZONE)
 
@@ -721,14 +720,12 @@ def get_pv_readings(
                         r.power_factor,
                         r.quality_status
                     FROM pv_plant_readings_5m r
-                    JOIN pv_plants p ON p.id = r.plant_id
-                    WHERE p.site_key = %s
-                      AND r.observed_at >= %s
+                    WHERE r.observed_at >= %s
                       AND r.observed_at < %s
                       AND r.quality_status <> 'invalid'
                     ORDER BY r.observed_at ASC;
                     """,
-                    (PV_ACTUALS_SITE_KEY, range_start_utc, range_end_utc),
+                    (range_start_utc, range_end_utc),
                 )
                 rows = cur.fetchall()
     except Exception:
@@ -751,7 +748,6 @@ def get_pv_readings(
     ]
     return {
         "source_id": "postgres-pv-plant-readings",
-        "site_key": PV_ACTUALS_SITE_KEY,
         "timezone": PV_ACTUALS_TIMEZONE,
         "start_date": start_date.isoformat(),
         "end_date": end_date.isoformat(),
@@ -775,12 +771,9 @@ def get_pv_readings_bounds():
                         MIN(r.local_date) AS min_date,
                         MAX(r.local_date) AS max_date
                     FROM pv_plant_readings_5m r
-                    JOIN pv_plants p ON p.id = r.plant_id
-                    WHERE p.site_key = %s
-                      AND r.active_power_kw IS NOT NULL
+                    WHERE r.active_power_kw IS NOT NULL
                       AND r.quality_status <> 'invalid';
                     """,
-                    (PV_ACTUALS_SITE_KEY,),
                 )
                 row = cur.fetchone()
     except Exception:
@@ -793,7 +786,6 @@ def get_pv_readings_bounds():
     max_date = row["max_date"] if row else None
     return {
         "source_id": "postgres-pv-plant-readings",
-        "site_key": PV_ACTUALS_SITE_KEY,
         "timezone": PV_ACTUALS_TIMEZONE,
         "min_date": min_date.isoformat() if min_date else None,
         "max_date": max_date.isoformat() if max_date else None,
