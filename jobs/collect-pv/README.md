@@ -77,18 +77,17 @@ statement rolls back the whole batch.
 
 ## Production schedule
 
-The local source migration to `jobs/collect-pv` is complete. The launcher
+The VPS cutover to `jobs/collect-pv` completed on 2026-10-01. The launcher
 `run.sh`, `upat-collect-pv.service`, `upat-collect-pv.timer` and private env
-example are versioned here. The prepared timer retains daily
+example are versioned here. The timer retains daily
 `01:15 Europe/Athens`, `Persistent=true` and the existing runtime limits.
 
-The VPS still uses `upat-pv-ingestor.service` / `.timer` and
-`/usr/local/sbin/upat-pv-ingestor`. Production cutover is pending. The new
-launcher retains `/etc/upat-nzc/pv-ingestor.env` and `PV_INGESTOR_IMAGE`
+The VPS uses `upat-collect-pv.service` / `.timer` and
+`/usr/local/sbin/upat-collect-pv`. The old timer is disabled. The launcher retains `/etc/upat-nzc/pv-ingestor.env` and `PV_INGESTOR_IMAGE`
 for configuration compatibility. Migrations `018`–`021` remove
 `trigger_kind`, `site_key`, `source_kind` and `code_version` respectively.
 
-After cutover, trigger the same job manually with
+Trigger the same job manually with
 `sudo systemctl start upat-collect-pv.service`. Both the timer and manual start
 use `upat-collect-pv run`, which persists to PostgreSQL. Missing data within
 the three-date window can be recovered by the next successful run.
@@ -96,7 +95,7 @@ the three-date window can be recovered by the next successful run.
 The launcher uses the existing account-specific ledger. Preserve that directory,
 its request history and cooldowns; never initialize a replacement. The existing
 ledger is compatible.
-Update the EnergyPlus PV adapter first, then the API readers. Stop the old
-scheduler and wait for active runs before applying migrations `018`–`021`
-and enabling the new timer. See [the API control policy](../../ops/PV_API_CONTROL.md)
+The EnergyPlus PV adapter and API readers were updated before migrations
+`018`–`021`. Stored production PV reads and data preservation were verified;
+the first new scheduled run is due on 2026-10-02 at 01:15 Europe/Athens. See [the API control policy](../../ops/PV_API_CONTROL.md)
 for validation, monitoring and rollback boundaries.

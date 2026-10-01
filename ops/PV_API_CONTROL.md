@@ -1,10 +1,10 @@
 # PV API accounting and shared request control
 
-The collector source, launcher and prepared `upat-collect-pv` units now live in
-[jobs/collect-pv](../jobs/collect-pv/README.md). This is a local migration; the VPS
-still uses `upat-pv-ingestor` and its existing private env file and account ledger.
+The collector source, launcher and `upat-collect-pv` units live in
+[jobs/collect-pv](../jobs/collect-pv/README.md). The VPS cutover completed on
+2026-10-01, preserving its existing private env file and account ledger.
 The installation record below describes the historical activation.
-The prepared job has one `run` command for timer and manual execution. It fetches
+The job has one `run` command for timer and manual execution. It fetches
 the last three completed dates and persists the collected data.
 All runs share the 12-call history budget, with no scheduled reserve or trigger
 field. Migration `018_pv_unified_collection.sql` removes the PostgreSQL field;
@@ -142,7 +142,7 @@ ledger. Each future production change requires its own scoped authorization.
    ingestion persistence using bounded read-only checks. On a throttle, inspect
    the recorded endpoint, device type, HTTP/failCode and cooldown; do not retry.
 
-After the prepared `upat-collect-pv` cutover, manual commands use the launcher:
+Manual commands use the launcher:
 
 ```bash
 # Run the same service used by the timer; consumes quota and persists telemetry.

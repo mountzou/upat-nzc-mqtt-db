@@ -194,8 +194,8 @@ docker compose exec -T postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB
 The [`collect-pv` job](jobs/collect-pv/README.md) performs bounded FusionSolar
 collection and stores actual PV telemetry. Its source, launcher and prepared
 `upat-collect-pv.service` / `.timer` definitions live in `jobs/collect-pv`.
-The local migration is complete; the VPS still uses `upat-pv-ingestor.timer`
-daily at `01:15 Europe/Athens` until a separately reviewed cutover.
+The VPS uses `upat-collect-pv.timer` daily at `01:15 Europe/Athens` since
+2026-10-01. The first scheduled execution under the new name is pending.
 
 Run the offline tests for local validation:
 
@@ -205,8 +205,7 @@ python -m unittest discover -p 'test_*.py'
 ```
 
 Live runs require the existing shared account ledger and the approved VPS
-launcher. Preserve that ledger during the future rename; never initialize a
-replacement. See [the API control policy](ops/PV_API_CONTROL.md).
+launcher. Preserve that ledger through upgrades; never initialize a replacement. See [the API control policy](ops/PV_API_CONTROL.md).
 
 ## Production day-ahead schedule
 
