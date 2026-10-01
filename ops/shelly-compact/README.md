@@ -4,7 +4,7 @@ Verified on 2026-09-29: the production shelly_ingestor writes compact-only
 (SHELLY_MEASUREMENTS_WRITE_MODE=compact), while iot_api reads
 shelly_compact.readings with one-decimal averaging. The active Python files
 api/main.py, api/readers/measurements.py, api/readers/shelly_storage.py,
-shelly-ingestor/main.py and shelly-ingestor/measurements.py match the running
+mqtt/shelly-devices/main.py and mqtt/shelly-devices/measurements.py match the running
 images byte-for-byte by SHA-256. The existing shelly_compact.series and
 measurements tables and readings view were observed using a read-only catalog
 query. The old public.shelly_measurements table still exists.
