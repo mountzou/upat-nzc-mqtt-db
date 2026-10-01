@@ -141,33 +141,6 @@ services:
       SIMULATION_POLL_TIMEOUT_SECONDS: ${SIMULATION_POLL_TIMEOUT_SECONDS:-1800}
       SIMULATION_BETWEEN_SCHOOLS_DELAY_SECONDS: ${SIMULATION_BETWEEN_SCHOOLS_DELAY_SECONDS:-15}
 
-  # Explicit, persistence-free production-host preview. It performs live read
-  # calls only when the profile is selected and has no database integration.
-  pv-ingestor:
-    build:
-      context: ./pv-ingestor
-    profiles:
-      - pv-ingestor-preview
-    logging: *json-logging
-    init: true
-    restart: "no"
-    command: ["--live"]
-    environment:
-      FUSIONSOLAR_BASE_URL: ${FUSIONSOLAR_BASE_URL:-}
-      FUSIONSOLAR_USERNAME: ${FUSIONSOLAR_USERNAME:-}
-      FUSIONSOLAR_SYSTEM_CODE: ${FUSIONSOLAR_SYSTEM_CODE:-}
-      FUSIONSOLAR_PLANT_CODE: ${FUSIONSOLAR_PLANT_CODE:-}
-      FUSIONSOLAR_LOOKBACK_DAYS: ${FUSIONSOLAR_LOOKBACK_DAYS:-3}
-      FUSIONSOLAR_INCLUDE_METER: ${FUSIONSOLAR_INCLUDE_METER:-true}
-      PYTHONDONTWRITEBYTECODE: "1"
-    read_only: true
-    tmpfs:
-      - /tmp:rw,noexec,nosuid,size=32m
-    cap_drop:
-      - ALL
-    security_opt:
-      - no-new-privileges:true
-
   forecast-pv:
     build:
       context: ./jobs/forecast-pv

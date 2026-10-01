@@ -123,14 +123,14 @@ def query_days(start: date, end: date, interval: Interval, kind: Kind) -> dict[d
     requested = date_range(start, end)
     first, stop = midnight(start), midnight(end + timedelta(days=1))
     step = 300 if kind == 'history' else 3600
-    params: list = [start, end] if kind == 'forecast' else ['upat-pv', first, stop]
+    params: list = [start, end] if kind == 'forecast' else [first, stop]
     if kind == 'history':
         source = """
             SELECT r.observed_at AS ts, r.active_power_kw::double precision AS power,
                    r.quality_status IN ('complete','night') AS complete,
                    NULL::integer AS run_id, NULL::timestamptz AS generated_at
-            FROM pv_plant_readings_5m r JOIN pv_plants p ON p.id = r.plant_id
-            WHERE p.site_key = %s AND r.observed_at >= %s AND r.observed_at < %s
+            FROM pv_plant_readings_5m r
+            WHERE r.observed_at >= %s AND r.observed_at < %s
               AND r.quality_status <> 'invalid' AND r.active_power_kw IS NOT NULL
         """
     else:

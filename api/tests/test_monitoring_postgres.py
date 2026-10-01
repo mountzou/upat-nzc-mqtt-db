@@ -28,8 +28,8 @@ def database(monkeypatch):
         with conn.cursor() as cur:
             cur.execute('''DROP SCHEMA IF EXISTS monitoring_fixture CASCADE; CREATE SCHEMA monitoring_fixture;
                 SET search_path TO monitoring_fixture;
-                CREATE TABLE pv_plants(id INTEGER PRIMARY KEY,site_key TEXT);
-                INSERT INTO pv_plants VALUES (1,'upat-pv');
+                CREATE TABLE pv_plants(id INTEGER PRIMARY KEY);
+                INSERT INTO pv_plants VALUES (1);
                 CREATE TABLE pv_plant_readings_5m(plant_id INTEGER, observed_at TIMESTAMPTZ,local_date DATE,
                   active_power_kw DOUBLE PRECISION,quality_status TEXT,PRIMARY KEY(plant_id,observed_at));
                 CREATE TABLE app_users(username TEXT PRIMARY KEY,password_hash TEXT,role TEXT,school_id TEXT,

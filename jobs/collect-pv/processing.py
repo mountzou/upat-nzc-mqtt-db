@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import math
 from collections import Counter, defaultdict
 from datetime import date, datetime, time, timedelta, timezone
@@ -89,9 +88,9 @@ def _successful_payload(payload: dict[str, Any], label: str) -> list[dict[str, A
 
 
 def _device_id(value: Any, label: str) -> str:
-    if value is None or isinstance(value, bool):
+    if value is None or isinstance(value, bool) or not str(value).strip():
         raise PipelineValidationError(f"{label} is missing a device ID")
-    return str(value)
+    return str(value).strip()
 
 
 def normalize_devices(device_list_payload: dict[str, Any]) -> list[dict[str, Any]]:
@@ -102,15 +101,11 @@ def normalize_devices(device_list_payload: dict[str, Any]) -> list[dict[str, Any
             raise PipelineValidationError("getDevList returned a non-object device")
         provider_id = _device_id(raw.get("id"), "getDevList device")
         if provider_id in seen_ids:
-            raise PipelineValidationError(
-                f"getDevList returned duplicate device ID {provider_id}"
-            )
+            raise PipelineValidationError(f"getDevList returned duplicate device ID {provider_id}")
         seen_ids.add(provider_id)
         device_type = raw.get("devTypeId")
         if isinstance(device_type, bool) or not isinstance(device_type, int):
-            raise PipelineValidationError(
-                f"device {provider_id} has invalid devTypeId={device_type!r}"
-            )
+            raise PipelineValidationError(f"device {provider_id} has invalid devTypeId={device_type!r}")
         devices.append(
             {
                 "provider_device_id": provider_id,
@@ -122,9 +117,9 @@ def normalize_devices(device_list_payload: dict[str, Any]) -> list[dict[str, Any
                 "software_version": raw.get("softwareVersion"),
             }
         )
-    if not devices:
-        raise PipelineValidationError("getDevList returned no devices")
-    return sorted(devices, key=lambda item: item["provider_device_id"])
+    if not any(device["device_role"] == "inverter" for device in devices):
+        raise PipelineValidationError("getDevList returned no inverters")
+    return devices
 
 
 def device_ids_by_type(devices: list[dict[str, Any]]) -> dict[int, list[str]]:
@@ -161,7 +156,6 @@ def normalize_history(
     history_by_device_type: dict[int, dict[str, Any]],
     devices: list[dict[str, Any]],
     request_window: dict[str, Any],
-    source_kind: str,
 ) -> tuple[list[dict[str, Any]], list[str]]:
     device_by_id = {device["provider_device_id"]: device for device in devices}
     expected_by_type = device_ids_by_type(devices)
@@ -175,8 +169,6 @@ def normalize_history(
         if payload is None:
             if device_type == INVERTER_DEVICE_TYPE and expected_ids:
                 raise PipelineValidationError("inverter history payload is missing")
-            if device_type == METER_DEVICE_TYPE and expected_ids:
-                warnings.append("grid meter history was not requested")
             continue
 
         rows = _successful_payload(
@@ -246,7 +238,6 @@ def normalize_history(
                     **typed,
                     "extra_kpis": extra,
                     "quality_flags": quality_flags,
-                    "source_kind": source_kind,
                 }
             )
 
@@ -281,15 +272,12 @@ def aggregate_plant_readings(
     *,
     device_readings: list[dict[str, Any]],
     devices: list[dict[str, Any]],
-    source_kind: str,
 ) -> list[dict[str, Any]]:
     inverter_ids = {
         device["provider_device_id"]
         for device in devices
         if device["device_role"] == "inverter"
     }
-    if not inverter_ids:
-        raise PipelineValidationError("no inverter devices are available for aggregation")
     by_timestamp: dict[int, list[dict[str, Any]]] = defaultdict(list)
     for row in device_readings:
         if row["provider_device_id"] in inverter_ids:
@@ -339,7 +327,6 @@ def aggregate_plant_readings(
                 "missing_device_ids": missing_ids,
                 "quality_status": "complete" if not quality_flags else "partial",
                 "quality_flags": quality_flags,
-                "source_kind": f"{source_kind}_device_derived",
             }
         )
     if not plant_rows:
@@ -351,59 +338,40 @@ def build_ingestion_batch(
     *,
     plant_code: str,
     request_window: dict[str, Any],
-    device_list_payload: dict[str, Any],
+    devices: list[dict[str, Any]],
     history_by_device_type: dict[int, dict[str, Any]],
-    source_kind: str,
     api_calls: list[dict[str, Any]] | None = None,
     collected_at: datetime | None = None,
 ) -> dict[str, Any]:
-    if source_kind not in {"fusion_live", "fixture"}:
-        raise ValueError("source_kind must be fusion_live or fixture")
-    devices = normalize_devices(device_list_payload)
+    if not plant_code.strip():
+        raise PipelineValidationError("plant code is required")
     device_readings, warnings = normalize_history(
         history_by_device_type=history_by_device_type,
         devices=devices,
         request_window=request_window,
-        source_kind=source_kind,
     )
     plant_readings = aggregate_plant_readings(
         device_readings=device_readings,
         devices=devices,
-        source_kind=source_kind,
     )
-    per_device_counts = Counter(
-        row["provider_device_id"] for row in device_readings
+    partial_count = sum(
+        row["quality_status"] == "partial" for row in plant_readings
     )
-    complete_count = sum(
-        row["quality_status"] == "complete" for row in plant_readings
-    )
-    partial_count = len(plant_readings) - complete_count
     if partial_count:
         warnings.append(
             f"{partial_count} plant timestamp(s) have partial inverter coverage"
         )
-    energy_estimate = sum(
-        row["active_power_kw"] * (5 / 60)
-        for row in plant_readings
-        if row["active_power_kw"] is not None
-    )
     collected = collected_at or datetime.now(timezone.utc)
     if collected.tzinfo is None or collected.utcoffset() is None:
         raise PipelineValidationError("Collection timestamp must include a timezone offset")
-    active_power_values = [
-        row["active_power_kw"]
-        for row in plant_readings
-        if row["active_power_kw"] is not None
-    ]
-    batch = {
+    return {
         "schema_version": "pv-ingestion-batch-v1",
         "run_key": (
-            f"{source_kind}:{plant_code}:{request_window['start_date']}:"
+            f"{plant_code}:{request_window['start_date']}:"
             f"{request_window['end_date']}"
         ),
         "collected_at": collected.astimezone(timezone.utc).isoformat(),
         "source": "huawei_fusionsolar",
-        "source_kind": source_kind,
         "plant": {
             "provider_plant_dn": plant_code,
             "timezone": PLANT_TIMEZONE_NAME,
@@ -418,13 +386,6 @@ def build_ingestion_batch(
             "warnings": warnings,
             "device_reading_count": len(device_readings),
             "plant_reading_count": len(plant_readings),
-            "complete_plant_timestamp_count": complete_count,
-            "partial_plant_timestamp_count": partial_count,
-            "per_device_reading_counts": dict(sorted(per_device_counts.items())),
-            "observed_sample_energy_estimate_kwh": energy_estimate,
-            "peak_active_power_kw": (
-                max(active_power_values) if active_power_values else None
-            ),
         },
         "persistence": {
             "status": "not_attempted",
@@ -432,8 +393,6 @@ def build_ingestion_batch(
             "rows_written": 0,
         },
     }
-    json.dumps(batch)
-    return batch
 
 
 def batch_summary(batch: dict[str, Any]) -> dict[str, Any]:

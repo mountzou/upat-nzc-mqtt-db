@@ -18,7 +18,6 @@ DAY = 86400
 HISTORY = "getDevHistoryKpi"
 POLICY = {
     "history_limit_24h": 12,
-    "scheduled_reserve": 2,
     "history_spacing_seconds": 65,
     "login_limit_10m": 5,
     "device_list_limit_24h": 12,
@@ -68,15 +67,12 @@ def initialize(state_dir, username, *, now=None):
 
 
 class ApiControl:
-    def __init__(self, state_dir, username, trigger_kind, *, clock=time.time,
+    def __init__(self, state_dir, username, *, clock=time.time,
                  sleep=time.sleep, event_sink=emit):
         if not state_dir:
             raise ApiControlError("PV_API_STATE_DIR is required for every live run")
-        if trigger_kind not in {"scheduled", "manual", "backfill", "migration"}:
-            raise ApiControlError("invalid trigger kind")
         self.root = Path(state_dir)
         self.key = account_key(username)
-        self.trigger = trigger_kind
         self.clock, self.sleep, self.emit = clock, sleep, event_sink
         self.run_id = uuid.uuid4().hex
         self.conn = self.lock = None
@@ -95,7 +91,9 @@ class ApiControl:
             ).fetchone()
             if row is None or row[0] != 1 or row[1] != self.key:
                 raise ApiControlError("API ledger version/account mismatch")
-            if json.loads(row[2]) != POLICY:
+            policy = json.loads(row[2])
+            policy.pop("scheduled_reserve", None)  # Read existing ledgers without resetting them.
+            if policy != POLICY:
                 raise ApiControlError("API ledger policy differs from this image")
             # A killed process may have sent a request but never saved its outcome.
             pending = self.conn.execute(
@@ -153,10 +151,8 @@ class ApiControl:
         if planned_history_calls not in (1, 2):
             self._deny("invalid planned history call count")
         limit = POLICY["history_limit_24h"]
-        if self.trigger != "scheduled":
-            limit -= POLICY["scheduled_reserve"]
         if self._count(HISTORY, DAY) + planned_history_calls > limit:
-            self._deny("rolling 24h history budget exhausted (scheduled reserve protected)")
+            self._deny("rolling 24h history budget exhausted")
 
     def preflight(self, planned_history_calls):
         """Check budget for the whole run before spending even a login request."""
@@ -190,7 +186,7 @@ class ApiControl:
             self._deny("rolling 24h device-list budget exhausted")
         now = self.clock()
         record = {"event": "pv_api_attempt_started", "attempt_id": uuid.uuid4().hex,
-                  "run_id": self.run_id, "trigger_kind": self.trigger, "endpoint": endpoint,
+                  "run_id": self.run_id, "endpoint": endpoint,
                   "started_at": datetime.fromtimestamp(now, timezone.utc).isoformat(),
                   "automatic_retries": 0}
         if endpoint == HISTORY:

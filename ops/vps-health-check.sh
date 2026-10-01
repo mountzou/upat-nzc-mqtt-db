@@ -4,7 +4,7 @@ set -u -o pipefail
 ROOT_FS=${ROOT_FS:-/}; DB_MOUNT=${DB_MOUNT:-/mnt/HC_Volume_106884142}; DB_PATH=${DB_PATH:-/mnt/HC_Volume_106884142/pgdata}
 DB_CONTAINER=${DB_CONTAINER:-iot_postgres}; DB_NAME=${POSTGRES_DB:-iot_db}; DB_USER=${POSTGRES_USER:-postgres}
 EXPECTED_CONTAINERS=(iot_api iot_caddy iot_postgres iot_mosquitto shelly_ingestor ttn_ingestor)
-EXPECTED_TIMERS=(upat-aggregate-energy.timer upat-pv-ingestor.timer upat-journal-vacuum.timer upat-iaq-notifications-hourly.timer upat-iaq-notifications-daily.timer)
+EXPECTED_TIMERS=(upat-aggregate-energy.timer upat-collect-pv.timer upat-journal-vacuum.timer upat-iaq-notifications-hourly.timer upat-iaq-notifications-daily.timer)
 # Excluded from expected-device freshness checks after the 2026-09-20
 # read-only audit: these catalog entries are retired/non-operational and have
 # no observed measurements in the audited history window.

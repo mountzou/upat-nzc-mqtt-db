@@ -5,7 +5,7 @@ Description=Collect UPAT FusionSolar telemetry daily
 OnCalendar=*-*-* 01:15:00 Europe/Athens
 Persistent=true
 AccuracySec=1m
-Unit=upat-pv-ingestor.service
+Unit=upat-collect-pv.service
 
 [Install]
 WantedBy=timers.target
