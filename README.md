@@ -90,7 +90,7 @@ completed successfully and its 36 refreshed hourly rows were verified. The
 oneshot service selects the pinned release image, preserves the existing flock and PostgreSQL advisory lock, and runs only the `aggregate-energy`
 Compose service. The `jobs` profile excludes it from an ordinary `up`.
 Use `systemctl start upat-aggregate-energy.service` for an intentional manual
-write; `ops/run-energy-aggregator.sh` forwards to that service.
+write.
 
 See [the aggregator operations guide](ops/ENERGY_AGGREGATOR.md) for validation
 and rollback.

@@ -38,14 +38,13 @@ instructions to recreate the running containers.
 
 ## Historical migration material
 
-`RUNBOOK.md`, `DEPLOYMENT-20260916.md`, `remove-old-copy-20260916.py` and the
-Shelly migration documentation
+`RUNBOOK.md`, `DEPLOYMENT-20260916.md` and the Shelly migration documentation
 record the completed September migration. The staged Shelly controllers,
 migration/recovery helpers and Compose snapshots have been retired from the
 repository; their source remains in Git history. The recorded commands and
-baseline hashes are historical evidence. The former
-`ops/verify-production-compose.py` checks the pre-cutover contract; use
-`check-compose.py` for the active systemd-owned database architecture.
+baseline hashes are historical evidence. Use
+[check-compose.py](check-compose.py) for the active systemd-owned database
+architecture.
 
 The current production Compose also pins a simulation-recorder image built for
 its September 28 release. The matching recorder source is being reconciled in

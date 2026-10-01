@@ -9,8 +9,8 @@ with exit 0; all 36 refreshed hourly rows matched their counter inputs.
 The oneshot service preserves `/var/lock/energy-aggregator.lock` and the worker's
 PostgreSQL advisory lock. Its versioned release overlay selects only the image
 pinned in `/etc/upat-nzc/aggregate-energy.env`; credentials come from the existing
-protected root `.env`. `ops/run-energy-aggregator.sh` forwards manual invocations
-to systemd and accepts no arguments.
+protected root `.env`. Use `systemctl start upat-aggregate-energy.service` for
+an intentional manual run.
 
 ## Configuration
 

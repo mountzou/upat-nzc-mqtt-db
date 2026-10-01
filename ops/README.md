@@ -4,7 +4,7 @@ This directory records the log-retention configuration used by the production
 VPS. The files are deployment inputs; system logs, logrotate state, backups,
 and journal data do not belong in the repository.
 
-It also records the isolated systemd schedule for the production PV ingestor.
+It also records the isolated systemd schedule for the production PV collector.
 The tracked files never contain live FusionSolar or PostgreSQL credentials.
 
 ## Policy
@@ -12,15 +12,16 @@ The tracked files never contain live FusionSolar or PostgreSQL credentials.
 - The system journal is rotated and vacuumed daily at `04:30 Europe/Athens`.
   Entries older than 14 days are removed, and retained journal files are capped
   at 500 MB.
-- The seven application and maintenance logs under `/var/log` are checked
+- The four application and maintenance logs under `/var/log` are checked
   daily, retained for at most 14 rotations/14 days, rotated early at 50 MB per
   file, and compressed after one rotation.
 - `/var/log/btmp` is checked daily by the standard logrotate timer, rotated
   weekly or early at 50 MB, and limited to two rotated files/14 days.
 
-The application jobs are short-lived cron commands that reopen their log file
-on each run. The rule therefore uses rename plus `create`, with
-`delaycompress`, instead of `copytruncate`.
+Jobs writing these file logs reopen them on each run. The rule therefore uses
+rename plus `create`, with `delaycompress`, instead of `copytruncate`.
+The `forecast-weather`, `forecast-pv` and `aggregate-energy` jobs write to the
+systemd journal.
 
 ## Install
 
@@ -115,15 +116,13 @@ then separately authorized rollout. Installing only the unit or reusing the
 old image will not provide the new protections. No PostgreSQL migration or
 database restart is needed for these controls.
 
-## Production Compose consolidation
+## Production Compose ownership
 
-See [PRODUCTION_COMPOSE.md](PRODUCTION_COMPOSE.md) for the verified replacement
-of the historical deployment overlays, the read-only equivalence checker, and
-the verified API-only activation and rollback boundary. Other services were
-not restarted.
+See [the current production ownership guide](postgres-volume/COMPOSE-OWNERSHIP.md)
+for PostgreSQL's systemd ownership, the canonical Compose configuration and the
+read-only `ops/postgres-volume/check-compose.py` validator.
 
 ## Scheduled energy aggregation
 
-[ENERGY_AGGREGATOR.md](ENERGY_AGGREGATOR.md) records the stable cron launcher,
+[ENERGY_AGGREGATOR.md](ENERGY_AGGREGATOR.md) records the hourly systemd timer,
 pinned production image, fixed counter cutover and installation rollback.
-The old migration wrapper is no longer an active scheduler input.
