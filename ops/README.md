@@ -98,8 +98,8 @@ rotated logs that have already expired.
 
 The PV collector is a systemd oneshot service with a daily timer at
 `01:15 Europe/Athens`. Its source, shared launcher and prepared systemd units
-now live in [jobs/collect-pv](../jobs/collect-pv/README.md). The VPS still uses
-`upat-pv-ingestor.service` / `.timer` until the production rename is reviewed.
+live in [jobs/collect-pv](../jobs/collect-pv/README.md). The VPS uses
+`upat-collect-pv.service` / `.timer` since 2026-10-01.
 The launcher uses a separately validated image digest and a
 persistent API ledger for scheduled and manual requests. It retains
 the three completed Athens dates, 20-minute timeout, and no automatic restart.

@@ -79,7 +79,7 @@ services:
       TTN_TOPIC: ${TTN_TOPIC}
 
   api:
-    image: sha256:81ba07c4a526cdd8dbc3b3c0c79457633efbc91cd869be9a28af4befb9796429
+    image: sha256:e8fb2d14075b5a0d583bf11f22e8b6c038ecfbdff5ecd8046315e491d5ca2041
     build:
       context: ./api
     container_name: iot_api
