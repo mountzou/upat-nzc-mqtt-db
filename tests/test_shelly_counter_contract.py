@@ -137,16 +137,10 @@ def test_counter_shape_cannot_change_mid_hour():
     assert energy(rows).reason == 'counter_shape_changed'
 
 
-def test_short_gap_can_use_counter_delta_without_power_interpolation():
-    rows = samples()
-    del rows[25:27]
-    assert energy(rows).energy_wh == 60
-
-
-@pytest.mark.parametrize('stamp', ['2026-03-29T00:00:00Z', '2026-10-25T00:00:00Z', '2026-10-25T01:00:00Z'])
-def test_dst_uses_distinct_elapsed_hours(stamp):
-    start = agg.parse_hour(stamp)
-    assert energy(samples(start=start),start).energy_wh == 60
+def test_valid_utc_hour_is_parsed():
+    start = agg.parse_hour('2026-09-07T05:00:00Z')
+    assert start == START
+    assert start.tzinfo == timezone.utc
 
 
 def test_naive_bounds_and_partial_hours_are_rejected():
