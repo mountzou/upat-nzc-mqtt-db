@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-source = Path(__file__).resolve().parents[1] / "ttn-ingestor/main.py"
+source = Path(__file__).resolve().parents[1] / "mqtt/upat-devices/main.py"
 tree = ast.parse(source.read_text())
 validator = next(node for node in tree.body if isinstance(node, ast.FunctionDef)
                  and node.name == "validated_event_time")

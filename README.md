@@ -8,14 +8,14 @@ This project is organized into service directories, each implementing a core par
 
 - `/db`: PostgreSQL schema and initialization scripts
 - `/api`: FastAPI retrieval service
-- `/ttn-ingestor`: MQTT ingestor for UPAT environmental devices
-- `/shelly-ingestor`: MQTT ingestor for Shelly energy devices
+- `/mqtt/upat-devices`: MQTT ingestor for UPAT environmental devices
+- `/mqtt/shelly-devices`: MQTT ingestor for Shelly energy devices
 - `/jobs/aggregate-energy`: one-shot Shelly hourly energy aggregation job
 - `/jobs/collect-pv`: one-shot FusionSolar PV telemetry collection job
 - `/simulation-recorder`: one-shot daily simulation recorder
 - `/jobs/forecast-pv`: one-shot day-ahead PV forecasting job
 - `/jobs/forecast-weather`: one-shot Open-Meteo hourly weather forecast collector
-- `/mosquitto`: Mosquitto broker configuration for Shelly message ingestion
+- `/mqtt/mosquitto`: Mosquitto broker configuration for Shelly message ingestion
 - `/caddy`: production HTTPS reverse-proxy configuration
 
 ## Project setup

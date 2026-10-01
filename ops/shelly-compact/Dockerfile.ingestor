@@ -3,6 +3,6 @@ FROM ${RUNTIME_IMAGE}
 ARG SOURCE_COMMIT
 LABEL org.opencontainers.image.revision=${SOURCE_COMMIT}
 WORKDIR /app
-COPY shelly-ingestor/main.py shelly-ingestor/measurements.py ./
+COPY mqtt/shelly-devices/main.py mqtt/shelly-devices/measurements.py ./
 COPY ops/shelly-compact/migrate.py /release/ops/shelly-compact/migrate.py
 COPY db/migrations/017_shelly_compact_prepare.sql /release/db/migrations/017_shelly_compact_prepare.sql

@@ -18,7 +18,7 @@ def load(name, path):
     return module
 
 
-parser = load('shelly_counter_parser', 'shelly-ingestor/counters.py')
+parser = load('shelly_counter_parser', 'mqtt/shelly-devices/counters.py')
 agg = load('shelly_counter_aggregator', 'jobs/aggregate-energy/main.py')
 START = datetime(2026, 9, 7, 5, tzinfo=timezone.utc)
 

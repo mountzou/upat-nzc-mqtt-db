@@ -33,12 +33,12 @@ services:
     ports:
       - "${MQTT_PORT}:1883"
     volumes:
-      - ./mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf
+      - ./mqtt/mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf
 
   shelly-ingestor:
     image: sha256:f92a082e0fbbb5cbbd4f3ab922b589df1ca22b403d4f291bbd8f30ace3308d7b
     build:
-      context: ./shelly-ingestor
+      context: ./mqtt/shelly-devices
     container_name: shelly_ingestor
     logging: *json-logging
     restart: on-failure
@@ -62,7 +62,7 @@ services:
   ttn-ingestor:
     image: schoolheroz-time-ttn-ingestor:20260906
     build:
-      context: ./ttn-ingestor
+      context: ./mqtt/upat-devices
     container_name: ttn_ingestor
     logging: *json-logging
     restart: on-failure

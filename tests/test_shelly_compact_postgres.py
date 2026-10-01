@@ -15,7 +15,7 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 DSN = os.getenv("SHELLY_COMPACT_TEST_DSN", "")
 pytestmark = pytest.mark.skipif(not DSN, reason="Explicit isolated local DB required")
-sys.path.insert(0, str(ROOT / "shelly-ingestor"))
+sys.path.insert(0, str(ROOT / "mqtt/shelly-devices"))
 sys.path.insert(0, str(ROOT / "api"))
 
 
@@ -26,8 +26,8 @@ def load(name, path):
     return m
 
 
-writer = load("compact_writer", "shelly-ingestor/measurements.py")
-ingestor = load("compact_ingestor", "shelly-ingestor/main.py")
+writer = load("compact_writer", "mqtt/shelly-devices/measurements.py")
+ingestor = load("compact_ingestor", "mqtt/shelly-devices/main.py")
 migration = load("compact_migration", "ops/shelly-compact/migrate.py")
 START = datetime(2026, 9, 15, 12, tzinfo=timezone.utc)
 
