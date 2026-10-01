@@ -1,5 +1,9 @@
 # Shelly compact — αποκλειστικές εγγραφές στο νέο σχήμα, 2026-09-16
 
+Ιστορικό αποδεικτικό της ολοκληρωμένης μεταφοράς. Ο staged runner, οι helpers
+ανάκτησης και τα staged Compose αρχεία έχουν αποσυρθεί από το repository και
+διατηρούνται στο Git history. Οι εντολές παρακάτω καταγράφουν τη διαδικασία της 16/09.
+
 **PASS.** Από τις 21:43:22 ώρα Ελλάδας ο Shelly ingestor γράφει με
 `SHELLY_MEASUREMENTS_WRITE_MODE=compact`. Το API παραμένει σε compact reads.
 Η PostgreSQL στο Volume και το API δεν επανεκκινήθηκαν.
@@ -95,17 +99,19 @@ DELETE, REINDEX ή VACUUM FULL. Ο χώρος του παλιού πίνακα �
 το όφελος τώρα είναι ότι σταμάτησε η διπλή αύξηση measurements/indexes.
 Raw MQTT messages και energy counters παραμένουν ξεχωριστές λειτουργικές εγγραφές.
 
-Read-only status:
+Ιστορικό read-only status της 16/09, με τον πλέον αποσυρμένο runner:
 ```sh
 python3 /opt/upat-shelly-compact-stage3-20260916-r2/ops/shelly-compact/stage3.py status
 ```
 
-Αν απαιτηθεί εγκεκριμένη επιστροφή, ο runner `stage3.py rollback` σταματά μόνο τον
-writer, επεκτείνει το reverse checkpoint, αντιγράφει τη νέα ουρά compact → legacy,
-επαληθεύει δυαδικά τις τιμές και μετά επαναφέρει το αποθηκευμένο dual Compose.
-Το API παραμένει compact. Σε conflict ο writer παραμένει σταματημένος προς εξέταση.
+Ο αποσυρμένος runner `stage3.py rollback` περιλάμβανε διαδικασία που σταματούσε μόνο
+τον writer, επέκτεινε το reverse checkpoint, αντέγραφε τη νέα ουρά compact → legacy,
+επαλήθευε δυαδικά τις τιμές και μετά επανέφερε το αποθηκευμένο dual Compose.
+Το API παρέμενε compact. Σε conflict ο writer έμενε σταματημένος προς εξέταση.
 **Δεν εκτελέστηκε παραγωγικό rollback**, επειδή η μετάβαση πέρασε.
 Απλό toggle σε dual/legacy ή παλιό API δεν είναι ασφαλής διαδικασία επιστροφής πλέον.
+Νέα επιστροφή απαιτεί σχεδιασμό σύμφωνα με το σημερινό deployment και διατήρηση
+των νεότερων μετρήσεων.
 
 Οι παλαιοί stage1/stage2 guards έχουν προηγούμενες ταυτότητες/modes και δεν είναι
 οι τρέχοντες έλεγχοι λειτουργίας. Μελλοντική διαγραφή του παλιού πίνακα απαιτεί

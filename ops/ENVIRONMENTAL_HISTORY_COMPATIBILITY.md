@@ -49,7 +49,7 @@ only `/opt/upat-nzc-mqtt-db/docker-compose.prod.yml` and the existing protected
 `.env`; the obsolete flag is not mapped into the API. Historical overlays,
 including the final private `environment: !override` snapshot, remain archived
 but are no longer active inputs. Future variable changes do not require updating
-that historical snapshot. See [PRODUCTION_COMPOSE.md](PRODUCTION_COMPOSE.md).
+that historical snapshot. See [the current production ownership guide](postgres-volume/COMPOSE-OWNERSHIP.md).
 
 For historical environmental-image rollback, restore the matching historical
 base/configuration as well as the selected image; do not assume the now-updated

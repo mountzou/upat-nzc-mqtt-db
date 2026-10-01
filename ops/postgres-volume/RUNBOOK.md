@@ -60,13 +60,15 @@ SIGINT stop without a forced-kill timeout. Docker restart policy remains `no`.
 The provider's existing `nofail` fstab entry alone is not sufficient protection.
 Do not enable this unit against the current root-disk container.
 
-`copy-stopped-cluster.sh` requires a stopped source, matching cluster ID, and an
-empty verified destination. It preserves metadata using `rsync -aHAX
---numeric-ids`, syncs the destination, then reads both copies in full with
-`rsync --checksum --dry-run --delete --itemize-changes`. `--delete` appears only
-in a dry run to detect extra files; the actual copy never deletes anything.
-The source must be mounted read-only in the helper. The caller must prevent all
-other processes from starting that source until the verification finishes.
+`copy-stopped-cluster.sh` was used for the completed 2026-09-16 migration and has
+since been retired from the repository; its implementation remains in Git history.
+It required a stopped source, matching cluster ID, and an empty verified
+destination. It preserved metadata using `rsync -aHAX --numeric-ids`, synced the
+destination, then read both copies in full with
+`rsync --checksum --dry-run --delete --itemize-changes`. `--delete` was used only
+in a dry run to detect extra files; the actual copy did not delete anything.
+The source had to be mounted read-only in the helper. The caller had to prevent
+other processes from starting that source until verification finished.
 
 ## Separately authorized production procedure
 

@@ -1,5 +1,9 @@
 # Shelly compact — production API read cutover, 2026-09-16
 
+Ιστορικό αποδεικτικό του δεύτερου σταδίου. Τα `stage2.py` και
+`compose.stage2.prod.yml` έχουν αποσυρθεί από το repository και διατηρούνται στο
+Git history. Οι παρακάτω ταυτότητες, ρυθμίσεις και εντολές αφορούν το στάδιο της 16/09.
+
 **PASS: το ενεργό API διαβάζει από `shelly_compact.readings`.**
 Writer παραμένει `dual`. Ο παλιός πίνακας εξακολουθεί να ενημερώνεται και να
 διατηρείται. Δεν έγινε PostgreSQL ή ingestor restart. Το API αντικαταστάθηκε μόνο
@@ -138,7 +142,7 @@ Compact-only writes και διαγραφή του παλιού πίνακα **�
 Πριν από μελλοντικό retirement απαιτείται χωριστό checkpoint, έλεγχος consumers,
 μεταφορά ownership της κοινής sequence και backup.
 
-Τρέχων read-only έλεγχος:
+Ιστορικός read-only έλεγχος του σταδίου, με τον πλέον αποσυρμένο runner:
 `python3 /opt/upat-shelly-compact-stage2-20260916-r4/ops/shelly-compact/stage2.py status`.
 Ο παλιός stage1 guard έχει σκόπιμα αποθηκευμένο το παλιό API και δεν αποτελεί πλέον
 τον κατάλληλο έλεγχο συνολικής ταυτότητας μετά το cutover.

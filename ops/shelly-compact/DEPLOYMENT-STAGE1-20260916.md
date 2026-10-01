@@ -1,5 +1,9 @@
 # Shelly compact — production stage 1, 2026-09-16
 
+Ιστορικό αποδεικτικό του πρώτου σταδίου. Τα `stage1.py` και
+`compose.stage1.prod.yml` έχουν αποσυρθεί από το repository και διατηρούνται στο
+Git history. Οι παρακάτω ταυτότητες και ρυθμίσεις αφορούν το στάδιο της 16/09.
+
 **PASS: ολοκληρώθηκε το εγκεκριμένο πρώτο στάδιο.** Το API παραμένει σε legacy reads,
 ο Shelly ingestor λειτουργεί σε atomic dual writes, και ο παλιός πίνακας διατηρείται.
 Η PostgreSQL δεν επανεκκινήθηκε. Δεν ολοκληρώθηκε ακόμη το API cutover ή η κατάργηση

@@ -1,4 +1,4 @@
-# Shelly compact storage: current and historical files
+# Shelly compact storage: migration history
 
 Verified on 2026-09-29: the production shelly_ingestor writes compact-only
 (SHELLY_MEASUREMENTS_WRITE_MODE=compact), while iot_api reads
@@ -10,12 +10,20 @@ measurements tables and readings view were observed using a read-only catalog
 query. The old public.shelly_measurements table still exists.
 
 PRODUCTION-STAGE3-20260916.md and VALIDATION-20260916.md record the completed
-cutover. The staged Compose files, stage1.py, stage2.py, stage3.py,
-writer-cutover.py and migrate.py are historical migration/recovery tools.
-Their embedded image identities, checkpoints and commands are dated evidence,
-not a current rollout or rollback procedure. Do not rerun them against the
-live database without a fresh design and authorization. In particular, do not
-remove the legacy table or change its sequence ownership from this checkout.
+cutover. This directory now contains historical documentation only. The staged
+controllers (`stage1.py`, `stage2.py`, `stage3.py`), migration/recovery helpers
+(`copy-window.py`, `shadow-api.py`, `migrate.py`, `writer-cutover.py`) and
+`compose.stage1.prod.yml`, `compose.stage2.prod.yml`, `compose.stage3.prod.yml`
+have been retired from the repository. Their source remains in Git history.
+The recorded image identities, checkpoints and commands are dated evidence.
+Any future rollout or rollback needs a fresh design and authorization. In
+particular, do not remove the legacy table or change its sequence ownership
+from this checkout.
+
+`compose.override.yml`, `smoke-local-images.py`, `build-local.sh`,
+`Dockerfile.api` and `Dockerfile.ingestor` have been retired from this directory.
+They remain available in Git history as build and rehearsal artifacts for the
+completed migration.
 
 The current deployment contract is ../../docker-compose.prod.yml; PostgreSQL
 ownership and deployment boundaries are documented in
