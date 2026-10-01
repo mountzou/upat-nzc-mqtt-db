@@ -40,28 +40,6 @@ def normalize(model):
     return model
 
 
-def expected_after(before):
-    result = copy.deepcopy(before)
-    require('postgres' in result['services'], 'baseline must describe the old PostgreSQL service')
-    result['services'].pop('postgres')
-    for service in result['services'].values():
-        deps = service.get('depends_on', {})
-        if isinstance(deps, dict):
-            deps.pop('postgres', None)
-        else:
-            deps = [x for x in deps if x != 'postgres']
-        if deps:
-            service['depends_on'] = deps
-        else:
-            service.pop('depends_on', None)
-    require('postgres_data' in result.get('volumes', {}), 'baseline PostgreSQL volume absent')
-    result['volumes'].pop('postgres_data')
-    if not result['volumes']:
-        result.pop('volumes')
-    result.setdefault('networks', {})['default'] = {'name': NETWORK, 'external': True}
-    return result
-
-
 def validate_model(model):
     require('postgres' not in model['services'], 'Compose must not own PostgreSQL')
     require('postgres_data' not in model.get('volumes', {}), 'old database volume is still declared')
@@ -94,7 +72,7 @@ def compose_config(root, path, all_profiles=True):
     return normalize(json.loads(output(args+['config','--format','json'],cwd=root)))
 
 
-def verify(root, candidate, baseline=None, check_default=False):
+def verify(root, candidate, check_default=False):
     before=inspect_all()
     pg=next(c for c in before if c['Name']=='/iot_postgres')
     require(pg['State']['Running'], 'active PostgreSQL is not running')
@@ -108,9 +86,6 @@ def verify(root, candidate, baseline=None, check_default=False):
     output(['docker','exec','iot_postgres','pg_isready','-U','postgres','-d','iot_db'])
     actual=compose_config(root,candidate)
     validate_model(actual)
-    if baseline:
-        errors=differences(expected_after(compose_config(root,baseline)), actual)
-        require(not errors, 'unapproved model differences: '+','.join(errors))
     default=compose_config(root,candidate,False)
     require(default['services']=={k:v for k,v in actual['services'].items() if not v.get('profiles')},'default profile changed')
     if check_default:
@@ -130,7 +105,7 @@ def verify(root, candidate, baseline=None, check_default=False):
     return {'status':'PASS','read_only':True,'services':len(actual['services']),
             'postgres_owned_by_systemd':True,'database_volume_absent_from_compose':True,
             'network_external':True,'live_environment_and_images_match':True,
-            'only_approved_contract_changes':bool(baseline),'default_entrypoint_checked':check_default,
+            'default_entrypoint_checked':check_default,
             'container_state_unchanged':True}
 
 
@@ -138,11 +113,10 @@ def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--root',type=Path,default=Path('/opt/upat-nzc-mqtt-db'))
     parser.add_argument('--candidate',type=Path)
-    parser.add_argument('--baseline',type=Path)
     parser.add_argument('--check-default',action='store_true')
     args=parser.parse_args()
     try:
-        result=verify(args.root,args.candidate or args.root/'docker-compose.prod.yml',args.baseline,args.check_default)
+        result=verify(args.root,args.candidate or args.root/'docker-compose.prod.yml',check_default=args.check_default)
         print(json.dumps(result,indent=2))
         return 0
     except ValueError as e:
