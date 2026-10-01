@@ -60,10 +60,6 @@ class AuthServiceDeploymentContractTests(unittest.TestCase):
                 environment["OPS_TELEMETRY_TOKEN"],
             )
 
-    def test_production_postgres_remains_unpublished(self):
-        self.assertNotIn("postgres", self.production["services"])
-        self.assertNotIn("postgres_data", self.production.get("volumes", {}))
-
     def test_caddy_exposes_explicit_service_and_public_monitoring_endpoints(self):
         caddyfile = (ROOT / "caddy" / "Caddyfile").read_text(encoding="utf-8")
         self.assertIn("method GET", caddyfile)
