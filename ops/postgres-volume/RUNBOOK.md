@@ -29,14 +29,14 @@ apply stale configuration later. No secret-bearing payload belongs in Git.
 
 ## Prepared components
 
-`render-runtime.py` renders a Docker Engine create body offline from the approved
-full container inspect. It preserves the running installation's command,
-healthcheck, existing environment, remaining mounts, logging, resource settings,
-ports, and network aliases. It pins the exact image, replaces the PGDATA mount,
-adds the read-only entrypoint guard and three identity settings, and gives the
-container a fresh hostname. Compose ownership labels are removed deliberately:
-this database will be owned by the explicit systemd unit. Container name and
-network aliases remain `iot_postgres` / `postgres`.
+`render-runtime.py` generated a Docker Engine create payload offline for the
+completed 2026-09-16 cutover. It has been retired from the repository; its source
+remains in Git history. It preserved the original command, healthcheck,
+environment, remaining mounts, logging, resource settings, ports and network
+aliases while pinning the image, replacing PGDATA, adding the read-only
+entrypoint guard and three identity settings, generating a fresh hostname and
+removing Compose ownership labels. The resulting database was owned by systemd
+and retained the `iot_postgres` / `postgres` names and aliases.
 
 The existing Compose file does not reproduce the actual runtime. Do not run
 broad `docker compose up/down`, automatic migrations, image upgrades, or recreate
@@ -109,10 +109,11 @@ other processes from starting that source until verification finished.
    container under a unique rollback name, e.g.
    `iot_postgres-rootdisk-rollback-20260916`, and explicitly disconnect its
    application network before starting the candidate, to avoid alias ambiguity.
-   Render/review the create payload against the freshly captured original
-   runtime; the only intended changes are those described above. Create the new
-   `iot_postgres` with the pinned image, structured bind mounts and preserved
-   `postgres`/`iot_postgres` aliases. Do not run two cloned clusters concurrently.
+   During the completed cutover, the now-retired renderer generated the create
+   payload from a fresh original-container inspection; the reviewed changes were
+   those described above. The new `iot_postgres` used the pinned image, structured
+   bind mounts and preserved `postgres`/`iot_postgres` aliases. Do not run two
+   cloned clusters concurrently.
 7. **Validate before application writes.** Run the host preflight and guarded
    systemd startup. Require original cluster identity, database OID, healthy
    startup, expected schema/objects/sequences/counts and unchanged freshness
