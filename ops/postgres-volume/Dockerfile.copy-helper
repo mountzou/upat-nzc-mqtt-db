@@ -1,3 +1,0 @@
-FROM postgres@sha256:f30e3de0ac9cc938dac627ef2231099867c694b5f949fadb924c8c977428c399
-RUN apt-get update && apt-get install -y --no-install-recommends rsync python3 systemd && rm -rf /var/lib/apt/lists/*
-ENTRYPOINT []
