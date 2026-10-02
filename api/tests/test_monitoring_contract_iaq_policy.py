@@ -15,17 +15,17 @@ class IAQPolicyTests(unittest.TestCase):
         payload = build_iaq_policy_payload()
 
         self.assertEqual(payload["version"], IAQ_POLICY_VERSION)
-        self.assertEqual(get_iaq_threshold("co2", "short"), 750.0)
-        self.assertEqual(get_iaq_threshold("co2", "long"), 800.0)
-        self.assertEqual(get_iaq_threshold("pm25", "short"), 10.0)
-        self.assertEqual(get_iaq_threshold("pm25", "long"), 15.0)
+        self.assertEqual(get_iaq_threshold("co2", "1h"), 750.0)
+        self.assertEqual(get_iaq_threshold("co2", "24h"), 800.0)
+        self.assertEqual(get_iaq_threshold("pm25", "1h"), 10.0)
+        self.assertEqual(get_iaq_threshold("pm25", "24h"), 15.0)
         self.assertEqual(
-            payload["metrics"]["co2"]["thresholds"]["short"]["period_ids"],
-            ["1m", "1h"],
+            payload["metrics"]["co2"]["thresholds"],
+            {"1m": 750.0, "1h": 750.0, "24h": 800.0, "7d": 800.0, "14d": 800.0},
         )
         self.assertEqual(
-            payload["metrics"]["co2"]["thresholds"]["long"]["period_ids"],
-            ["24h", "7d", "14d"],
+            payload["metrics"]["pm25"]["thresholds"],
+            {"1m": 10.0, "1h": 10.0, "24h": 15.0, "7d": 15.0, "14d": 15.0},
         )
 
     def test_policy_endpoint_exposes_the_canonical_payload(self):

@@ -75,7 +75,7 @@ def read_averages(cur, assignments, start, end, kind):
 
 
 def notification(row, kind, start, end):
-    threshold = get_iaq_threshold(row['metric'], 'short' if kind == 'hourly' else 'long')
+    threshold = get_iaq_threshold(row['metric'], '1h' if kind == 'hourly' else '24h')
     average = row['average']
     matches = average > threshold if kind == 'hourly' else average < threshold
     if not matches:

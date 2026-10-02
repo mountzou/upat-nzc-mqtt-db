@@ -414,19 +414,13 @@ class DeviceHistoryResponse(BaseModel):
 
 
 IAQPolicyMetric = Literal["co2", "pm25"]
-IAQThresholdWindow = Literal["short", "long"]
 IAQPeriodId = Literal["1m", "1h", "24h", "7d", "14d"]
-
-
-class IAQThresholdPolicy(BaseModel):
-    value: float
-    period_ids: list[IAQPeriodId]
 
 
 class IAQMetricPolicy(BaseModel):
     label: str
     unit: str
-    thresholds: dict[IAQThresholdWindow, IAQThresholdPolicy]
+    thresholds: dict[IAQPeriodId, float]
 
 
 class IAQPolicyResponse(BaseModel):
