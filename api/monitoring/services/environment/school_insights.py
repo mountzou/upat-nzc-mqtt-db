@@ -385,7 +385,7 @@ def _recent_iaq_candidate(
     if history is None:
         return None
     policy = _IAQ_POLICY[metric]
-    threshold = get_iaq_threshold(metric, "short")
+    threshold = get_iaq_threshold(metric, "1h")
     all_points = [
         (item.event_time, value)
         for item in history.items
@@ -461,7 +461,7 @@ def _long_term_iaq_candidate(
     if history is None:
         return None
     policy = _IAQ_POLICY[metric]
-    threshold = get_iaq_threshold(metric, "long")
+    threshold = get_iaq_threshold(metric, "24h")
     values_by_date: dict[date, float] = {}
     for item in history.items:
         value = _reading_value(item, metric)
@@ -944,7 +944,7 @@ def _iaq_change_point_candidates(
     policy = _IAQ_POLICY[metric]
     threshold = get_iaq_threshold(
         metric,
-        "short" if horizon == "short_term" else "long",
+        "1h" if horizon == "short_term" else "24h",
     )
     min_segment = 3 if horizon == "short_term" else 7
     candidates: list[_Candidate] = []
@@ -1024,7 +1024,7 @@ def _iaq_episodes(
 ) -> tuple[list[_Episode], int, datetime | date | None]:
     threshold = get_iaq_threshold(
         metric,
-        "short" if horizon == "short_term" else "long",
+        "1h" if horizon == "short_term" else "24h",
     )
     episodes: list[_Episode] = []
     total_points = 0
@@ -1082,7 +1082,7 @@ def _iaq_cluster_candidates(
     policy = _IAQ_POLICY[metric]
     threshold = get_iaq_threshold(
         metric,
-        "short" if horizon == "short_term" else "long",
+        "1h" if horizon == "short_term" else "24h",
     )
     candidates: list[_Candidate] = []
     for cluster_index, cluster in enumerate(_agglomerative_episode_clusters(episodes)):
@@ -1170,7 +1170,7 @@ def _best_iaq_improvement(
 ) -> tuple[str, dict[str, object]] | None:
     threshold = get_iaq_threshold(
         metric,
-        "short" if horizon == "short_term" else "long",
+        "1h" if horizon == "short_term" else "24h",
     )
     min_segment = 3 if horizon == "short_term" else 7
     improvements: list[tuple[float, datetime | date, str, dict[str, object]]] = []
@@ -1219,7 +1219,7 @@ def _positive_iaq_candidate(
     policy = _IAQ_POLICY[metric]
     threshold = get_iaq_threshold(
         metric,
-        "short" if horizon == "short_term" else "long",
+        "1h" if horizon == "short_term" else "24h",
     )
     values = [value for _, value in points]
     compliant = sum(value <= threshold for value in values)

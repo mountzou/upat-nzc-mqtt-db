@@ -13,7 +13,7 @@
 | Environment and Home | `/indoor_environment/...` |
 | Thermal calculations | `/thermal-comfort/...` |
 
-Measurement and catalog requests require a user JWT with current database role/scope/token_version. IAQ policy and pure thermal calculations contain no private measurements. The protected `/internal/auth/session` verifier lets EnergyPlus accept VPS sessions using its existing service credential. The JWT signing secret is never distributed to Render or clients.
+Measurement and catalog requests require a user JWT with current database role/scope/token_version. IAQ policy and pure thermal calculations contain no private measurements. `GET /indoor_environment/policy?version=2` returns `indoor-environment-iaq-v2`: each metric's `thresholds` directly maps `1m`, `1h`, `24h`, `7d` and `14d` to numeric limits. Deploy the v2 API together with the updated web and iOS clients; the previous grouped schema is incompatible. The protected `/internal/auth/session` verifier lets EnergyPlus accept VPS sessions using its existing service credential. The JWT signing secret is never distributed to Render or clients.
 
 Catalog migration: canonical `/catalog/schools` and `/catalog/schools/{school_id}/rooms` preserve the response schemas and school authorization. The old `/schools` and `/rooms?school_id=...` aliases were retired from VPS, Caddy and Render on 2026-09-07. They return 404. The separate Render `/schools/{school_id}/simulation-schedule-defaults` compute route is retained. See `../backups/catalog-interval-retirement-20260907/REPORT.md` for caller checks and rollout evidence.
 

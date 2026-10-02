@@ -19,8 +19,8 @@ sample count is evidence of available data, not a weight between the subspaces.
 
 | Job | Athens schedule | Period | Match |
 | --- | --- | --- | --- |
-| hourly | Every hour at :10 | Previous complete clock hour | CO2 > short threshold; PM2.5 > short threshold |
-| daily | Every day at 00:10 | Previous calendar day | CO2 < long threshold; PM2.5 < long threshold |
+| hourly | Every hour at :10 | Previous complete clock hour | CO2 > `1h` threshold; PM2.5 > `1h` threshold |
+| daily | Every day at 00:10 | Previous calendar day | CO2 < `24h` threshold; PM2.5 < `24h` threshold |
 
 Thresholds come directly from `monitoring/policies/iaq.py`: currently CO2
 750 ppm hourly / 800 ppm daily and PM2.5 10 / 15 µg/m³. Equality does not match.
@@ -162,6 +162,8 @@ rule and must not be used as final-version production acceptance evidence.
 
 ### Final PR preparation
 
-See [the final validation report](reports/iaq-final-pr-20260909/REPORT.md) for
-real hourly-aggregate replay with the final Teachers Office rule, reconciliation
-of the already deployed hourly reader, combined API tests and Caddy checks.
+The final 9 September 2026 validation covered real hourly-aggregate replay with
+the final Teachers Office rule, reconciliation of the deployed hourly reader,
+combined API tests and Caddy checks. The dated School 10 and final PR reports
+have been retired from the repository; their reports and JSON results remain
+in Git history.
