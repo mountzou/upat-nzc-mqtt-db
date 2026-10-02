@@ -59,18 +59,24 @@ def client(monkeypatch):
 
 @pytest.mark.parametrize('query',[
     'window=','aggregate=avg','aggregate=','rolling_1h=true','rolling_1h=false',
+    'rolling_24h_hourly=true',
     'rolling_24h_hourly=true&rolling_1h=true','rolling_1h=true&metric=co2',
     'rolling_24h_hourly=true&start=2026-09-01T00:00Z&end=2026-09-02T00:00Z',
-    'bucket_unit=hour','bucket_size=1','bucket_minutes=5','timezone=Europe/Athens',
+    'bucket_unit=hour','bucket_size=1','bucket_minutes=5','bucket_minutes=60','timezone=Europe/Athens',
     'alignment=window&alignment=clock','limit=1&limit=1000','window=1h&window=2h',
     'start=2026-09-01T00:00Z&end=2026-09-02T00:00Z&window=24h',
+    'window=1h&start=2026-09-01T00:00Z&end=2026-09-02T00:00Z',
+    'interval=1h&limit=1',
     'window=24h&limit=1','start=2026-09-01T00:00:00&end=2026-09-02T00:00:00',
 ])
 def test_http_rejects_ambiguous_controls_before_query(client,monkeypatch,query):
     reader=Mock(side_effect=AssertionError('invalid request reached SQL'))
+    connection=Mock(side_effect=AssertionError('invalid request reached database'))
     monkeypatch.setattr(route,'get_environmental_history',reader)
+    monkeypatch.setattr(main,'get_connection',connection)
     assert client.get(BASE+'?'+query).status_code==422
     reader.assert_not_called()
+    connection.assert_not_called()
 
 def test_openapi_has_only_canonical_controls():
     params=main.app.openapi()['paths'][BASE.replace('portable-108','{device_id}')]['get']['parameters']

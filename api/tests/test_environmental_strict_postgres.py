@@ -1,7 +1,6 @@
 """Strict public/home contracts against disposable PostgreSQL, never production."""
 import json
 from datetime import datetime,timezone
-from unittest.mock import Mock
 import pytest
 from fastapi.testclient import TestClient
 import main
@@ -51,12 +50,6 @@ def test_strict_home_empty_history_is_empty_not_failure(db,client):
     insert(db,[(1,'2026-09-07T10:16:30Z',30,'temperature')]);rollup(db,1)
     r=client.post(HOME,json={'room_ids':['fixture_room']});assert r.status_code==200,r.text
     room=r.json()['rooms'][0];assert room['history']['items']==[] and room['history']['count']==0 and room['errors']==[]
-
-@pytest.mark.parametrize('query',['aggregate=avg','rolling_1h=true','rolling_24h_hourly=true','rolling_1h=false','bucket_unit=hour','bucket_size=1','bucket_minutes=60','window=1h&start=2026-09-01T00:00Z&end=2026-09-02T00:00Z','interval=1h&limit=1'])
-def test_strict_retired_and_conflicting_controls_reject_before_db(client,monkeypatch,query):
-    connection=Mock(side_effect=AssertionError('Rejected request queried DB'));monkeypatch.setattr(main,'get_connection',connection)
-    assert client.get(BASE+'?'+query).status_code==422;connection.assert_not_called()
-
 
 def test_strict_bare_and_limit_only_have_fixed_24h_clock_meaning(client):
     for query in ('','?limit=168','?interval=1h&limit=24'):
