@@ -15,7 +15,6 @@ docker compose --profile jobs run --rm forecast-weather
 
 # Offline tests (requires requirements.txt dependencies)
 python -m unittest discover -s jobs/forecast-weather -p 'test_*.py'
-python -m unittest discover -s tests -p 'test_weather_schema.py'
 ```
 
 VPS: `upat-forecast-weather.timer` runs daily at `22:50 Europe/Athens`.

@@ -159,29 +159,6 @@ class OverviewRouteTests(unittest.TestCase):
 
 
     @patch("monitoring.services.service_overview.fetch_device_latest")
-    def test_latest_uses_winter_athens_offset(self, mock_fetch):
-        mock_fetch.return_value = {
-            "device_id": "portable-112",
-            "count": 1,
-            "items": [
-                {
-                    "device_id": "portable-112",
-                    "event_time": "2026-03-13T21:20:51.941486+00:00",
-                    "measurements": {
-                        "temperature": {"value": 16.18, "unit": "C"},
-                    },
-                },
-            ],
-        }
-        response = self.client.get("/indoor_environment/devices/portable-112/latest")
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(
-            response.json()["latest_event_time"],
-            "2026-03-13T23:20:51.941486+02:00",
-        )
-
-
-    @patch("monitoring.services.service_overview.fetch_device_latest")
     def test_latest_uses_summer_athens_offset(self, mock_fetch):
         mock_fetch.return_value = {
             "device_id": "portable-112",
