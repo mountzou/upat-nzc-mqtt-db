@@ -6,6 +6,8 @@ Shelly averages retain one-decimal numeric rounding; raw measurements are unchan
 Current recovery boundaries are in [RECOVERY.md](RECOVERY.md).
 The obsolete VPS stage/build artifacts and UTC-naive inverse SQL were removed;
 see [the applied cleanup and verification](LEGACY-ARTIFACTS-RETIRED-20261005.md).
+The seven old VPS stage directories and their remaining historical files were
+subsequently removed; see [the directory retirement receipt](STAGE-DIRECTORIES-REMOVED-20261005.md).
 
 Legacy retirement, 2026-10-05: `public.shelly_measurements` and its own indexes
 were removed after full history/dependency verification. Compact remains active;
