@@ -1,0 +1,171 @@
+{
+  "operation": "DROP TABLE public.shelly_measurements RESTRICT",
+  "authorized_scope": "Legacy table and its own indexes only; preserve compact and shared sequence",
+  "sql_source_commit": "b1c9315",
+  "sql_source_sha256": "4ca104f61bc2170f7d8ad4d3c8933ef30c071f8bc335a48b834a0419390c17b0",
+  "psql_receipt": [
+    "BEGIN",
+    "SET",
+    "SET",
+    "LOCK TABLE",
+    "DO",
+    "DROP TABLE",
+    "DO",
+    "COMMIT"
+  ],
+  "preflight": {
+    "status": "PASS",
+    "read_only": true,
+    "checked_at_utc": "2026-10-05T09:41:45.416857+00:00",
+    "database": {
+      "legacy_oid": 16446,
+      "sequence_oid": 16445,
+      "compact_oid": 121068,
+      "legacy_bytes": 14538383360,
+      "database_bytes": 27745107303,
+      "postgres_started_at": "2026-09-17 10:03:22.421025+03:00",
+      "ownership_dependencies": 0,
+      "legacy_latest": {
+        "id": 86962336,
+        "event_time": "2026-09-16 21:43:10.676005+03:00"
+      },
+      "compact_latest": {
+        "id": 95973478,
+        "event_time": "2026-10-05 12:41:44.401283+03:00"
+      },
+      "sequence": {
+        "last_value": 95973478,
+        "is_called": true
+      }
+    },
+    "containers": [
+      {
+        "name": "/iot_postgres",
+        "id": "3e8abad67a5a4bbfdb2dd0773287d808e83b49a294634cff9d4d57af8efc5e1d",
+        "started_at": "2026-09-17T07:03:21.953995541Z",
+        "status": "running",
+        "restarts": 0
+      },
+      {
+        "name": "/iot_api",
+        "id": "b41c60a9f416bcf3b43c0445340658b86b8b351dc64d432d0a27a85097792f57",
+        "started_at": "2026-10-02T12:48:07.765342378Z",
+        "status": "running",
+        "restarts": 0
+      },
+      {
+        "name": "/shelly_ingestor",
+        "id": "cf170389b4231bb22420203e1c273ed60aacc180228e62f5ff2aa067df7e412f",
+        "started_at": "2026-09-16T18:43:22.618143835Z",
+        "status": "running",
+        "restarts": 0
+      }
+    ],
+    "filesystem_available_bytes": 51767988224,
+    "filesystem_free_bytes": 56079732736
+  },
+  "postflight": {
+    "status": "PASS",
+    "read_only": true,
+    "checked_at_utc": "2026-10-05T09:48:31.408496+00:00",
+    "database": {
+      "legacy_table": null,
+      "sequence_oid": 16445,
+      "compact_oid": 121068,
+      "view_oid": 121079,
+      "database_bytes": 13207100775,
+      "postgres_started_at": "2026-09-17 10:03:22.421025+03:00",
+      "removed_indexes": {
+        "old_covering_index": null,
+        "old_metric_index": null,
+        "old_pkey": null
+      },
+      "compact_default": "nextval('shelly_measurements_id_seq'::regclass)",
+      "sequence_settings": {
+        "seqstart": 1,
+        "seqincrement": 1,
+        "seqmin": 1,
+        "seqmax": 2147483647,
+        "seqcache": 1,
+        "seqcycle": false
+      },
+      "sequence": {
+        "last_value": 95975647,
+        "is_called": true
+      },
+      "historical_samples": [
+        {
+          "id": 10938671,
+          "metric": "apower",
+          "event_time": "2026-04-01 00:00:00+03:00"
+        },
+        {
+          "id": 86962336,
+          "metric": "total_aprt_power",
+          "event_time": "2026-09-16 21:43:10.676005+03:00"
+        }
+      ],
+      "compact_latest": {
+        "id": 95975647,
+        "event_time": "2026-10-05 12:47:49.593275+03:00"
+      },
+      "http_history_checks": [
+        {
+          "sample_id": 10938671,
+          "status": 200,
+          "count": 2,
+          "start": "2026-04-01 00:00:00+03:00"
+        },
+        {
+          "sample_id": 86962336,
+          "status": 200,
+          "count": 2,
+          "start": "2026-09-16 21:43:00+03:00"
+        }
+      ],
+      "http_latest_check": {
+        "status": 200,
+        "count": 1,
+        "event_time": "2026-10-05 12:47:00+03:00"
+      },
+      "health": {
+        "status": 200,
+        "body": {
+          "status": "ok",
+          "database": "connected"
+        }
+      }
+    },
+    "containers": [
+      {
+        "name": "/iot_postgres",
+        "id": "3e8abad67a5a4bbfdb2dd0773287d808e83b49a294634cff9d4d57af8efc5e1d",
+        "started_at": "2026-09-17T07:03:21.953995541Z",
+        "status": "running",
+        "restarts": 0
+      },
+      {
+        "name": "/iot_api",
+        "id": "b41c60a9f416bcf3b43c0445340658b86b8b351dc64d432d0a27a85097792f57",
+        "started_at": "2026-10-02T12:48:07.765342378Z",
+        "status": "running",
+        "restarts": 0
+      },
+      {
+        "name": "/shelly_ingestor",
+        "id": "cf170389b4231bb22420203e1c273ed60aacc180228e62f5ff2aa067df7e412f",
+        "started_at": "2026-09-16T18:43:22.618143835Z",
+        "status": "running",
+        "restarts": 0
+      }
+    ],
+    "error_lines_last_10m": {
+      "shelly_ingestor": 0,
+      "iot_api": 0
+    },
+    "filesystem_available_bytes": 66306035712,
+    "filesystem_free_bytes": 70617780224
+  },
+  "net_filesystem_available_increase_bytes": 14538047488,
+  "net_database_size_reduction_bytes": 14538006528
+}

@@ -1,5 +1,10 @@
 # Shelly compact migration history
 
+Current-state update, 2026-10-05: the legacy table has been retired and the
+shared public ID sequence is free-standing. See [the retirement receipt](LEGACY-RETIRED-20261005.md).
+The sequence ownership and legacy-retention descriptions below record the
+September migration state.
+
 The staged migration completed on 2026-09-16. Its controllers, migration/recovery
 helpers and staged Compose files have been retired; their source remains in Git
 history. This document summarizes the method and its constraints. Future operations
