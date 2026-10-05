@@ -1,0 +1,33 @@
+{
+  "source_commit": "cf58dd02b791dc14903e0e39c7041ffcc00d56f8",
+  "images": [
+    {
+      "ref": "schoolheroz-api:compact-only-cf58dd02b791",
+      "id": "sha256:00cc162704a95208d678b2f5316eb9209fa359e60fc1d1f7c46fb4f9cc921368",
+      "os": "linux",
+      "architecture": "amd64",
+      "source_commit": "cf58dd02b791dc14903e0e39c7041ffcc00d56f8"
+    },
+    {
+      "ref": "schoolheroz-shelly-ingestor:compact-only-cf58dd02b791",
+      "id": "sha256:a952c0c30e6766f4b7d69013f45169bd6fbaec8a6b2d7aea84ae306965839701",
+      "os": "linux",
+      "architecture": "amd64",
+      "source_commit": "cf58dd02b791dc14903e0e39c7041ffcc00d56f8"
+    }
+  ],
+  "tests": {
+    "focused_passed": 151,
+    "historical_migration_passed": 1,
+    "subtests_passed": 5,
+    "compose_recheck_passed": 6
+  },
+  "fresh_psql_bootstrap_passed": true,
+  "linux_amd64_writer_and_mqtt_callback_passed": true,
+  "linux_amd64_http_health_history_latest_passed": true,
+  "http_history_latest_values": [
+    0.0,
+    286.5
+  ],
+  "vps_rollout_applied": false
+}
