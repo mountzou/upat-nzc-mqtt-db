@@ -91,10 +91,12 @@ def latest_database(monkeypatch):
     admin.autocommit = True
     with admin.cursor() as cur:
         cur.execute(f"CREATE SCHEMA {schema}")
-        for family in ("upat", "shelly"):
-            cur.execute(f"""CREATE TABLE {schema}.{family}_measurements (
+        cur.execute("DROP SCHEMA IF EXISTS shelly_compact CASCADE; CREATE SCHEMA shelly_compact")
+        for table in ("upat_measurements", "shelly_readings"):
+            cur.execute(f"""CREATE TABLE {schema}.{table} (
                 device_id TEXT, metric TEXT, value DOUBLE PRECISION,
                 unit TEXT, event_time TIMESTAMPTZ)""")
+        cur.execute(f"CREATE VIEW shelly_compact.readings AS SELECT * FROM {schema}.shelly_readings")
 
     def connect():
         return psycopg2.connect(dsn, cursor_factory=RealDictCursor,
@@ -106,8 +108,8 @@ def latest_database(monkeypatch):
         conn = connect()
         try:
             with conn, conn.cursor() as cur:
-                for family in ("upat", "shelly"):
-                    execute_values(cur, f"INSERT INTO {family}_measurements VALUES %s", [
+                for table in ("upat_measurements", "shelly_readings"):
+                    execute_values(cur, f"INSERT INTO {table} VALUES %s", [
                         ("fixture", "temperature", 20, "C", "2026-10-25T00:59:10Z"),
                         ("fixture", "temperature", 22, "C", "2026-10-25T00:59:40Z"),
                         ("fixture", "temperature", 24, "C", "2026-10-25T01:59:05Z"),
