@@ -92,9 +92,11 @@ def database(monkeypatch):
     with psycopg2.connect(dsn) as conn:
         with conn.cursor() as cur:
             cur.execute('''DROP SCHEMA IF EXISTS interval_fixture CASCADE; CREATE SCHEMA interval_fixture;
+                DROP SCHEMA IF EXISTS shelly_compact CASCADE; CREATE SCHEMA shelly_compact;
                 SET search_path TO interval_fixture;
                 CREATE TABLE upat_measurements(id BIGINT, device_id TEXT, metric TEXT, value FLOAT8, unit TEXT, event_time TIMESTAMPTZ);
-                CREATE TABLE shelly_measurements(LIKE upat_measurements);
+                CREATE TABLE shelly_readings(LIKE upat_measurements);
+                CREATE VIEW shelly_compact.readings AS SELECT * FROM interval_fixture.shelly_readings;
                 CREATE TABLE upat_measurements_hourly(device_id TEXT,metric TEXT,unit TEXT,bucket_start TIMESTAMPTZ,value_avg FLOAT8,sample_count INTEGER);
                 CREATE TABLE upat_measurements_5min(LIKE upat_measurements_hourly);
                 CREATE TABLE upat_rollup_state(pipeline_name TEXT,last_measurement_id BIGINT);
@@ -116,7 +118,7 @@ def test_sql_calendar_raw_and_weighted_rollup_with_unprocessed_tail(database,dat
                     identifier=(i*3+sample if sample<2 else 1001+i)
                     cur.execute("INSERT INTO upat_measurements VALUES(%s,'fixture','temperature',%s,'C',%s)",
                         (identifier,value,stamp+timedelta(minutes=sample)))
-            cur.execute('INSERT INTO shelly_measurements SELECT * FROM upat_measurements')
+            cur.execute('INSERT INTO shelly_readings SELECT * FROM upat_measurements')
     params=HistoryQueryParams(interval='day',start=start.isoformat(),end=end.isoformat())
     for table in ('upat_measurements','shelly_measurements'):
         raw=main.fetch_device_history(table,'fixture',params)

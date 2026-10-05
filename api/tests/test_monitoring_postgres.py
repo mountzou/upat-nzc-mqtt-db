@@ -35,7 +35,6 @@ def database(monkeypatch):
                 CREATE TABLE app_users(username TEXT PRIMARY KEY,password_hash TEXT,role TEXT,school_id TEXT,
                   municipality_id TEXT,school_ids TEXT[],is_active BOOLEAN,token_version INTEGER,theme TEXT,
                   onboarding_completed TEXT[],last_login_at TIMESTAMPTZ,updated_at TIMESTAMPTZ);
-                CREATE TABLE shelly_measurements(device_id TEXT, metric TEXT, value DOUBLE PRECISION, event_time TIMESTAMPTZ);
                 CREATE TABLE shelly_plug_hourly_energy(device_id TEXT,window_start TIMESTAMPTZ,window_end TIMESTAMPTZ,
                   energy_wh DOUBLE PRECISION,is_working_day INTEGER,is_working_hour INTEGER,created_at TIMESTAMPTZ);
                 CREATE TABLE shelly_pro3em_hourly_energy(device_id TEXT,window_start TIMESTAMPTZ,window_end TIMESTAMPTZ,

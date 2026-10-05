@@ -42,7 +42,6 @@ services:
     logging: *json-logging
     restart: on-failure
     environment:
-      SHELLY_MEASUREMENTS_WRITE_MODE: ${SHELLY_MEASUREMENTS_WRITE_MODE:-legacy}
       POSTGRES_HOST: ${POSTGRES_HOST}
       POSTGRES_INTERNAL_PORT: ${POSTGRES_INTERNAL_PORT}
       POSTGRES_USER: ${POSTGRES_USER}
@@ -91,8 +90,6 @@ services:
     container_name: iot_api
     logging: *json-logging
     environment:
-      SHELLY_MEASUREMENTS_READ_STORAGE: ${SHELLY_MEASUREMENTS_READ_STORAGE:-legacy}
-      SHELLY_MEASUREMENTS_ROUNDING: ${SHELLY_MEASUREMENTS_ROUNDING:-legacy}
       POSTGRES_HOST: ${POSTGRES_HOST}
       POSTGRES_INTERNAL_PORT: ${POSTGRES_INTERNAL_PORT}
       POSTGRES_USER: ${POSTGRES_USER}

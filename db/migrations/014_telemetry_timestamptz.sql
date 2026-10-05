@@ -28,6 +28,11 @@ BEGIN
         ('upat_measurements_hourly', 'bucket_start')
     ) AS targets(table_name, column_name)
     LOOP
+        -- Fresh compact-only databases no longer have the retired Shelly table.
+        IF target.table_name = 'shelly_measurements'
+           AND to_regclass('public.shelly_measurements') IS NULL THEN
+            CONTINUE;
+        END IF;
         SELECT atttypid::regtype INTO STRICT current_type
         FROM pg_attribute
         WHERE attrelid = format('public.%I', target.table_name)::regclass
@@ -81,7 +86,12 @@ ANALYZE public.shelly_devices;
 ANALYZE public.upat_raw_messages;
 ANALYZE public.shelly_raw_messages;
 ANALYZE public.upat_measurements;
-ANALYZE public.shelly_measurements;
+DO $$
+BEGIN
+    IF to_regclass('public.shelly_measurements') IS NOT NULL THEN
+        EXECUTE 'ANALYZE public.shelly_measurements';
+    END IF;
+END $$;
 ANALYZE public.upat_measurements_5min;
 ANALYZE public.upat_measurements_hourly;
 COMMIT;

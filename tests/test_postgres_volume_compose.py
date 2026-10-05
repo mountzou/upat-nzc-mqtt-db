@@ -34,9 +34,9 @@ class VolumeComposeTests(unittest.TestCase):
         self.assertNotIn('postgres_data', self.after.get('volumes', {}))
         self.assertEqual({'name': 'upat-nzc-mqtt-db_default', 'external': True},
                          self.after['networks']['default'])
-        self.assertEqual('compact', self.after['services']['shelly-ingestor']['environment']['SHELLY_MEASUREMENTS_WRITE_MODE'])
-        self.assertEqual('compact', self.after['services']['api']['environment']['SHELLY_MEASUREMENTS_READ_STORAGE'])
-        self.assertEqual('decimal_1', self.after['services']['api']['environment']['SHELLY_MEASUREMENTS_ROUNDING'])
+        for service in ('shelly-ingestor', 'api'):
+            environment = self.after['services'][service]['environment']
+            self.assertFalse(any(key.startswith('SHELLY_MEASUREMENTS_') for key in environment))
 
     def test_jobs_profiles_preserved(self):
         actual=model(ROOT/'docker-compose.prod.yml',all_profiles=False)
@@ -65,7 +65,10 @@ class VolumeComposeTests(unittest.TestCase):
             self.assertTrue(check.differences(self.after,bad))
 
     def test_local_development_keeps_its_database(self):
-        self.assertIn('postgres',model(ROOT/'docker-compose.yml')['services'])
+        development = model(ROOT/'docker-compose.yml')
+        self.assertIn('postgres',development['services'])
+        for service in ('shelly-ingestor','api'):
+            self.assertFalse(any(key.startswith('SHELLY_MEASUREMENTS_') for key in development['services'][service]['environment']))
 
 
 if __name__=='__main__':unittest.main()

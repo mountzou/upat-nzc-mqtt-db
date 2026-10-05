@@ -1,0 +1,243 @@
+{
+  "controller_commit": "beee42efa6d186c833f7dbe85e06d27941b0afc8",
+  "application_source_commit": "cf58dd02b791dc14903e0e39c7041ffcc00d56f8",
+  "image_recipe_commit": "0ac942b9b89e9fc5b46cc8ff440fa9788157315c",
+  "activation": {
+    "status": "PASS",
+    "activated_at_utc": "2026-10-05T17:30:14.879182+00:00",
+    "verified_at_utc": "2026-10-05T17:30:50.774274+00:00",
+    "before": {
+      "/iot_api": {
+        "id": "b41c60a9f416bcf3b43c0445340658b86b8b351dc64d432d0a27a85097792f57",
+        "image": "sha256:ae28e0f1b4e4207455f32bb49ec56a4ac78706ba788181fbc6a9d66bdc4e1a18",
+        "started_at": "2026-10-02T12:48:07.765342378Z",
+        "status": "running",
+        "restart_count": 0
+      },
+      "/shelly_ingestor": {
+        "id": "cf170389b4231bb22420203e1c273ed60aacc180228e62f5ff2aa067df7e412f",
+        "image": "sha256:f92a082e0fbbb5cbbd4f3ab922b589df1ca22b403d4f291bbd8f30ace3308d7b",
+        "started_at": "2026-09-16T18:43:22.618143835Z",
+        "status": "running",
+        "restart_count": 0
+      },
+      "/iot_postgres": {
+        "id": "3e8abad67a5a4bbfdb2dd0773287d808e83b49a294634cff9d4d57af8efc5e1d",
+        "image": "sha256:f30e3de0ac9cc938dac627ef2231099867c694b5f949fadb924c8c977428c399",
+        "started_at": "2026-09-17T07:03:21.953995541Z",
+        "status": "running",
+        "restart_count": 0
+      },
+      "/nzc_energyplus": {
+        "id": "a257550313c515d3e4f77049b0ac218dd1c15b24b3f4718efd2a682ef93efeca",
+        "image": "sha256:ff7efd8c4ed35c3e18a5c236c67a9e41c8c91936d66c4ebe066d6f1a1f29539d",
+        "started_at": "2026-10-02T15:28:52.891625095Z",
+        "status": "running",
+        "restart_count": 0
+      },
+      "/iot_mosquitto": {
+        "id": "cf158e027471756073c2230d15f5a0c7f4dd0e43b068185133eb77d84f31bbc1",
+        "image": "sha256:9cfdd46ad59f3e3e5f592f6baf57ab23e1ad00605509d0f5c1e9b179c5314d87",
+        "started_at": "2026-10-01T12:39:34.731169997Z",
+        "status": "running",
+        "restart_count": 0
+      },
+      "/iot_caddy": {
+        "id": "07d696ec3d0c7ce745fdb128362670fe8db054e92151cd56e4f5c812337644e7",
+        "image": "sha256:5f5c8640aae01df9654968d946d8f1a56c497f1dd5c5cda4cf95ab7c14d58648",
+        "started_at": "2026-09-16T13:27:46.654310407Z",
+        "status": "running",
+        "restart_count": 0
+      },
+      "/ttn_ingestor": {
+        "id": "f8c9cdccfd47a9d577a30364e1e18910c1c163b470a8e5cf740adbf5ac955f9e",
+        "image": "sha256:9a7d0f6bcb0f2dafed7e2a0487f1c371d018a492a9e78c730baf552c04e0d3bd",
+        "started_at": "2026-09-16T14:40:41.158245607Z",
+        "status": "running",
+        "restart_count": 0
+      }
+    },
+    "after": {
+      "/iot_api": {
+        "id": "23eba07f5379ebcb82c8e9c49d2a2f479f66714205d99535d43700e4c6476921",
+        "image": "sha256:c1d1970522a08e90b571313146da7ce9b725e3341120ad424f35bdfc25c7218a",
+        "started_at": "2026-10-05T17:30:25.803556376Z",
+        "status": "running",
+        "restart_count": 0
+      },
+      "/shelly_ingestor": {
+        "id": "9ecf73de86569075b0c8375a5726da18fa1bca49758cc39b0bfce8b75de8333e",
+        "image": "sha256:6d3e2f29bc682be29fa91cdeebc925408eceed33afe7aeea56fa851a4bf1aac9",
+        "started_at": "2026-10-05T17:30:25.802412229Z",
+        "status": "running",
+        "restart_count": 0
+      },
+      "/iot_postgres": {
+        "id": "3e8abad67a5a4bbfdb2dd0773287d808e83b49a294634cff9d4d57af8efc5e1d",
+        "image": "sha256:f30e3de0ac9cc938dac627ef2231099867c694b5f949fadb924c8c977428c399",
+        "started_at": "2026-09-17T07:03:21.953995541Z",
+        "status": "running",
+        "restart_count": 0
+      },
+      "/nzc_energyplus": {
+        "id": "a257550313c515d3e4f77049b0ac218dd1c15b24b3f4718efd2a682ef93efeca",
+        "image": "sha256:ff7efd8c4ed35c3e18a5c236c67a9e41c8c91936d66c4ebe066d6f1a1f29539d",
+        "started_at": "2026-10-02T15:28:52.891625095Z",
+        "status": "running",
+        "restart_count": 0
+      },
+      "/iot_mosquitto": {
+        "id": "cf158e027471756073c2230d15f5a0c7f4dd0e43b068185133eb77d84f31bbc1",
+        "image": "sha256:9cfdd46ad59f3e3e5f592f6baf57ab23e1ad00605509d0f5c1e9b179c5314d87",
+        "started_at": "2026-10-01T12:39:34.731169997Z",
+        "status": "running",
+        "restart_count": 0
+      },
+      "/iot_caddy": {
+        "id": "07d696ec3d0c7ce745fdb128362670fe8db054e92151cd56e4f5c812337644e7",
+        "image": "sha256:5f5c8640aae01df9654968d946d8f1a56c497f1dd5c5cda4cf95ab7c14d58648",
+        "started_at": "2026-09-16T13:27:46.654310407Z",
+        "status": "running",
+        "restart_count": 0
+      },
+      "/ttn_ingestor": {
+        "id": "f8c9cdccfd47a9d577a30364e1e18910c1c163b470a8e5cf740adbf5ac955f9e",
+        "image": "sha256:9a7d0f6bcb0f2dafed7e2a0487f1c371d018a492a9e78c730baf552c04e0d3bd",
+        "started_at": "2026-09-16T14:40:41.158245607Z",
+        "status": "running",
+        "restart_count": 0
+      }
+    },
+    "database_before": {
+      "postgres_started_at": "2026-09-17 10:03:22.421025+03:00",
+      "legacy_table": null,
+      "sequence_oid": 16445,
+      "compact_oid": 121068,
+      "latest": {
+        "id": 96156469,
+        "device_id": "shellypro3em-ac15187c7da8",
+        "metric": "total_aprt_power",
+        "event_time": "2026-10-05 20:30:06.679842+03:00"
+      },
+      "history_samples": [
+        {
+          "id": 10938671,
+          "device_id": "shellyplugsg3-e4b323140eb0",
+          "metric": "apower",
+          "event_time": "2026-04-01 00:00:00+03:00"
+        },
+        {
+          "id": 86962336,
+          "device_id": "shellypro3em-ac15187c7da0",
+          "metric": "total_aprt_power",
+          "event_time": "2026-09-16 21:43:10.676005+03:00"
+        }
+      ]
+    },
+    "database_after": {
+      "postgres_started_at": "2026-09-17 10:03:22.421025+03:00",
+      "legacy_table": null,
+      "sequence_oid": 16445,
+      "compact_oid": 121068,
+      "latest": {
+        "id": 96156676,
+        "device_id": "shellypro3em-ac15187c7da0",
+        "metric": "total_aprt_power",
+        "event_time": "2026-10-05 20:30:47.497115+03:00"
+      },
+      "history_samples": [
+        {
+          "id": 10938671,
+          "device_id": "shellyplugsg3-e4b323140eb0",
+          "metric": "apower",
+          "event_time": "2026-04-01 00:00:00+03:00"
+        },
+        {
+          "id": 86962336,
+          "device_id": "shellypro3em-ac15187c7da0",
+          "metric": "total_aprt_power",
+          "event_time": "2026-09-16 21:43:10.676005+03:00"
+        }
+      ]
+    },
+    "health": {
+      "status": 200,
+      "body": {
+        "status": "ok",
+        "database": "connected"
+      }
+    },
+    "validator": {
+      "status": "PASS",
+      "read_only": true,
+      "services": 9,
+      "postgres_owned_by_systemd": true,
+      "database_volume_absent_from_compose": true,
+      "network_external": true,
+      "live_environment_and_images_match": true,
+      "only_approved_contract_changes": false,
+      "default_entrypoint_checked": true,
+      "container_state_unchanged": true
+    },
+    "compose_sha256": "86bb4e9c0370429ab7e9b0f82a3e184ccaa1bc26b343d76351d2a99d7fe9ed69",
+    "scope": [
+      "api",
+      "shelly-ingestor"
+    ],
+    "postgresql_and_other_services_unchanged": true
+  },
+  "postacceptance": {
+    "status": "PASS",
+    "checked_at_utc": "2026-10-05T17:33:36.783029+00:00",
+    "http": {
+      "history_and_latest_checks": [
+        {
+          "sample_id": 10938671,
+          "status": 200,
+          "count": 2
+        },
+        {
+          "sample_id": 86962336,
+          "status": 200,
+          "count": 2
+        },
+        {
+          "latest_status": 200,
+          "count": 1
+        }
+      ],
+      "latest_persisted_id": 96157318,
+      "latest_event_time": "2026-10-05 20:32:49.304044+03:00"
+    },
+    "error_lines_since_activation": {
+      "iot_api": 0,
+      "shelly_ingestor": 0
+    },
+    "runtime": {
+      "iot_api": {
+        "python": "3.12.14",
+        "packages": {
+          "fastapi": "0.141.1",
+          "uvicorn": "0.52.4",
+          "psycopg2-binary": "2.9.12",
+          "PyJWT": "2.13.0",
+          "pythermalcomfort": "4.4.2",
+          "numpy": "2.2.6",
+          "scipy": "1.18.1",
+          "numba": "0.67.0",
+          "pydantic": "2.13.5",
+          "starlette": "1.6.0"
+        }
+      },
+      "shelly_ingestor": {
+        "python": "3.12.14",
+        "packages": {
+          "paho-mqtt": "2.1.0",
+          "psycopg2-binary": "2.9.12"
+        }
+      }
+    }
+  },
+  "rollback_dir": "/opt/schoolheroz-compact-only-20261005-0ac942b9/rollback",
+  "bootstrap_or_migration_run": false
+}

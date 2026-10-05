@@ -631,7 +631,7 @@ curl -s "http://localhost:8000/shelly/device/shellypro3em-example/latest?metric=
 
 ### `GET /shelly/device/{device_id}/history`
 
-Returns raw historical Shelly telemetry from `shelly_measurements`. It uses the same `metric`, `start`, `end`, `aggregate`, `interval`, and `limit` query contract described for `/upat/device/{device_id}/history`.
+Returns historical Shelly telemetry from `shelly_compact.readings`. It uses the same `metric`, `start`, `end`, `aggregate`, `interval`, and `limit` query contract described for `/upat/device/{device_id}/history`.
 
 Example:
 

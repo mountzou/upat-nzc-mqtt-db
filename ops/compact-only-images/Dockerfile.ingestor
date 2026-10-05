@@ -1,0 +1,4 @@
+ARG BASE_IMAGE
+FROM ${BASE_IMAGE}
+
+COPY mqtt/shelly-devices/main.py mqtt/shelly-devices/measurements.py /app/

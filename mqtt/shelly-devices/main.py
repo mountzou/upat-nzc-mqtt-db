@@ -92,7 +92,7 @@ def on_connect(client, userdata, flags, rc):
         print("Shelly connection refused. Check username, password, and topic.")
 
 
-# Check if a metric presents in the payload and insert it into the `shelly_measurements` table
+# Insert numeric metrics into compact measurement storage.
 def maybe_insert_metric(conn, device_id, metric, value, unit, event_time):
     if isinstance(value, (int, float)) and not isinstance(value, bool):
         insert_measurement(conn, device_id, metric, float(value), unit, event_time)

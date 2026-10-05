@@ -61,22 +61,53 @@ CREATE TABLE IF NOT EXISTS shelly_raw_messages (
 CREATE INDEX IF NOT EXISTS idx_shelly_raw_messages_device_id_event_time
     ON shelly_raw_messages (device_id, event_time DESC);
 
-CREATE TABLE IF NOT EXISTS shelly_measurements (
-    id SERIAL PRIMARY KEY,
+-- Keep the existing ID allocator independent of any table.
+CREATE SEQUENCE IF NOT EXISTS public.shelly_measurements_id_seq
+    AS integer OWNED BY NONE;
+
+CREATE SCHEMA IF NOT EXISTS shelly_compact;
+
+CREATE TABLE IF NOT EXISTS shelly_compact.series (
+    series_id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     device_id TEXT NOT NULL,
     metric TEXT NOT NULL,
-    value DOUBLE PRECISION,
     unit TEXT,
+    UNIQUE NULLS NOT DISTINCT (device_id, metric, unit)
+);
+
+CREATE TABLE IF NOT EXISTS shelly_compact.measurements (
+    id integer PRIMARY KEY DEFAULT nextval('public.shelly_measurements_id_seq'::regclass),
+    series_id integer NOT NULL REFERENCES shelly_compact.series(series_id),
+    value DOUBLE PRECISION,
     event_time TIMESTAMPTZ
 );
 
-CREATE INDEX IF NOT EXISTS idx_shelly_measurements_device_metric_event_time
-    ON shelly_measurements (device_id, metric, event_time DESC);
+CREATE INDEX IF NOT EXISTS measurements_series_time_covering
+    ON shelly_compact.measurements (series_id, event_time DESC) INCLUDE (value);
 
-CREATE INDEX IF NOT EXISTS idx_shelly_energy_covering
-    ON shelly_measurements (device_id, event_time, metric)
-    INCLUDE (value)
-    WHERE metric IN ('a_act_power', 'b_act_power', 'c_act_power');
+CREATE OR REPLACE VIEW shelly_compact.readings AS
+    SELECT m.id, s.device_id, s.metric, m.value, s.unit, m.event_time
+    FROM shelly_compact.measurements m
+    JOIN shelly_compact.series s USING (series_id);
+
+CREATE OR REPLACE FUNCTION shelly_compact.resolve_series(d text, m text, u text)
+RETURNS integer LANGUAGE plpgsql VOLATILE
+SET search_path = pg_catalog, shelly_compact AS $$
+DECLARE result integer;
+BEGIN
+    FOR attempt IN 1..3 LOOP
+        SELECT series_id INTO result FROM shelly_compact.series
+        WHERE device_id=d AND metric=m AND unit IS NOT DISTINCT FROM u;
+        IF FOUND THEN RETURN result; END IF;
+        INSERT INTO shelly_compact.series(device_id,metric,unit) VALUES(d,m,u)
+        ON CONFLICT (device_id,metric,unit) DO NOTHING RETURNING series_id INTO result;
+        IF FOUND THEN RETURN result; END IF;
+        -- A concurrent committed insertion becomes visible on the next READ COMMITTED command.
+    END LOOP;
+    RAISE EXCEPTION 'Concurrent series creation: retry the whole transaction' USING ERRCODE='40001';
+END $$;
+REVOKE ALL ON SCHEMA shelly_compact FROM PUBLIC;
+REVOKE ALL ON FUNCTION shelly_compact.resolve_series(text,text,text) FROM PUBLIC;
 
 CREATE TABLE shelly_plug_hourly_energy (
     device_id TEXT NOT NULL,

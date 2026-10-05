@@ -36,14 +36,13 @@ services:
       - ./mqtt/mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf
 
   shelly-ingestor:
-    image: sha256:f92a082e0fbbb5cbbd4f3ab922b589df1ca22b403d4f291bbd8f30ace3308d7b
+    image: schoolheroz-shelly-ingestor:compact-only-overlay-0ac942b9b89e
     build:
       context: ./mqtt/shelly-devices
     container_name: shelly_ingestor
     logging: *json-logging
     restart: on-failure
     environment:
-      SHELLY_MEASUREMENTS_WRITE_MODE: compact
       POSTGRES_HOST: ${POSTGRES_HOST}
       POSTGRES_INTERNAL_PORT: ${POSTGRES_INTERNAL_PORT}
       POSTGRES_USER: ${POSTGRES_USER}
@@ -79,14 +78,12 @@ services:
       TTN_TOPIC: ${TTN_TOPIC}
 
   api:
-    image: sha256:e8fb2d14075b5a0d583bf11f22e8b6c038ecfbdff5ecd8046315e491d5ca2041
+    image: schoolheroz-api:compact-only-overlay-0ac942b9b89e
     build:
       context: ./api
     container_name: iot_api
     logging: *json-logging
     environment:
-      SHELLY_MEASUREMENTS_READ_STORAGE: compact
-      SHELLY_MEASUREMENTS_ROUNDING: decimal_1
       POSTGRES_HOST: ${POSTGRES_HOST}
       POSTGRES_INTERNAL_PORT: ${POSTGRES_INTERNAL_PORT}
       POSTGRES_USER: ${POSTGRES_USER}

@@ -1,0 +1,209 @@
+{
+  "read_only": true,
+  "legacy_table_dropped": false,
+  "comparison_snapshot": {
+    "started_at_utc": "2026-10-05T09:30:35.025042+00:00",
+    "transaction": {
+      "read_only": "on",
+      "snapshot": "21072565:21072565:",
+      "postgres_started_at": "2026-09-17 10:03:22.421025+03:00"
+    },
+    "checkpoint": 86962336,
+    "legacy_earliest": {
+      "id": 10938671,
+      "event_time": "2026-04-01 00:00:00+03:00"
+    },
+    "legacy_latest": {
+      "id": 86962336,
+      "event_time": "2026-09-16 21:43:10.676005+03:00"
+    }
+  },
+  "full_comparison": {
+    "status": "PASS",
+    "read_only": true,
+    "checkpoint": 86962336,
+    "fields": [
+      "id",
+      "device_id",
+      "metric",
+      "value",
+      "unit",
+      "event_time"
+    ],
+    "results": {
+      "legacy": {
+        "rows": 64338303,
+        "bytes": 5469048124,
+        "sha256": "b728440c4360614dc2d6ca2ea94bdeb4ec46a84db8444c41b9060e331f83842c",
+        "elapsed_seconds": 87.333
+      },
+      "compact_history": {
+        "rows": 64338303,
+        "bytes": 5469048124,
+        "sha256": "b728440c4360614dc2d6ca2ea94bdeb4ec46a84db8444c41b9060e331f83842c",
+        "elapsed_seconds": 95.823
+      }
+    },
+    "total_seconds": 183.196,
+    "finished_at_utc": "2026-10-05T09:33:38.182520+00:00"
+  },
+  "consumers": [
+    {
+      "checked_at_utc": "2026-10-05T09:34:07.958048+00:00"
+    },
+    {
+      "containers": [
+        {
+          "name": "/iot_postgres",
+          "id": "3e8abad67a5a4bbfdb2dd0773287d808e83b49a294634cff9d4d57af8efc5e1d",
+          "image": "sha256:f30e3de0ac9cc938dac627ef2231099867c694b5f949fadb924c8c977428c399",
+          "started_at": "2026-09-17T07:03:21.953995541Z",
+          "status": "running",
+          "restart_count": 0
+        },
+        {
+          "name": "/shelly_ingestor",
+          "id": "cf170389b4231bb22420203e1c273ed60aacc180228e62f5ff2aa067df7e412f",
+          "image": "sha256:f92a082e0fbbb5cbbd4f3ab922b589df1ca22b403d4f291bbd8f30ace3308d7b",
+          "started_at": "2026-09-16T18:43:22.618143835Z",
+          "status": "running",
+          "restart_count": 0
+        },
+        {
+          "name": "/iot_api",
+          "id": "b41c60a9f416bcf3b43c0445340658b86b8b351dc64d432d0a27a85097792f57",
+          "image": "sha256:ae28e0f1b4e4207455f32bb49ec56a4ac78706ba788181fbc6a9d66bdc4e1a18",
+          "started_at": "2026-10-02T12:48:07.765342378Z",
+          "status": "running",
+          "restart_count": 0
+        }
+      ]
+    },
+    {
+      "running_sources": {
+        "iot_api": {
+          "matches_reviewed_source": true,
+          "sha256": {
+            "main.py": "bce8d9420649635745785d3c1c9518b5efb11e349f3086d6df8412b01cf3e485",
+            "readers/measurements.py": "bc4eeeb33e7ed750c4e9f2c48bffa1f41c698d730f276a9c727266d6241cddd5",
+            "readers/shelly_storage.py": "cb77a9aecac9a4c15ee2904ec9b283b9945a16eb465b2547e46220ec04da632a"
+          }
+        },
+        "shelly_ingestor": {
+          "matches_reviewed_source": true,
+          "sha256": {
+            "main.py": "09cfefd41e21cfb88696059f67970baeb23eaa0ca92293fd2b5a670efcc01921",
+            "measurements.py": "73fae55c81f0c6e8e450625d17ac6cdd0e8eef781f910b6a20f7aefc9ac730db"
+          }
+        }
+      }
+    },
+    {
+      "live_read_config": "{\"read_storage\": \"compact\", \"rounding\": \"decimal_1\", \"resolved_source\": \"shelly_compact.readings\"}"
+    },
+    {
+      "live_write_mode": "compact"
+    },
+    {
+      "aggregate_image_inspection_started": "sha256:c16ade3bf7365c427ef44f261d4fe9a5b06ad3b50e485a58cc3caa01b9d7ffa7"
+    },
+    {
+      "aggregate_energy_source": {
+        "image": "sha256:c16ade3bf7365c427ef44f261d4fe9a5b06ad3b50e485a58cc3caa01b9d7ffa7",
+        "sha256": "43da5d3db881f5fbb4ef9a0f0538fe67867d26954867592d9e69f66b6b5943a8",
+        "matches_reviewed_source": false,
+        "legacy_table_mentions": 0,
+        "energy_counters_mentions": 1
+      }
+    },
+    {
+      "aggregate_sql_relations": [
+        "SET",
+        "shelly_devices",
+        "shelly_energy_counters",
+        "shelly_plug_hourly_energy",
+        "shelly_pro3em_hourly_energy"
+      ]
+    },
+    {
+      "cron_direct_legacy_table_mentions": []
+    },
+    {
+      "upat_services_checked": [
+        "upat-aggregate-energy.service",
+        "upat-collect-pv.service",
+        "upat-forecast-pv.service",
+        "upat-forecast-weather.service",
+        "upat-iaq-notifications@.service",
+        "upat-journal-vacuum.service",
+        "upat-postgres-volume.service",
+        "upat-pv-ingestor.service",
+        "upat-vps-health.service"
+      ],
+      "unit_direct_legacy_table_mentions": []
+    },
+    {
+      "host_loadavg": "1.66 1.12 0.59 3/361 1788694"
+    },
+    {
+      "container_started_for_image_inspection": false
+    }
+  ],
+  "runtime_after_checks": [
+    {
+      "containers": [
+        {
+          "name": "/iot_postgres",
+          "id": "3e8abad67a5a4bbfdb2dd0773287d808e83b49a294634cff9d4d57af8efc5e1d",
+          "started_at": "2026-09-17T07:03:21.953995541Z",
+          "restart_count": 0,
+          "status": "running"
+        },
+        {
+          "name": "/shelly_ingestor",
+          "id": "cf170389b4231bb22420203e1c273ed60aacc180228e62f5ff2aa067df7e412f",
+          "started_at": "2026-09-16T18:43:22.618143835Z",
+          "restart_count": 0,
+          "status": "running"
+        },
+        {
+          "name": "/iot_api",
+          "id": "b41c60a9f416bcf3b43c0445340658b86b8b351dc64d432d0a27a85097792f57",
+          "started_at": "2026-10-02T12:48:07.765342378Z",
+          "restart_count": 0,
+          "status": "running"
+        }
+      ]
+    },
+    {
+      "container": "shelly_ingestor",
+      "error_lines_last_20m": 0
+    },
+    {
+      "container": "iot_api",
+      "error_lines_last_20m": 0
+    },
+    {
+      "health_status": 200,
+      "health_body": {
+        "status": "ok",
+        "database": "connected"
+      }
+    }
+  ],
+  "catalog_check": {
+    "sequence_ownership": [],
+    "legacy_foreign_keys": [],
+    "legacy_triggers": [],
+    "functions_mentioning_legacy": [],
+    "extension_membership": [],
+    "recursive_dependents": "Only legacy table-owned indexes, constraint, default, TOAST and implicit row/array types",
+    "legacy_oid": 16446,
+    "sequence_oid": 16445,
+    "compact_oid": 121068,
+    "legacy_total_bytes": 14538383360,
+    "legacy_latest_id": 86962336,
+    "post_check_compact_latest_id": 95971315,
+    "post_check_compact_event_time": "2026-10-05T12:35:23.515783+03:00"
+  }
+}

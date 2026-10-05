@@ -1,0 +1,342 @@
+{
+  "read_only": true,
+  "additional_cleanup_applied": false,
+  "vps_observations": [
+    {
+      "checked_at_utc": "2026-10-05T09:58:38.782407+00:00",
+      "read_only": true
+    },
+    {
+      "database": {
+        "legacy_table": null,
+        "sequence_oid": 16445,
+        "compact_oid": 121068,
+        "compact_latest": {
+          "id": 95979349,
+          "event_time": "2026-10-05 12:58:36.269669+03:00"
+        }
+      }
+    },
+    {
+      "runtime_paths": [
+        {
+          "name": "/iot_api",
+          "id": "b41c60a9f416bcf3b43c0445340658b86b8b351dc64d432d0a27a85097792f57",
+          "started_at": "2026-10-02T12:48:07.765342378Z",
+          "restart_count": 0,
+          "mounts": [],
+          "compose_config_files": "/opt/upat-nzc-mqtt-db/docker-compose.prod.yml",
+          "compose_working_dir": "/opt/upat-nzc-mqtt-db"
+        },
+        {
+          "name": "/shelly_ingestor",
+          "id": "cf170389b4231bb22420203e1c273ed60aacc180228e62f5ff2aa067df7e412f",
+          "started_at": "2026-09-16T18:43:22.618143835Z",
+          "restart_count": 0,
+          "mounts": [],
+          "compose_config_files": "/opt/upat-nzc-mqtt-db/docker-compose.prod.yml",
+          "compose_working_dir": "/opt/upat-nzc-mqtt-db"
+        },
+        {
+          "name": "/iot_postgres",
+          "id": "3e8abad67a5a4bbfdb2dd0773287d808e83b49a294634cff9d4d57af8efc5e1d",
+          "started_at": "2026-09-17T07:03:21.953995541Z",
+          "restart_count": 0,
+          "mounts": [
+            {
+              "source": "/opt/upat-nzc-mqtt-db/db/migrations",
+              "target": "/docker-entrypoint-initdb.d/migrations"
+            },
+            {
+              "source": "/mnt/HC_Volume_106884142/pgdata",
+              "target": "/var/lib/postgresql/data"
+            },
+            {
+              "source": "/usr/local/libexec/pg-volume-guard.sh",
+              "target": "/usr/local/libexec/pg-volume-guard.sh"
+            },
+            {
+              "source": "/opt/upat-nzc-mqtt-db/db/init.sql",
+              "target": "/docker-entrypoint-initdb.d/init.sql"
+            }
+          ],
+          "compose_config_files": null,
+          "compose_working_dir": null
+        }
+      ]
+    },
+    {
+      "release_roots": [
+        "/opt/upat-shelly-compact-stage3-20260916",
+        "/opt/upat-shelly-compact-stage2-20260916",
+        "/opt/upat-shelly-compact-stage1-20260916",
+        "/opt/upat-shelly-compact-stage2-20260916-r4",
+        "/opt/upat-shelly-compact-stage2-20260916-r3",
+        "/opt/upat-shelly-compact-stage2-20260916-r2",
+        "/opt/upat-shelly-compact-stage3-20260916-r2"
+      ]
+    },
+    {
+      "historical_migration_candidates": [
+        {
+          "path": "/opt/upat-nzc-mqtt-db/ops/shelly-compact/Dockerfile.ingestor",
+          "bytes": 378
+        },
+        {
+          "path": "/opt/upat-shelly-compact-stage3-20260916/ops/shelly-compact/stage2.py",
+          "bytes": 19743
+        },
+        {
+          "path": "/opt/upat-shelly-compact-stage3-20260916/ops/shelly-compact/compose.stage3.prod.yml",
+          "bytes": 7362
+        },
+        {
+          "path": "/opt/upat-shelly-compact-stage3-20260916/ops/shelly-compact/stage1.py",
+          "bytes": 15261
+        },
+        {
+          "path": "/opt/upat-shelly-compact-stage3-20260916/ops/shelly-compact/compose.stage2.prod.yml",
+          "bytes": 7359
+        },
+        {
+          "path": "/opt/upat-shelly-compact-stage3-20260916/ops/shelly-compact/writer-cutover.py",
+          "bytes": 4987
+        },
+        {
+          "path": "/opt/upat-shelly-compact-stage3-20260916/ops/shelly-compact/stage3.py",
+          "bytes": 10569
+        },
+        {
+          "path": "/opt/upat-shelly-compact-stage3-20260916/ops/shelly-compact/migrate.py",
+          "bytes": 14480
+        },
+        {
+          "path": "/opt/upat-shelly-compact-stage2-20260916/ops/shelly-compact/shadow-api.py",
+          "bytes": 1111
+        },
+        {
+          "path": "/opt/upat-shelly-compact-stage2-20260916/ops/shelly-compact/stage2.py",
+          "bytes": 17486
+        },
+        {
+          "path": "/opt/upat-shelly-compact-stage2-20260916/ops/shelly-compact/compose.stage1.prod.yml",
+          "bytes": 7265
+        },
+        {
+          "path": "/opt/upat-shelly-compact-stage2-20260916/ops/shelly-compact/stage1.py",
+          "bytes": 15261
+        },
+        {
+          "path": "/opt/upat-shelly-compact-stage2-20260916/ops/shelly-compact/compose.stage2.prod.yml",
+          "bytes": 7359
+        },
+        {
+          "path": "/opt/upat-shelly-compact-stage1-20260916/ops/shelly-compact/copy-window.py",
+          "bytes": 2598
+        },
+        {
+          "path": "/opt/upat-shelly-compact-stage1-20260916/ops/shelly-compact/compose.override.yml",
+          "bytes": 696
+        },
+        {
+          "path": "/opt/upat-shelly-compact-stage1-20260916/ops/shelly-compact/build-local.sh",
+          "bytes": 1246
+        },
+        {
+          "path": "/opt/upat-shelly-compact-stage1-20260916/ops/shelly-compact/compose.stage1.prod.yml",
+          "bytes": 7265
+        },
+        {
+          "path": "/opt/upat-shelly-compact-stage1-20260916/ops/shelly-compact/stage1.py",
+          "bytes": 15261
+        },
+        {
+          "path": "/opt/upat-shelly-compact-stage1-20260916/ops/shelly-compact/Dockerfile.api",
+          "bytes": 311
+        },
+        {
+          "path": "/opt/upat-shelly-compact-stage1-20260916/ops/shelly-compact/Dockerfile.ingestor",
+          "bytes": 370
+        },
+        {
+          "path": "/opt/upat-shelly-compact-stage1-20260916/ops/shelly-compact/migrate.py",
+          "bytes": 14480
+        },
+        {
+          "path": "/opt/upat-shelly-compact-stage1-20260916/ops/shelly-compact/smoke-local-images.py",
+          "bytes": 5267
+        },
+        {
+          "path": "/opt/upat-shelly-compact-stage2-20260916-r4/ops/shelly-compact/shadow-api.py",
+          "bytes": 1111
+        },
+        {
+          "path": "/opt/upat-shelly-compact-stage2-20260916-r4/ops/shelly-compact/stage2.py",
+          "bytes": 19743
+        },
+        {
+          "path": "/opt/upat-shelly-compact-stage2-20260916-r4/ops/shelly-compact/compose.stage1.prod.yml",
+          "bytes": 7265
+        },
+        {
+          "path": "/opt/upat-shelly-compact-stage2-20260916-r4/ops/shelly-compact/stage1.py",
+          "bytes": 15261
+        },
+        {
+          "path": "/opt/upat-shelly-compact-stage2-20260916-r4/ops/shelly-compact/compose.stage2.prod.yml",
+          "bytes": 7359
+        },
+        {
+          "path": "/opt/upat-shelly-compact-stage2-20260916-r3/ops/shelly-compact/shadow-api.py",
+          "bytes": 1111
+        },
+        {
+          "path": "/opt/upat-shelly-compact-stage2-20260916-r3/ops/shelly-compact/stage2.py",
+          "bytes": 19185
+        },
+        {
+          "path": "/opt/upat-shelly-compact-stage2-20260916-r3/ops/shelly-compact/compose.stage1.prod.yml",
+          "bytes": 7265
+        },
+        {
+          "path": "/opt/upat-shelly-compact-stage2-20260916-r3/ops/shelly-compact/stage1.py",
+          "bytes": 15261
+        },
+        {
+          "path": "/opt/upat-shelly-compact-stage2-20260916-r3/ops/shelly-compact/compose.stage2.prod.yml",
+          "bytes": 7359
+        },
+        {
+          "path": "/opt/upat-shelly-compact-stage2-20260916-r2/ops/shelly-compact/shadow-api.py",
+          "bytes": 1111
+        },
+        {
+          "path": "/opt/upat-shelly-compact-stage2-20260916-r2/ops/shelly-compact/stage2.py",
+          "bytes": 17538
+        },
+        {
+          "path": "/opt/upat-shelly-compact-stage2-20260916-r2/ops/shelly-compact/compose.stage1.prod.yml",
+          "bytes": 7265
+        },
+        {
+          "path": "/opt/upat-shelly-compact-stage2-20260916-r2/ops/shelly-compact/stage1.py",
+          "bytes": 15261
+        },
+        {
+          "path": "/opt/upat-shelly-compact-stage2-20260916-r2/ops/shelly-compact/compose.stage2.prod.yml",
+          "bytes": 7359
+        },
+        {
+          "path": "/opt/upat-shelly-compact-stage3-20260916-r2/ops/shelly-compact/stage2.py",
+          "bytes": 19743
+        },
+        {
+          "path": "/opt/upat-shelly-compact-stage3-20260916-r2/ops/shelly-compact/compose.stage3.prod.yml",
+          "bytes": 7362
+        },
+        {
+          "path": "/opt/upat-shelly-compact-stage3-20260916-r2/ops/shelly-compact/stage1.py",
+          "bytes": 15261
+        },
+        {
+          "path": "/opt/upat-shelly-compact-stage3-20260916-r2/ops/shelly-compact/compose.stage2.prod.yml",
+          "bytes": 7359
+        },
+        {
+          "path": "/opt/upat-shelly-compact-stage3-20260916-r2/ops/shelly-compact/writer-cutover.py",
+          "bytes": 5066
+        },
+        {
+          "path": "/opt/upat-shelly-compact-stage3-20260916-r2/ops/shelly-compact/stage3.py",
+          "bytes": 10569
+        },
+        {
+          "path": "/opt/upat-shelly-compact-stage3-20260916-r2/ops/shelly-compact/migrate.py",
+          "bytes": 14480
+        }
+      ],
+      "candidate_bytes": 405409
+    },
+    {
+      "host_source": "/opt/upat-nzc-mqtt-db/api/readers/shelly_storage.py",
+      "exists": false
+    },
+    {
+      "host_source": "/opt/upat-nzc-mqtt-db/mqtt/shelly-devices/measurements.py",
+      "exists": true,
+      "legacy_table_mentions": 1,
+      "legacy_or_dual_modes": true,
+      "recorded_retirement": false
+    },
+    {
+      "host_source": "/opt/upat-nzc-mqtt-db/docker-compose.prod.yml",
+      "exists": true,
+      "legacy_table_mentions": 0,
+      "legacy_or_dual_modes": false,
+      "recorded_retirement": false
+    },
+    {
+      "host_source": "/opt/upat-nzc-mqtt-db/db/maintenance/rollback_014_telemetry_timestamptz.sql",
+      "exists": true,
+      "legacy_table_mentions": 2,
+      "legacy_or_dual_modes": false,
+      "recorded_retirement": false
+    },
+    {
+      "host_source": "/opt/upat-nzc-mqtt-db/ops/shelly-compact/README.md",
+      "exists": true,
+      "legacy_table_mentions": 1,
+      "legacy_or_dual_modes": false,
+      "recorded_retirement": false
+    },
+    {
+      "scheduled_release_path_references": []
+    },
+    {
+      "canonical_compose": "/opt/upat-nzc-mqtt-db/docker-compose.prod.yml"
+    },
+    {
+      "canonical_build_inputs": {
+        "api": {
+          "context": "/opt/upat-nzc-mqtt-db/api",
+          "dockerfile": "Dockerfile"
+        },
+        "forecast-pv": {
+          "context": "/opt/upat-nzc-mqtt-db/jobs/forecast-pv",
+          "dockerfile": "Dockerfile"
+        },
+        "forecast-weather": {
+          "context": "/opt/upat-nzc-mqtt-db/jobs/forecast-weather",
+          "dockerfile": "Dockerfile"
+        },
+        "shelly-ingestor": {
+          "context": "/opt/upat-nzc-mqtt-db/mqtt/shelly-devices",
+          "dockerfile": "Dockerfile"
+        },
+        "simulation-recorder": {
+          "context": "/opt/upat-nzc-mqtt-db/simulation-recorder",
+          "dockerfile": "Dockerfile"
+        },
+        "ttn-ingestor": {
+          "context": "/opt/upat-nzc-mqtt-db/mqtt/upat-devices",
+          "dockerfile": "Dockerfile"
+        }
+      }
+    },
+    {
+      "host_operational_script_refs": []
+    }
+  ],
+  "process_check": {
+    "active_process_or_open_file_references": [],
+    "checked_release_roots": 7
+  },
+  "source_cleanup_candidates": [
+    "api/readers/shelly_storage.py legacy source/rounding choices",
+    "mqtt/shelly-devices/measurements.py legacy/dual write branches",
+    "docker-compose.yml and docker-compose.prod.yml storage-mode/rounding selectors",
+    "db/init.sql legacy Shelly table/index bootstrap, coordinated with compact-only bootstrap",
+    "affected PostgreSQL test fixtures and stale current-state documentation"
+  ],
+  "required_retained_object": "public.shelly_measurements_id_seq"
+}
