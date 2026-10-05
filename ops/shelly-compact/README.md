@@ -4,6 +4,8 @@ Current contract, 2026-10-05: API reads and ingestor writes are fixed to compact
 The retired storage/write/rounding selectors are no longer part of the runtime.
 Shelly averages retain one-decimal numeric rounding; raw measurements are unchanged.
 Current recovery boundaries are in [RECOVERY.md](RECOVERY.md).
+The completed preparation migration 017 is retained in the [SQL archive](../../db/archive/README.md);
+current compact initialization is defined directly in db/init.sql.
 The obsolete VPS stage/build artifacts and UTC-naive inverse SQL were removed;
 see [the applied cleanup and verification](LEGACY-ARTIFACTS-RETIRED-20261005.md).
 The seven old VPS stage directories and their remaining historical files were
