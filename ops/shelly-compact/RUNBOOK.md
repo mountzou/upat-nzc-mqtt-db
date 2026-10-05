@@ -58,20 +58,24 @@ The final equality proof combined the verified full snapshot with the drained-wr
 tail check. It depended on the audited append-only writer and accounted-for consumers.
 Historical updates or additional writers require a new assessment.
 
-## Recovery and legacy retention
+## Current recovery boundary — 2026-10-05
 
-After compact-only writes began, the legacy table stopped receiving new measurements.
-Recovery must preserve that newer compact tail before restoring legacy or dual writes.
-The retired recovery implementation paused the writer, copied and binary-verified
-the tail, and kept the writer stopped on conflicts. It was tested locally; production
-rollback was not required. Future recovery needs a newly reviewed procedure preserving
-newer measurements, the shared sequence value and its ownership.
+The legacy table has been removed. The active ID allocator remains
+`public.shelly_measurements_id_seq`, independent with `OWNED BY NONE`. Its name
+is an active compatibility contract. About 14.54 GB was reclaimed at retirement.
 
-The legacy table owns `public.shelly_measurements_id_seq`, which the compact writer
-still uses. **Retiring the legacy table requires separate approval, transfer of
-sequence ownership and a fresh dependency audit.** Retaining it means its disk space
-has not been reclaimed; compact-only writes stopped the duplicate growth. Raw MQTT
-messages and energy counters remain separate operational data.
+Application recovery must retain `shelly_compact` data, the independent sequence,
+TIMESTAMPTZ instants and the current reader/rounding contract. Use a previously
+verified compact-compatible image together with its matching configuration;
+legacy/dual modes and September API images are not a generic fallback.
+See [RECOVERY.md](RECOVERY.md) for the current checks and scope.
+
+The September reverse-copy implementation required a retained legacy table and
+paused the writer while copying/verifying the newer compact tail. It was tested
+locally and was never needed on production. It has been retired and cannot be
+reused after the legacy table was dropped. Recreating a legacy layout would be
+a new data migration requiring its own full-history, sequence and consumer proof.
+Raw MQTT messages and energy counters remain separate operational data.
 
 ## Evidence
 

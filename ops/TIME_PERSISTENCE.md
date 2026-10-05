@@ -6,6 +6,15 @@ consumer and deployment changes are recorded in subsequent commits. It is not
 a standalone deployment release or an instruction to rerun migration 014.
 The image IDs and validation results below describe that historical rollout.
 
+Current compatibility, 2026-10-05: Shelly measurements now live only in
+`shelly_compact`; `public.shelly_measurements` has been retired. Keep the
+TIMESTAMPTZ contract. The historical inverse SQL
+`db/maintenance/rollback_014_telemetry_timestamptz.sql` has been withdrawn from
+active maintenance files because it requires the retired table and reverts the
+shared timestamp contract. Its original source remains in Git history.
+It is not a rollback procedure for the current database or application images.
+Current application recovery is documented in [shelly-compact/RECOVERY.md](shelly-compact/RECOVERY.md).
+
 Status on 6 September 2026: **migration 014 is live and verified on production.**
 The second attempt committed successfully with 657.17 seconds (10 minutes,
 57 seconds) of application interruption, within the authorized 15-minute window.
@@ -93,7 +102,7 @@ authorized up to 15 minutes of collection interruption and temporary API
 unavailability, with cancellation around minute 12. That second attempt
 succeeded; see the successful rollout evidence below.
 
-For a subsequent rollout:
+Historical September execution sequence (completed; do not replay on the current database):
 
 1. Recheck source/image hashes, DB timezone, free space, active jobs and the
    absence of long transactions. Refresh the off-host backup for the cutover.
@@ -110,12 +119,17 @@ For a subsequent rollout:
 6. Verify column types, offset-bearing reads, source epoch equality, PV dates,
    index validity, query-result parity, fresh ingestion and API health.
 
-If application acceptance fails after commit, coordinate the same collection
-strategy, run `db/maintenance/rollback_014_telemetry_timestamptz.sql`, restore
-the preceding API/TTN/maintenance files and images, and verify ingestion.
-The inverse migration preserves values written after the forward migration.
-Its database timezone reset is matched to the observed baseline; if that
-baseline changes, revise the rollback before executing it.
+The September rehearsal also tested an inverse migration against the old
+UTC-naive schema and its matching application code. That test is historical
+evidence only. The inverse expected `public.shelly_measurements`, reset the
+database timezone and converted shared UPAT/Shelly columns back to timestamp
+without time zone. It has been retired from active maintenance scripts.
+
+For today's application recovery, retain the current database schema and time
+contract and restore only a verified compatible image/configuration pair.
+An inverse type migration or a restore to the September schema would require a
+new isolated rehearsal and a full review of compact storage, current consumers
+and all measurements accumulated since that checkpoint.
 
 ## Client cleanup after persistence is live
 

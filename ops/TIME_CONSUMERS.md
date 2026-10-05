@@ -1,5 +1,12 @@
 # Telemetry consumers after migration 014
 
+Current compatibility, 2026-10-05: the server/API rollback artifacts below
+predate compact-only Shelly storage and legacy-table retirement. They record
+the September rollout; do not execute their server rollback against the current
+database. Current API recovery must preserve compact storage and TIMESTAMPTZ;
+see [shelly-compact/RECOVERY.md](shelly-compact/RECOVERY.md). Web/iOS consumer
+reversal remains a separate compatibility decision.
+
 ## Release state — 6 September 2026
 
 The consumer cleanup is live on the VPS monitoring API, Render backend and
@@ -143,7 +150,7 @@ Both old and new API images were internally healthy. The probe was corrected
 to use internal health and real public API routes; the retry passed. Only the
 API was recreated during these attempts; collection stayed active.
 
-Rollback artifacts and executable API rollback are retained under
+Historical rollback artifacts and the former API rollback were recorded under
 `/opt/schoolheroz-time-consumers-20260906T1445` on the VPS. The private local
 rollout directory includes both signed iOS app archives, exact patches,
 per-file hashes, test logs and provider deployment IDs. Revert consumer code

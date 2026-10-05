@@ -53,3 +53,16 @@ CROSS JOIN (
 ) AS source
 WHERE state.pipeline_name = 'upat';
 ```
+
+## Historical telemetry and Shelly operations
+
+`rollback_014_telemetry_timestamptz.sql` was withdrawn on 2026-10-05. It targets
+the retired `public.shelly_measurements` table and reverses the shared time
+contract. Its source and September rehearsal evidence remain in Git history;
+it is not a current maintenance command. See [current recovery boundaries](../../ops/shelly-compact/RECOVERY.md).
+
+`detach_shelly_sequence.sql` and `retire_shelly_legacy_table.sql` record one-off
+operations already applied on 2026-10-05. They are retained as dated audit source,
+not scheduled maintenance or commands to replay. The active sequence remains
+`public.shelly_measurements_id_seq`; its historical name must not be removed.
+The numbered forward migrations remain available for database initialization.

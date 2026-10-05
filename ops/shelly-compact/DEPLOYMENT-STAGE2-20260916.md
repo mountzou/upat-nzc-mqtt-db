@@ -137,10 +137,11 @@ visibility metadata για [index-only scans](https://www.postgresql.org/docs/15
 activation check· **δεν χρειάστηκε rollback του production API**.
 Η συντήρηση visibility δεν χρειάζεται αναίρεση.
 
-Στην τρέχουσα φάση API-only rollback είναι επαρκές επειδή ο writer παραμένει dual.
-Compact-only writes και διαγραφή του παλιού πίνακα **δεν εκτελέστηκαν**.
-Πριν από μελλοντικό retirement απαιτείται χωριστό checkpoint, έλεγχος consumers,
-μεταφορά ownership της κοινής sequence και backup.
+Στο checkpoint της 16/09, API-only rollback ήταν επαρκές επειδή ο writer ήταν
+ακόμη dual. Compact-only writes και διαγραφή του παλιού πίνακα δεν είχαν γίνει
+σε εκείνο το στάδιο. Αυτή η συνθήκη έπαψε να ισχύει μετά το stage 3 και το
+retirement της 05/10. Η επιστροφή σε API που διαβάζει legacy δεν λειτουργεί πλέον.
+Η σημερινή διαδικασία ανάκτησης περιγράφεται στο [RECOVERY.md](RECOVERY.md).
 
 Ιστορικός read-only έλεγχος του σταδίου, με τον πλέον αποσυρμένο runner:
 `python3 /opt/upat-shelly-compact-stage2-20260916-r4/ops/shelly-compact/stage2.py status`.

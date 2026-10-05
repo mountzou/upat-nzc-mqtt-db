@@ -1,0 +1,873 @@
+{
+  "release_roots": [
+    "/opt/upat-shelly-compact-stage3-20260916",
+    "/opt/upat-shelly-compact-stage2-20260916",
+    "/opt/upat-shelly-compact-stage1-20260916",
+    "/opt/upat-shelly-compact-stage2-20260916-r4",
+    "/opt/upat-shelly-compact-stage2-20260916-r3",
+    "/opt/upat-shelly-compact-stage2-20260916-r2",
+    "/opt/upat-shelly-compact-stage3-20260916-r2"
+  ],
+  "candidates": [
+    {
+      "path": "/opt/upat-nzc-mqtt-db/db/maintenance/rollback_014_telemetry_timestamptz.sql",
+      "bytes": 2275,
+      "allocated_bytes": 4096,
+      "sha256": "f0b2e497b75749bea2e1ce39ad278d19c724cd984b02732b95ab156e3fcc1272"
+    },
+    {
+      "path": "/opt/upat-nzc-mqtt-db/ops/shelly-compact/Dockerfile.ingestor",
+      "bytes": 378,
+      "allocated_bytes": 4096,
+      "sha256": "8a64ac44d563761c9ddbe92a314b12cd26a3f1ddb368179b102808bc737d80c9"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage1-20260916/api/main.py",
+      "bytes": 56135,
+      "allocated_bytes": 57344,
+      "sha256": "67718f470932c6d40758edebdf08600c9ba7f4d710b61744f65435946902b83b"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage1-20260916/api/readers/measurements.py",
+      "bytes": 3294,
+      "allocated_bytes": 4096,
+      "sha256": "bc4eeeb33e7ed750c4e9f2c48bffa1f41c698d730f276a9c727266d6241cddd5"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage1-20260916/api/readers/shelly_storage.py",
+      "bytes": 1170,
+      "allocated_bytes": 4096,
+      "sha256": "cb77a9aecac9a4c15ee2904ec9b283b9945a16eb465b2547e46220ec04da632a"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage1-20260916/db/migrations/017_shelly_compact_prepare.sql",
+      "bytes": 2702,
+      "allocated_bytes": 4096,
+      "sha256": "7b015f55db061a7f09c16d27dd438ed7fea3739424701058bd2a15fa1a5b43ba"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage1-20260916/ops/postgres-volume/check-compose.py",
+      "bytes": 7515,
+      "allocated_bytes": 8192,
+      "sha256": "9471dcc458d71a582d751398b421d0efed6de4efd5af9b4e554de7be6fe6ce4f"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage1-20260916/ops/shelly-compact/Dockerfile.api",
+      "bytes": 311,
+      "allocated_bytes": 4096,
+      "sha256": "5f1fadc9fd337fec2ae0ddafd1adc47bbea17e6d6e6e1083ff289dd4f1c94314"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage1-20260916/ops/shelly-compact/Dockerfile.ingestor",
+      "bytes": 370,
+      "allocated_bytes": 4096,
+      "sha256": "8c5efc929b038e53d23351b39120c708a7817257e24112841d2fd33f46263bb8"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage1-20260916/ops/shelly-compact/build-local.sh",
+      "bytes": 1246,
+      "allocated_bytes": 4096,
+      "sha256": "1e7a8e441174da59f32d86a5b19d60b18b770ed15bc8154ea2135cd40934730b"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage1-20260916/ops/shelly-compact/compose.override.yml",
+      "bytes": 696,
+      "allocated_bytes": 4096,
+      "sha256": "6a09b9d972cf59442bfc60d62e519f8f3c9aa12f83019371e90b4d776ca70d85"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage1-20260916/ops/shelly-compact/compose.stage1.prod.yml",
+      "bytes": 7265,
+      "allocated_bytes": 8192,
+      "sha256": "b820e9adf55a6c3187e5ce5b062502cfd5503be0e3bbf00611593fa735e59206"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage1-20260916/ops/shelly-compact/copy-window.py",
+      "bytes": 2598,
+      "allocated_bytes": 4096,
+      "sha256": "c729319873cb0ed74795716d111e2a7076131a7f220c11a691c39c2783459754"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage1-20260916/ops/shelly-compact/migrate.py",
+      "bytes": 14480,
+      "allocated_bytes": 16384,
+      "sha256": "8230cf0495874f13b56913ca13b93cf7b74f675a7529d1ba197ac4795d5f463a"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage1-20260916/ops/shelly-compact/smoke-local-images.py",
+      "bytes": 5267,
+      "allocated_bytes": 8192,
+      "sha256": "6d0a61533be8e785842c5d5cc96d7bc0cdd28e5b0d4b203d66aea63548442df1"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage1-20260916/ops/shelly-compact/stage1.py",
+      "bytes": 15261,
+      "allocated_bytes": 16384,
+      "sha256": "5a3b3b23526804c4405ff90e8381de7bc6df7757b6646099966b520816e84353"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage1-20260916/shelly-ingestor/.dockerignore",
+      "bytes": 187,
+      "allocated_bytes": 4096,
+      "sha256": "97efda09a4abb0f84e77107721105a2c11884a5893216a4aefea2fbb5c751ff7"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage1-20260916/shelly-ingestor/Dockerfile",
+      "bytes": 190,
+      "allocated_bytes": 4096,
+      "sha256": "fa321b97cac7f33f05e9d3e0089e0973a1cf4f4e31c3be80752cd797654ce1cb"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage1-20260916/shelly-ingestor/counters.py",
+      "bytes": 2724,
+      "allocated_bytes": 4096,
+      "sha256": "2bb1b6b80bd00093cdb374e8306eb66ff8e1e92488e160026c1d98a8beaeb504"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage1-20260916/shelly-ingestor/main.py",
+      "bytes": 8087,
+      "allocated_bytes": 8192,
+      "sha256": "09cfefd41e21cfb88696059f67970baeb23eaa0ca92293fd2b5a670efcc01921"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage1-20260916/shelly-ingestor/measurements.py",
+      "bytes": 1533,
+      "allocated_bytes": 4096,
+      "sha256": "73fae55c81f0c6e8e450625d17ac6cdd0e8eef781f910b6a20f7aefc9ac730db"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage1-20260916/shelly-ingestor/requirements.txt",
+      "bytes": 26,
+      "allocated_bytes": 4096,
+      "sha256": "65d57bf7b823cd7471b2788a75bfb1f8812237a48bed8348d2e2c98358813ea4"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage2-20260916/ops/shelly-compact/__pycache__/stage1.cpython-312.pyc",
+      "bytes": 21098,
+      "allocated_bytes": 24576,
+      "sha256": "d2249c3c0a434580c646351feac4725fd899f6135de7eecea78f86fdb636e6d4"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage2-20260916/ops/shelly-compact/__pycache__/stage2.cpython-312.pyc",
+      "bytes": 30794,
+      "allocated_bytes": 32768,
+      "sha256": "c8eb73a65bd559c85626c2741a5ea09918d72515b59440aed433271b5afcc989"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage2-20260916/ops/shelly-compact/compose.stage1.prod.yml",
+      "bytes": 7265,
+      "allocated_bytes": 8192,
+      "sha256": "b820e9adf55a6c3187e5ce5b062502cfd5503be0e3bbf00611593fa735e59206"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage2-20260916/ops/shelly-compact/compose.stage2.prod.yml",
+      "bytes": 7359,
+      "allocated_bytes": 8192,
+      "sha256": "602cb00888f728f904f0977e11d1d96b6077e91369581da3299d602c982d0943"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage2-20260916/ops/shelly-compact/shadow-api.py",
+      "bytes": 1111,
+      "allocated_bytes": 4096,
+      "sha256": "4074f5ecbc4363186d702e4fd1457eba203d4fbda509d11b7c3510eff10fb3f5"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage2-20260916/ops/shelly-compact/stage1.py",
+      "bytes": 15261,
+      "allocated_bytes": 16384,
+      "sha256": "5a3b3b23526804c4405ff90e8381de7bc6df7757b6646099966b520816e84353"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage2-20260916/ops/shelly-compact/stage2.py",
+      "bytes": 17486,
+      "allocated_bytes": 20480,
+      "sha256": "77e8688a2b832b4c9dd98cdcec2de6c6a14b6e895e100187da414bd77002a02b"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage2-20260916/tests/test_shelly_compact_stage2.py",
+      "bytes": 3125,
+      "allocated_bytes": 4096,
+      "sha256": "226fa66a8329d4f86e7c1e7b683fc46a7828dda33c24ee01f662f2ce15306c81"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage2-20260916-r2/ops/shelly-compact/__pycache__/stage1.cpython-312.pyc",
+      "bytes": 21101,
+      "allocated_bytes": 24576,
+      "sha256": "a5a0133625dfa98558212c6a8ed45c973609d552f6d45c672156e3df5ded1e48"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage2-20260916-r2/ops/shelly-compact/compose.stage1.prod.yml",
+      "bytes": 7265,
+      "allocated_bytes": 8192,
+      "sha256": "b820e9adf55a6c3187e5ce5b062502cfd5503be0e3bbf00611593fa735e59206"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage2-20260916-r2/ops/shelly-compact/compose.stage2.prod.yml",
+      "bytes": 7359,
+      "allocated_bytes": 8192,
+      "sha256": "602cb00888f728f904f0977e11d1d96b6077e91369581da3299d602c982d0943"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage2-20260916-r2/ops/shelly-compact/shadow-api.py",
+      "bytes": 1111,
+      "allocated_bytes": 4096,
+      "sha256": "4074f5ecbc4363186d702e4fd1457eba203d4fbda509d11b7c3510eff10fb3f5"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage2-20260916-r2/ops/shelly-compact/stage1.py",
+      "bytes": 15261,
+      "allocated_bytes": 16384,
+      "sha256": "5a3b3b23526804c4405ff90e8381de7bc6df7757b6646099966b520816e84353"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage2-20260916-r2/ops/shelly-compact/stage2.py",
+      "bytes": 17538,
+      "allocated_bytes": 20480,
+      "sha256": "f9e5d0b13a1c93f2d7675a3286a0df430a42a9c4db51b025144f957c94635f78"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage2-20260916-r2/tests/test_shelly_compact_stage2.py",
+      "bytes": 3125,
+      "allocated_bytes": 4096,
+      "sha256": "226fa66a8329d4f86e7c1e7b683fc46a7828dda33c24ee01f662f2ce15306c81"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage2-20260916-r3/ops/shelly-compact/__pycache__/stage1.cpython-312.pyc",
+      "bytes": 21101,
+      "allocated_bytes": 24576,
+      "sha256": "234e0285328ff48bab8a46aba305a113288c24b8e5dadedd12a9a9c8d33b9af9"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage2-20260916-r3/ops/shelly-compact/compose.stage1.prod.yml",
+      "bytes": 7265,
+      "allocated_bytes": 8192,
+      "sha256": "b820e9adf55a6c3187e5ce5b062502cfd5503be0e3bbf00611593fa735e59206"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage2-20260916-r3/ops/shelly-compact/compose.stage2.prod.yml",
+      "bytes": 7359,
+      "allocated_bytes": 8192,
+      "sha256": "602cb00888f728f904f0977e11d1d96b6077e91369581da3299d602c982d0943"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage2-20260916-r3/ops/shelly-compact/shadow-api.py",
+      "bytes": 1111,
+      "allocated_bytes": 4096,
+      "sha256": "4074f5ecbc4363186d702e4fd1457eba203d4fbda509d11b7c3510eff10fb3f5"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage2-20260916-r3/ops/shelly-compact/stage1.py",
+      "bytes": 15261,
+      "allocated_bytes": 16384,
+      "sha256": "5a3b3b23526804c4405ff90e8381de7bc6df7757b6646099966b520816e84353"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage2-20260916-r3/ops/shelly-compact/stage2.py",
+      "bytes": 19185,
+      "allocated_bytes": 20480,
+      "sha256": "6eb057e6dcb8f2047c84b806d9b591c9b2aeae73b45179a76d24b7191f1b4f54"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage2-20260916-r3/tests/test_shelly_compact_stage2.py",
+      "bytes": 4676,
+      "allocated_bytes": 8192,
+      "sha256": "10644c30faa0b4627831fa1b71bd6e7afd0124b573eaac18e0f7dbe58b269c26"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage2-20260916-r4/ops/shelly-compact/__pycache__/stage1.cpython-312.pyc",
+      "bytes": 21101,
+      "allocated_bytes": 24576,
+      "sha256": "aa85e7226f4b2eca38857617dc26d05a41e21b827726f88cd67b72be39f86c08"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage2-20260916-r4/ops/shelly-compact/__pycache__/stage2.cpython-312.pyc",
+      "bytes": 33934,
+      "allocated_bytes": 36864,
+      "sha256": "069f5e2a7c7ace610e9d5e16ce9abf902a54ff4fddf3345b2e2020261b41afdc"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage2-20260916-r4/ops/shelly-compact/compose.stage1.prod.yml",
+      "bytes": 7265,
+      "allocated_bytes": 8192,
+      "sha256": "b820e9adf55a6c3187e5ce5b062502cfd5503be0e3bbf00611593fa735e59206"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage2-20260916-r4/ops/shelly-compact/compose.stage2.prod.yml",
+      "bytes": 7359,
+      "allocated_bytes": 8192,
+      "sha256": "602cb00888f728f904f0977e11d1d96b6077e91369581da3299d602c982d0943"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage2-20260916-r4/ops/shelly-compact/shadow-api.py",
+      "bytes": 1111,
+      "allocated_bytes": 4096,
+      "sha256": "4074f5ecbc4363186d702e4fd1457eba203d4fbda509d11b7c3510eff10fb3f5"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage2-20260916-r4/ops/shelly-compact/stage1.py",
+      "bytes": 15261,
+      "allocated_bytes": 16384,
+      "sha256": "5a3b3b23526804c4405ff90e8381de7bc6df7757b6646099966b520816e84353"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage2-20260916-r4/ops/shelly-compact/stage2.py",
+      "bytes": 19743,
+      "allocated_bytes": 20480,
+      "sha256": "b6882e0702263891f7d36ec4264147e702ed3358a0f39da776930524f1f58d91"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage2-20260916-r4/tests/test_shelly_compact_stage2.py",
+      "bytes": 4676,
+      "allocated_bytes": 8192,
+      "sha256": "10644c30faa0b4627831fa1b71bd6e7afd0124b573eaac18e0f7dbe58b269c26"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage3-20260916/ops/shelly-compact/__pycache__/stage1.cpython-312.pyc",
+      "bytes": 21098,
+      "allocated_bytes": 24576,
+      "sha256": "89a76344560f6d512f6d9ffeedf10d24a488c577f58d879b02a948b596074ea0"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage3-20260916/ops/shelly-compact/__pycache__/stage2.cpython-312.pyc",
+      "bytes": 33931,
+      "allocated_bytes": 36864,
+      "sha256": "c4495365d38deb898447c13649c4614228ae0e123af7be4f0102fdee1fa6567d"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage3-20260916/ops/shelly-compact/compose.stage2.prod.yml",
+      "bytes": 7359,
+      "allocated_bytes": 8192,
+      "sha256": "602cb00888f728f904f0977e11d1d96b6077e91369581da3299d602c982d0943"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage3-20260916/ops/shelly-compact/compose.stage3.prod.yml",
+      "bytes": 7362,
+      "allocated_bytes": 8192,
+      "sha256": "282845fc84ac3fcac013809c8cc75d71e658e686bf4fbc530bb52a0cfd117aba"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage3-20260916/ops/shelly-compact/migrate.py",
+      "bytes": 14480,
+      "allocated_bytes": 16384,
+      "sha256": "8230cf0495874f13b56913ca13b93cf7b74f675a7529d1ba197ac4795d5f463a"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage3-20260916/ops/shelly-compact/stage1.py",
+      "bytes": 15261,
+      "allocated_bytes": 16384,
+      "sha256": "5a3b3b23526804c4405ff90e8381de7bc6df7757b6646099966b520816e84353"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage3-20260916/ops/shelly-compact/stage2.py",
+      "bytes": 19743,
+      "allocated_bytes": 20480,
+      "sha256": "b6882e0702263891f7d36ec4264147e702ed3358a0f39da776930524f1f58d91"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage3-20260916/ops/shelly-compact/stage3.py",
+      "bytes": 10569,
+      "allocated_bytes": 12288,
+      "sha256": "119e21d94fd240d85d30404e9bce8b4d35f78236eb8fea8ed11421984aaf53f9"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage3-20260916/ops/shelly-compact/writer-cutover.py",
+      "bytes": 4987,
+      "allocated_bytes": 8192,
+      "sha256": "f89eee45a8c8c655c9a10a957878ebf7076f5d672c771efecd6fb4318a2dc207"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage3-20260916-r2/ops/shelly-compact/__pycache__/stage1.cpython-312.pyc",
+      "bytes": 21101,
+      "allocated_bytes": 24576,
+      "sha256": "e9d4d9a4af719d42f1100d5877e2d8c0de9be0d982d144ef32245ccff93a69d6"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage3-20260916-r2/ops/shelly-compact/__pycache__/stage2.cpython-312.pyc",
+      "bytes": 33934,
+      "allocated_bytes": 36864,
+      "sha256": "f993a6f1084b7efe108d7edb22f53febb3e2fadd51f5ff085687b97ce0f4a236"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage3-20260916-r2/ops/shelly-compact/__pycache__/stage3.cpython-312.pyc",
+      "bytes": 20266,
+      "allocated_bytes": 20480,
+      "sha256": "d46da2fc07fb6ed1b1ee1ccc9e2674910a45b5bb78af95aa54da4feb49377890"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage3-20260916-r2/ops/shelly-compact/compose.stage2.prod.yml",
+      "bytes": 7359,
+      "allocated_bytes": 8192,
+      "sha256": "602cb00888f728f904f0977e11d1d96b6077e91369581da3299d602c982d0943"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage3-20260916-r2/ops/shelly-compact/compose.stage3.prod.yml",
+      "bytes": 7362,
+      "allocated_bytes": 8192,
+      "sha256": "282845fc84ac3fcac013809c8cc75d71e658e686bf4fbc530bb52a0cfd117aba"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage3-20260916-r2/ops/shelly-compact/migrate.py",
+      "bytes": 14480,
+      "allocated_bytes": 16384,
+      "sha256": "8230cf0495874f13b56913ca13b93cf7b74f675a7529d1ba197ac4795d5f463a"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage3-20260916-r2/ops/shelly-compact/stage1.py",
+      "bytes": 15261,
+      "allocated_bytes": 16384,
+      "sha256": "5a3b3b23526804c4405ff90e8381de7bc6df7757b6646099966b520816e84353"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage3-20260916-r2/ops/shelly-compact/stage2.py",
+      "bytes": 19743,
+      "allocated_bytes": 20480,
+      "sha256": "b6882e0702263891f7d36ec4264147e702ed3358a0f39da776930524f1f58d91"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage3-20260916-r2/ops/shelly-compact/stage3.py",
+      "bytes": 10569,
+      "allocated_bytes": 12288,
+      "sha256": "119e21d94fd240d85d30404e9bce8b4d35f78236eb8fea8ed11421984aaf53f9"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage3-20260916-r2/ops/shelly-compact/writer-cutover.py",
+      "bytes": 5066,
+      "allocated_bytes": 8192,
+      "sha256": "14b2827818bb8c47f5e13ec46f71229cb6089be337c25695147994fb33a080bc"
+    }
+  ],
+  "preserved_evidence": [
+    {
+      "path": "/opt/upat-shelly-compact-stage3-20260916/ARTIFACT-MANIFEST.json",
+      "bytes": 1017,
+      "allocated_bytes": 4096,
+      "sha256": "d4d49d0ebbebcc46a01985bc303a7e8bd3c3eaea678f0a73828f84471192e055"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage3-20260916/ops/shelly-compact/RUNBOOK.md",
+      "bytes": 11065,
+      "allocated_bytes": 12288,
+      "sha256": "dd7ebe4aa13b2839be31490c8e79f459760cfbc48330a33a56363411810ed014"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage3-20260916/receipts/before.json",
+      "bytes": 2284,
+      "allocated_bytes": 4096,
+      "sha256": "a088a5d4757e009b375423746bed03e263ab98e3638ee8c8f62d7678aa690e61"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage3-20260916/receipts/compose.before.yml",
+      "bytes": 7359,
+      "allocated_bytes": 8192,
+      "sha256": "602cb00888f728f904f0977e11d1d96b6077e91369581da3299d602c982d0943"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage2-20260916/ARTIFACT-MANIFEST.json",
+      "bytes": 825,
+      "allocated_bytes": 4096,
+      "sha256": "9014a20ed13755fe8c8b3c8b36fbc783f2d7e630df5b280864bf61a023e092e7"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage2-20260916/receipts/before.json",
+      "bytes": 2502,
+      "allocated_bytes": 4096,
+      "sha256": "88d74a5a1137888b22db0c15aed115994f310f69bb80911167e08f2ba80c629f"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage2-20260916/receipts/compose.before.yml",
+      "bytes": 7265,
+      "allocated_bytes": 8192,
+      "sha256": "b820e9adf55a6c3187e5ce5b062502cfd5503be0e3bbf00611593fa735e59206"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage1-20260916/ARTIFACT-MANIFEST.json",
+      "bytes": 2515,
+      "allocated_bytes": 4096,
+      "sha256": "ff049b16fe4c54ae3ae93000719d78c1f5075839af1dd898f8312d751d308b65"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage1-20260916/BACKUP-GATE.json",
+      "bytes": 598,
+      "allocated_bytes": 4096,
+      "sha256": "b1f8a146e4a421383f1b80b7748a342e394be427cb27cd15c644dc427d0a6976"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage1-20260916/ops/shelly-compact/RUNBOOK.md",
+      "bytes": 10305,
+      "allocated_bytes": 12288,
+      "sha256": "771906a447f3a4fa9b9b58aedb511b10d455cb931e0115e32e357a87fcffef78"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage1-20260916/ops/shelly-compact/VALIDATION-20260916.md",
+      "bytes": 12338,
+      "allocated_bytes": 16384,
+      "sha256": "75943f5c82a11dce633b1153a138388cde8b40f4fe535488ae26cb7121deaed8"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage1-20260916/receipts/activated.json",
+      "bytes": 648,
+      "allocated_bytes": 4096,
+      "sha256": "7ee62511266c35f5c3b52b1713a1963989215b272d582d301dec5dc75a5d8a39"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage1-20260916/receipts/before.json",
+      "bytes": 2589,
+      "allocated_bytes": 4096,
+      "sha256": "81f0224ccebb4c86e9b677c5c3d1affe7f3e11ec19994cb61afe85315cd026a1"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage1-20260916/receipts/checkpoint.json",
+      "bytes": 49,
+      "allocated_bytes": 4096,
+      "sha256": "d50e392c214d4467ecd2b6d39e15fd6f54fea095cc3a852d427c6b92dedab0d9"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage1-20260916/receipts/compose.before.yml",
+      "bytes": 7194,
+      "allocated_bytes": 8192,
+      "sha256": "282b5cee532dca150c75f5aa5afcaf7bfedcfa3dfb99893e84d7eabe1f36bef7"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage1-20260916/receipts/copy-window-01.json",
+      "bytes": 313,
+      "allocated_bytes": 4096,
+      "sha256": "24e6a21e9fab80cdc6dcbc66c2d60a2bd6563e4950486209dec4b4c496a45305"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage1-20260916/receipts/copy-window-02.json",
+      "bytes": 313,
+      "allocated_bytes": 4096,
+      "sha256": "e2131388530509d0db0e2ba37d77a496ca24bf3b63d5e2ace4275c6f2ef7f3b4"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage1-20260916/receipts/copy-window-03.json",
+      "bytes": 314,
+      "allocated_bytes": 4096,
+      "sha256": "7bb8412820ce23958d436cbe5365bf418b5f6774b51b8046a650e2e2e36f16ec"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage1-20260916/receipts/copy-window-04.json",
+      "bytes": 315,
+      "allocated_bytes": 4096,
+      "sha256": "b3762ba2e1fbb15fdc210b6cb351c063c9e6eadf355495045c66308ad9dac523"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage1-20260916/receipts/copy-window-05.json",
+      "bytes": 315,
+      "allocated_bytes": 4096,
+      "sha256": "e67277a4ea706794d179764bdb05c2a3f22527194115f94949003b527fa4d748"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage1-20260916/receipts/copy-window-06.json",
+      "bytes": 315,
+      "allocated_bytes": 4096,
+      "sha256": "1e9ccb08ced47bda5e835aad42e770d93e463068dbe873dea2af9e9df189eb96"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage1-20260916/receipts/copy-window-07.json",
+      "bytes": 315,
+      "allocated_bytes": 4096,
+      "sha256": "8f5a1f0fe24cc3b25edf6b72635d58c8bba2615fe0f31c05c7d25fe3ed07907d"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage1-20260916/receipts/copy-window-08.json",
+      "bytes": 315,
+      "allocated_bytes": 4096,
+      "sha256": "cc8f633f8adaf47c23cb0d5187dceb2be13006b756895c5349c2facaed6573d0"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage1-20260916/receipts/copy-window-09.json",
+      "bytes": 315,
+      "allocated_bytes": 4096,
+      "sha256": "6534e688061d179ccc5865e7aba9348442eb71a0722ceecfeaee1ad866336f5b"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage1-20260916/receipts/copy-window-10.json",
+      "bytes": 315,
+      "allocated_bytes": 4096,
+      "sha256": "0fdc2920cba6e214025202bdf19f9c892b8ddabdbe3bff9107242279b664d2f3"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage1-20260916/receipts/copy-window-11.json",
+      "bytes": 315,
+      "allocated_bytes": 4096,
+      "sha256": "7f6e16847f0aa54571485b916b6e6a0a3acb836bb60398850b6f5185d9fa5497"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage1-20260916/receipts/copy-window-12.json",
+      "bytes": 315,
+      "allocated_bytes": 4096,
+      "sha256": "096c01d9600f5da4fa66a5203f79bba0b01760cfae718eb1495fefbf67c398f6"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage1-20260916/receipts/copy-window-13.json",
+      "bytes": 315,
+      "allocated_bytes": 4096,
+      "sha256": "f79a03ba72721ce818eafb1258b1d8d55e1d1ace08f3d0487411ecbfcf16e046"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage1-20260916/receipts/copy-window-14.json",
+      "bytes": 315,
+      "allocated_bytes": 4096,
+      "sha256": "8981079a6e7eb7aab4c9e6aaff5087cd597d633ade5e07ff3bc9741b252ff7aa"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage1-20260916/receipts/copy-window-15.json",
+      "bytes": 315,
+      "allocated_bytes": 4096,
+      "sha256": "2d73f6377021d80bbaff0c0fad490862adf70042339860453f107ccddd691f9c"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage1-20260916/receipts/copy-window-16.json",
+      "bytes": 314,
+      "allocated_bytes": 4096,
+      "sha256": "29f563e3fda94269d1f9992ab25eff5b47403aa2a027b1d345057d9d109f464d"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage1-20260916/receipts/copy-window-17.json",
+      "bytes": 315,
+      "allocated_bytes": 4096,
+      "sha256": "ef8ece9de25b002e7d3580fe6550f606f5dca85fbf68ec751e7924193bbd11cd"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage1-20260916/receipts/copy-window-18.json",
+      "bytes": 315,
+      "allocated_bytes": 4096,
+      "sha256": "e65a588bb2c48fc3936f75540c356f605cfcfbf005143b1c44f1780b3928abee"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage1-20260916/receipts/copy-window-19.json",
+      "bytes": 315,
+      "allocated_bytes": 4096,
+      "sha256": "05e96e804eb568c2aec3a4e251ff74becfa3e3403e54b2ecf55ca0c3d1b761cd"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage1-20260916/receipts/copy-window-20.json",
+      "bytes": 315,
+      "allocated_bytes": 4096,
+      "sha256": "a99136a9d5b3dd6452d10840a0da92f944385cfeffd174f1b6429d277bc9adb5"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage1-20260916/receipts/copy-window-21.json",
+      "bytes": 314,
+      "allocated_bytes": 4096,
+      "sha256": "84ba0edc1123ffa6d263c86e5deea3026af74543f3ecc55939f46617ab1c700f"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage1-20260916/receipts/copy-window-22.json",
+      "bytes": 315,
+      "allocated_bytes": 4096,
+      "sha256": "97038f97285a130e6327547007f797cb225ebebfc9445b1c159cec9c6f1b3a50"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage1-20260916/receipts/copy-window-23.json",
+      "bytes": 315,
+      "allocated_bytes": 4096,
+      "sha256": "69c84672468fe7710100c55e93b119de62d38448021490e550babcbb8b4aaca5"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage1-20260916/receipts/copy-window-24.json",
+      "bytes": 315,
+      "allocated_bytes": 4096,
+      "sha256": "e3b99441617352b82102c0e0d28108cf584cc883cf13a6df13e4ca469341c293"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage1-20260916/receipts/copy-window-25.json",
+      "bytes": 315,
+      "allocated_bytes": 4096,
+      "sha256": "6a181be310de588db1cec067fdde8e3656bd218ac7aef6c1c4d5d3728a3cc786"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage1-20260916/receipts/copy-window-26.json",
+      "bytes": 315,
+      "allocated_bytes": 4096,
+      "sha256": "b1b970b7d02a35235d777e469b1844e596cb6623908779e626a85467a65b7949"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage1-20260916/receipts/copy-window-27.json",
+      "bytes": 315,
+      "allocated_bytes": 4096,
+      "sha256": "499f0e3b43ada8c03449dd5ffe75087fff1f7f0033f56a16a4b798cafbdc0c69"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage1-20260916/receipts/copy-window-28.json",
+      "bytes": 315,
+      "allocated_bytes": 4096,
+      "sha256": "bec3f94c2a3b42017e09f14a822c7656e525dc71bc270c0d6bf551a31798dac9"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage1-20260916/receipts/copy-window-29.json",
+      "bytes": 315,
+      "allocated_bytes": 4096,
+      "sha256": "439c8e1fecf558f1188c47f5cf8932ac7f76cc4186ee96a02973c70f484c10ee"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage1-20260916/receipts/copy-window-30.json",
+      "bytes": 314,
+      "allocated_bytes": 4096,
+      "sha256": "878daf50b1200562df74f2750b7f4ccd8ea1e97f64ed1c6ca40e13b9f175ba9f"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage1-20260916/receipts/copy-window-31.json",
+      "bytes": 315,
+      "allocated_bytes": 4096,
+      "sha256": "c21b47dd8b28befef9346a122624943143f42031c49401e9e5bcbaffc2c850c0"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage1-20260916/receipts/copy-window-32.json",
+      "bytes": 315,
+      "allocated_bytes": 4096,
+      "sha256": "08567fafd203545bc277822593c43547a383452da4512bf7fdf303f2661bcbb5"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage1-20260916/receipts/copy-window-33.json",
+      "bytes": 314,
+      "allocated_bytes": 4096,
+      "sha256": "0c28398e7bdd7686f7061c90a3cff1f63f0247fb507e43591bd76065a63884e6"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage1-20260916/receipts/index.json",
+      "bytes": 69,
+      "allocated_bytes": 4096,
+      "sha256": "e5e7a976a9258a1073724e86fbaa6b536079bf86de546fe53b81f9c008572d0a"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage1-20260916/receipts/prepare.json",
+      "bytes": 45,
+      "allocated_bytes": 4096,
+      "sha256": "d6f7c9fd2b4c6a5fad5161c7d3514f7d4f4b1a133b1eb5a2fe473d5127530902"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage1-20260916/receipts/verify.json",
+      "bytes": 555,
+      "allocated_bytes": 4096,
+      "sha256": "feec527008ffa2ccc7ee6defe85dd16b6bd5b5e93c9424aab306dc3830553c70"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage2-20260916-r4/ARTIFACT-MANIFEST.json",
+      "bytes": 825,
+      "allocated_bytes": 4096,
+      "sha256": "7fd1b2b905782ce3b2d8c14d5f151d5c522342f587500c4be4d8bff5fa8fff34"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage2-20260916-r4/receipts/activated.json",
+      "bytes": 3465,
+      "allocated_bytes": 4096,
+      "sha256": "915c16dbd9271d943b21b8e14addb08fed832637fddf569e2b749132159073f9"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage2-20260916-r4/receipts/before.json",
+      "bytes": 2503,
+      "allocated_bytes": 4096,
+      "sha256": "c60e318773b52b3534ba2b193fda8d64828b8e263b4c2122708c734d07332eae"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage2-20260916-r4/receipts/compose.before.yml",
+      "bytes": 7265,
+      "allocated_bytes": 8192,
+      "sha256": "b820e9adf55a6c3187e5ce5b062502cfd5503be0e3bbf00611593fa735e59206"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage2-20260916-r4/receipts/probe.json",
+      "bytes": 177233,
+      "allocated_bytes": 180224,
+      "sha256": "8a2957798dfb28414e47b6572c470fd25ef5dd9900b77c82c5ba03b6f73dd372"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage2-20260916-r3/ARTIFACT-MANIFEST.json",
+      "bytes": 825,
+      "allocated_bytes": 4096,
+      "sha256": "6051d5682979a13b46a2e95019abfac1e40e563842ba62d523eb3e051c897353"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage2-20260916-r3/receipts/before.json",
+      "bytes": 2503,
+      "allocated_bytes": 4096,
+      "sha256": "ba5ffa716e8aa96623e98178b23dd687b18d80d8bc38489c0fd0f91cbb16141b"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage2-20260916-r3/receipts/compose.before.yml",
+      "bytes": 7265,
+      "allocated_bytes": 8192,
+      "sha256": "b820e9adf55a6c3187e5ce5b062502cfd5503be0e3bbf00611593fa735e59206"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage2-20260916-r3/receipts/visibility-maintenance.json",
+      "bytes": 802,
+      "allocated_bytes": 4096,
+      "sha256": "1d2e5e2059702cb616e6b06741f5b4ee40c1b7bceba875465d615cafe12e9542"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage2-20260916-r3/receipts/visibility-maintenance.log",
+      "bytes": 659,
+      "allocated_bytes": 4096,
+      "sha256": "7d5cf7ef9ee27a3d0949476d0999e8d8e03e21886d6d3a94b20525c4c74a8bc9"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage2-20260916-r2/ARTIFACT-MANIFEST.json",
+      "bytes": 825,
+      "allocated_bytes": 4096,
+      "sha256": "3ee4a132724f7b9e422cf83acc43c5189496e5ff32ed68f3aadad2f4924fd6be"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage2-20260916-r2/receipts/before.json",
+      "bytes": 2503,
+      "allocated_bytes": 4096,
+      "sha256": "98dad8fbec99c7b5ae6e9aabb4cce1485f03e90b6586da46d46b07a6fd2290ea"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage2-20260916-r2/receipts/compose.before.yml",
+      "bytes": 7265,
+      "allocated_bytes": 8192,
+      "sha256": "b820e9adf55a6c3187e5ce5b062502cfd5503be0e3bbf00611593fa735e59206"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage3-20260916-r2/ARTIFACT-MANIFEST.json",
+      "bytes": 1017,
+      "allocated_bytes": 4096,
+      "sha256": "2fd18acf23655c82a71d05b28200e546622d4124f4980557fa2896d1c63c68f7"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage3-20260916-r2/BACKUP-GATE.json",
+      "bytes": 640,
+      "allocated_bytes": 4096,
+      "sha256": "8c43979bc0715541fc99dec43f5a2eff2e2765938fd5e4539fddce58b3fc6692"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage3-20260916-r2/ops/shelly-compact/RUNBOOK.md",
+      "bytes": 11065,
+      "allocated_bytes": 12288,
+      "sha256": "dd7ebe4aa13b2839be31490c8e79f459760cfbc48330a33a56363411810ed014"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage3-20260916-r2/receipts/activated.json",
+      "bytes": 2405,
+      "allocated_bytes": 4096,
+      "sha256": "ca4fcafba49d037c25032d248fcc391293de5ea65f7b6e1e5abd00b77d1db4c4"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage3-20260916-r2/receipts/before.json",
+      "bytes": 2284,
+      "allocated_bytes": 4096,
+      "sha256": "0bcc397fc43d4ba8f18f5cebf3ef992eec23be8a39bf34387984fa52ec584926"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage3-20260916-r2/receipts/checkpoint.json",
+      "bytes": 407,
+      "allocated_bytes": 4096,
+      "sha256": "64c9a5eb3f7f9c517573d8147b5afe334450c07bec849a18b5ef582045e4994b"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage3-20260916-r2/receipts/compose.before.yml",
+      "bytes": 7359,
+      "allocated_bytes": 8192,
+      "sha256": "602cb00888f728f904f0977e11d1d96b6077e91369581da3299d602c982d0943"
+    },
+    {
+      "path": "/opt/upat-shelly-compact-stage3-20260916-r2/receipts/verify.json",
+      "bytes": 609,
+      "allocated_bytes": 4096,
+      "sha256": "158aa29d182901aca1d633f71164b7dca5d72e4f99ec06854fa3c938ed613b1b"
+    }
+  ]
+}
