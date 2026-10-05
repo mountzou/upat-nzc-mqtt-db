@@ -4,6 +4,8 @@ Current contract, 2026-10-05: API reads and ingestor writes are fixed to compact
 The retired storage/write/rounding selectors are no longer part of the runtime.
 Shelly averages retain one-decimal numeric rounding; raw measurements are unchanged.
 Current recovery boundaries are in [RECOVERY.md](RECOVERY.md).
+The obsolete VPS stage/build artifacts and UTC-naive inverse SQL were removed;
+see [the applied cleanup and verification](LEGACY-ARTIFACTS-RETIRED-20261005.md).
 
 Legacy retirement, 2026-10-05: `public.shelly_measurements` and its own indexes
 were removed after full history/dependency verification. Compact remains active;
