@@ -1,5 +1,8 @@
 # Compact-only images with the production runtime
 
+The approved API/Shelly rollout completed on 2026-10-05. See
+[the activation and post-check receipt](ROLLOUT-20261005.md).
+
 Build the requested source cleanup on the exact inspected production images.
 Only the reader/writer source files are overlaid; Python, packages, command and
 entrypoint remain inherited. Pass BASE_IMAGE explicitly and label the resulting

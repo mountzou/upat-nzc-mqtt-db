@@ -50,7 +50,8 @@ services with the original Compose if acceptance fails.
 
 API and ingestor recreation causes a brief API/collection interruption. The Shelly
 subscriber uses QoS 0; delivery of messages published during disconnection cannot
-be claimed. This rollout remains pending explicit activation approval.
+be claimed. At this preparation checkpoint activation was pending. It was subsequently
+approved and completed; see [ROLLOUT-20261005.md](ROLLOUT-20261005.md).
 
 The 44 obsolete VPS files, unrelated dirty local files and all other services
 remain outside this application rollout. No services or configuration on VPS were
