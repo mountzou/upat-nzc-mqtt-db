@@ -1,0 +1,167 @@
+{
+  "status": "PASS",
+  "verified_at_utc": "2026-10-05T19:30:43.941759+00:00",
+  "controller_sha256": "0418c6f84f3238ee91f2f07c93d5f280f01fbab27aa34470f6b410b492724d1c",
+  "inventory_sha256": "917e71dec56458f9591b125cfdbadb41ffce96b5cdb9442443f91f0a6931d94d",
+  "removed_directories": [
+    "/opt/upat-shelly-compact-stage1-20260916",
+    "/opt/upat-shelly-compact-stage2-20260916",
+    "/opt/upat-shelly-compact-stage2-20260916-r2",
+    "/opt/upat-shelly-compact-stage2-20260916-r3",
+    "/opt/upat-shelly-compact-stage2-20260916-r4",
+    "/opt/upat-shelly-compact-stage3-20260916",
+    "/opt/upat-shelly-compact-stage3-20260916-r2"
+  ],
+  "removed_file_count": 79,
+  "removed_content_bytes": 322533,
+  "removed_allocated_bytes": 647168,
+  "all_directories_absent": true,
+  "protected_checkout_files_checked": 291,
+  "checkout_unchanged": true,
+  "containers_before": {
+    "/iot_api": {
+      "id": "23eba07f5379ebcb82c8e9c49d2a2f479f66714205d99535d43700e4c6476921",
+      "image": "sha256:c1d1970522a08e90b571313146da7ce9b725e3341120ad424f35bdfc25c7218a",
+      "started_at": "2026-10-05T17:30:25.803556376Z",
+      "status": "running",
+      "restart_count": 0
+    },
+    "/shelly_ingestor": {
+      "id": "9ecf73de86569075b0c8375a5726da18fa1bca49758cc39b0bfce8b75de8333e",
+      "image": "sha256:6d3e2f29bc682be29fa91cdeebc925408eceed33afe7aeea56fa851a4bf1aac9",
+      "started_at": "2026-10-05T17:30:25.802412229Z",
+      "status": "running",
+      "restart_count": 0
+    },
+    "/iot_postgres": {
+      "id": "3e8abad67a5a4bbfdb2dd0773287d808e83b49a294634cff9d4d57af8efc5e1d",
+      "image": "sha256:f30e3de0ac9cc938dac627ef2231099867c694b5f949fadb924c8c977428c399",
+      "started_at": "2026-09-17T07:03:21.953995541Z",
+      "status": "running",
+      "restart_count": 0
+    },
+    "/nzc_energyplus": {
+      "id": "a257550313c515d3e4f77049b0ac218dd1c15b24b3f4718efd2a682ef93efeca",
+      "image": "sha256:ff7efd8c4ed35c3e18a5c236c67a9e41c8c91936d66c4ebe066d6f1a1f29539d",
+      "started_at": "2026-10-02T15:28:52.891625095Z",
+      "status": "running",
+      "restart_count": 0
+    },
+    "/iot_mosquitto": {
+      "id": "cf158e027471756073c2230d15f5a0c7f4dd0e43b068185133eb77d84f31bbc1",
+      "image": "sha256:9cfdd46ad59f3e3e5f592f6baf57ab23e1ad00605509d0f5c1e9b179c5314d87",
+      "started_at": "2026-10-01T12:39:34.731169997Z",
+      "status": "running",
+      "restart_count": 0
+    },
+    "/iot_caddy": {
+      "id": "07d696ec3d0c7ce745fdb128362670fe8db054e92151cd56e4f5c812337644e7",
+      "image": "sha256:5f5c8640aae01df9654968d946d8f1a56c497f1dd5c5cda4cf95ab7c14d58648",
+      "started_at": "2026-09-16T13:27:46.654310407Z",
+      "status": "running",
+      "restart_count": 0
+    },
+    "/ttn_ingestor": {
+      "id": "f8c9cdccfd47a9d577a30364e1e18910c1c163b470a8e5cf740adbf5ac955f9e",
+      "image": "sha256:9a7d0f6bcb0f2dafed7e2a0487f1c371d018a492a9e78c730baf552c04e0d3bd",
+      "started_at": "2026-09-16T14:40:41.158245607Z",
+      "status": "running",
+      "restart_count": 0
+    }
+  },
+  "containers_after": {
+    "/iot_api": {
+      "id": "23eba07f5379ebcb82c8e9c49d2a2f479f66714205d99535d43700e4c6476921",
+      "image": "sha256:c1d1970522a08e90b571313146da7ce9b725e3341120ad424f35bdfc25c7218a",
+      "started_at": "2026-10-05T17:30:25.803556376Z",
+      "status": "running",
+      "restart_count": 0
+    },
+    "/shelly_ingestor": {
+      "id": "9ecf73de86569075b0c8375a5726da18fa1bca49758cc39b0bfce8b75de8333e",
+      "image": "sha256:6d3e2f29bc682be29fa91cdeebc925408eceed33afe7aeea56fa851a4bf1aac9",
+      "started_at": "2026-10-05T17:30:25.802412229Z",
+      "status": "running",
+      "restart_count": 0
+    },
+    "/iot_postgres": {
+      "id": "3e8abad67a5a4bbfdb2dd0773287d808e83b49a294634cff9d4d57af8efc5e1d",
+      "image": "sha256:f30e3de0ac9cc938dac627ef2231099867c694b5f949fadb924c8c977428c399",
+      "started_at": "2026-09-17T07:03:21.953995541Z",
+      "status": "running",
+      "restart_count": 0
+    },
+    "/nzc_energyplus": {
+      "id": "a257550313c515d3e4f77049b0ac218dd1c15b24b3f4718efd2a682ef93efeca",
+      "image": "sha256:ff7efd8c4ed35c3e18a5c236c67a9e41c8c91936d66c4ebe066d6f1a1f29539d",
+      "started_at": "2026-10-02T15:28:52.891625095Z",
+      "status": "running",
+      "restart_count": 0
+    },
+    "/iot_mosquitto": {
+      "id": "cf158e027471756073c2230d15f5a0c7f4dd0e43b068185133eb77d84f31bbc1",
+      "image": "sha256:9cfdd46ad59f3e3e5f592f6baf57ab23e1ad00605509d0f5c1e9b179c5314d87",
+      "started_at": "2026-10-01T12:39:34.731169997Z",
+      "status": "running",
+      "restart_count": 0
+    },
+    "/iot_caddy": {
+      "id": "07d696ec3d0c7ce745fdb128362670fe8db054e92151cd56e4f5c812337644e7",
+      "image": "sha256:5f5c8640aae01df9654968d946d8f1a56c497f1dd5c5cda4cf95ab7c14d58648",
+      "started_at": "2026-09-16T13:27:46.654310407Z",
+      "status": "running",
+      "restart_count": 0
+    },
+    "/ttn_ingestor": {
+      "id": "f8c9cdccfd47a9d577a30364e1e18910c1c163b470a8e5cf740adbf5ac955f9e",
+      "image": "sha256:9a7d0f6bcb0f2dafed7e2a0487f1c371d018a492a9e78c730baf552c04e0d3bd",
+      "started_at": "2026-09-16T14:40:41.158245607Z",
+      "status": "running",
+      "restart_count": 0
+    }
+  },
+  "database_before": {
+    "postgres_started_at": "2026-09-17 10:03:22.421025+03:00",
+    "legacy_table": null,
+    "sequence_oid": 16445,
+    "compact_oid": 121068,
+    "latest": {
+      "id": 96197554,
+      "event_time": "2026-10-05 22:30:37.733886+03:00"
+    }
+  },
+  "database_after": {
+    "postgres_started_at": "2026-09-17 10:03:22.421025+03:00",
+    "legacy_table": null,
+    "sequence_oid": 16445,
+    "compact_oid": 121068,
+    "latest": {
+      "id": 96197590,
+      "event_time": "2026-10-05 22:30:40.938876+03:00"
+    }
+  },
+  "images_and_volumes_unchanged": true,
+  "health": {
+    "status": 200,
+    "body": {
+      "status": "ok",
+      "database": "connected"
+    }
+  },
+  "compose_validator": {
+    "status": "PASS",
+    "read_only": true,
+    "services": 9,
+    "postgres_owned_by_systemd": true,
+    "database_volume_absent_from_compose": true,
+    "network_external": true,
+    "live_environment_and_images_match": true,
+    "only_approved_contract_changes": false,
+    "default_entrypoint_checked": true,
+    "container_state_unchanged": true
+  },
+  "database_writes": false,
+  "restarts": false,
+  "artifact_payload_backups_created": false,
+  "controller_commit": "f358ff917992a5a07c9a203a9d173ef30809bccc"
+}
