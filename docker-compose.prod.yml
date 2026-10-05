@@ -36,7 +36,7 @@ services:
       - ./mqtt/mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf
 
   shelly-ingestor:
-    image: schoolheroz-shelly-ingestor:compact-only-cf58dd02b791
+    image: schoolheroz-shelly-ingestor:compact-only-overlay-0ac942b9b89e
     build:
       context: ./mqtt/shelly-devices
     container_name: shelly_ingestor
@@ -78,7 +78,7 @@ services:
       TTN_TOPIC: ${TTN_TOPIC}
 
   api:
-    image: schoolheroz-api:compact-only-cf58dd02b791
+    image: schoolheroz-api:compact-only-overlay-0ac942b9b89e
     build:
       context: ./api
     container_name: iot_api

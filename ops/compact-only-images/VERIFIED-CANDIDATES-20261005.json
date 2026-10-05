@@ -1,0 +1,84 @@
+{
+  "recipe_commit": "0ac942b9b89e9fc5b46cc8ff440fa9788157315c",
+  "application_source_commit": "cf58dd02b791dc14903e0e39c7041ffcc00d56f8",
+  "images": [
+    {
+      "kind": "api",
+      "candidate": "schoolheroz-api:compact-only-overlay-0ac942b9b89e",
+      "candidate_id": "sha256:c1d1970522a08e90b571313146da7ce9b725e3341120ad424f35bdfc25c7218a",
+      "base_id": "sha256:ae28e0f1b4e4207455f32bb49ec56a4ac78706ba788181fbc6a9d66bdc4e1a18",
+      "changed_app_files": [
+        "readers/shelly_storage.py"
+      ],
+      "runtime_packages": {
+        "python": "3.12.14",
+        "packages": {
+          "fastapi": "0.141.1",
+          "uvicorn": "0.52.4",
+          "psycopg2-binary": "2.9.12",
+          "PyJWT": "2.13.0",
+          "pythermalcomfort": "4.4.2",
+          "numpy": "2.2.6",
+          "scipy": "1.18.1",
+          "numba": "0.67.0",
+          "pydantic": "2.13.5",
+          "starlette": "1.6.0"
+        }
+      },
+      "dependency_layers_unchanged": true,
+      "runtime_config_unchanged": true
+    },
+    {
+      "kind": "ingestor",
+      "candidate": "schoolheroz-shelly-ingestor:compact-only-overlay-0ac942b9b89e",
+      "candidate_id": "sha256:6d3e2f29bc682be29fa91cdeebc925408eceed33afe7aeea56fa851a4bf1aac9",
+      "base_id": "sha256:f92a082e0fbbb5cbbd4f3ab922b589df1ca22b403d4f291bbd8f30ace3308d7b",
+      "changed_app_files": [
+        "main.py",
+        "measurements.py"
+      ],
+      "runtime_packages": {
+        "python": "3.12.14",
+        "packages": {
+          "paho-mqtt": "2.1.0",
+          "psycopg2-binary": "2.9.12"
+        }
+      },
+      "dependency_layers_unchanged": true,
+      "runtime_config_unchanged": true
+    }
+  ],
+  "targeted_live_compose_diff": {
+    "before_sha256": "53f1cd6abeeebef6faf8ad01dbc567afffef120b61ebdeb2bafac4c7a28e991d",
+    "candidate_sha256": "86bb4e9c0370429ab7e9b0f82a3e184ccaa1bc26b343d76351d2a99d7fe9ed69",
+    "changed_services": [
+      "shelly-ingestor",
+      "api"
+    ],
+    "removed_selectors": [
+      [
+        "shelly-ingestor",
+        "SHELLY_MEASUREMENTS_WRITE_MODE"
+      ],
+      [
+        "api",
+        "SHELLY_MEASUREMENTS_READ_STORAGE"
+      ],
+      [
+        "api",
+        "SHELLY_MEASUREMENTS_ROUNDING"
+      ]
+    ],
+    "all_other_compose_fields_unchanged": true,
+    "syntax_validated": true,
+    "rollback_source": "exact original Compose plus original image IDs and selectors"
+  },
+  "writer_mqtt_smoke_passed": true,
+  "http_smoke_passed": true,
+  "http_values": [
+    0.0,
+    286.5
+  ],
+  "rollback_compose_prepared": true,
+  "vps_rollout_applied": false
+}
