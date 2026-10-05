@@ -1,0 +1,4 @@
+ARG BASE_IMAGE
+FROM ${BASE_IMAGE}
+
+COPY api/readers/shelly_storage.py /app/readers/shelly_storage.py
