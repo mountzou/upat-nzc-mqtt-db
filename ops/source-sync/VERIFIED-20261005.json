@@ -1,0 +1,290 @@
+{
+  "status": "PASS",
+  "verified_at_utc": "2026-10-05T18:13:18.661176+00:00",
+  "old_head": "b88270e0b5d6a6d8aebd0428656c2e30c8f0f74c",
+  "target_head": "fff3066dcc8afe25a1154cabf96cbbdc58611d36",
+  "plan_sha256": "385a9b35091ae53cbbc73137f7024108f3c2edad7a7fd68d161fe60171eae045",
+  "controller_sha256": "e12893650fa84e05938f23bd303594b05a274a6ce458a197afd162cad2422480",
+  "source_updates": 120,
+  "preserved_overrides": [
+    {
+      "path": "README.md",
+      "reason": "preserved_clean_three_way_merge"
+    },
+    {
+      "path": "api/.dockerignore",
+      "reason": "unrelated_local_override"
+    },
+    {
+      "path": "api/tests/test_upat_history.py",
+      "reason": "preserved_conflicting_local_override"
+    },
+    {
+      "path": "caddy/Caddyfile",
+      "reason": "deployment_or_operational_override"
+    },
+    {
+      "path": "docker-compose.yml",
+      "reason": "deployment_or_operational_override"
+    },
+    {
+      "path": "energy-aggregator/Dockerfile",
+      "reason": "preserved_local_content_at_retired_path"
+    },
+    {
+      "path": "energy-aggregator/main.py",
+      "reason": "preserved_local_content_at_retired_path"
+    },
+    {
+      "path": "jobs/aggregate-energy/README.md",
+      "reason": "preserved_untracked_collision"
+    },
+    {
+      "path": "jobs/forecast-pv/README.md",
+      "reason": "preserved_untracked_collision"
+    },
+    {
+      "path": "jobs/forecast-weather/README.md",
+      "reason": "preserved_untracked_collision"
+    },
+    {
+      "path": "ops/IAQ_NOTIFICATIONS.md",
+      "reason": "preserved_untracked_collision"
+    },
+    {
+      "path": "ops/README.md",
+      "reason": "preserved_conflicting_local_override"
+    },
+    {
+      "path": "ops/postgres-volume/COMPOSE-OWNERSHIP.md",
+      "reason": "preserved_untracked_collision"
+    },
+    {
+      "path": "ops/postgres-volume/check-compose.py",
+      "reason": "deployment_or_operational_override"
+    },
+    {
+      "path": "ops/shelly-compact/README.md",
+      "reason": "preserved_clean_three_way_merge"
+    },
+    {
+      "path": "ops/systemd/upat-iaq-notifications@.service",
+      "reason": "deployment_or_operational_override"
+    },
+    {
+      "path": "ops/systemd/upat-pv-ingestor.env.example",
+      "reason": "deployment_or_operational_override"
+    },
+    {
+      "path": "ops/systemd/upat-pv-ingestor.service",
+      "reason": "deployment_or_operational_override"
+    },
+    {
+      "path": "ops/systemd/upat-pv-ingestor.timer",
+      "reason": "deployment_or_operational_override"
+    },
+    {
+      "path": "ops/systemd/upat-vps-health.service",
+      "reason": "deployment_or_operational_override"
+    },
+    {
+      "path": "ops/systemd/upat-vps-health.timer",
+      "reason": "deployment_or_operational_override"
+    },
+    {
+      "path": "pv-ingestor/pipeline.py",
+      "reason": "preserved_local_content_at_retired_path"
+    },
+    {
+      "path": "simulation-recorder/README.md",
+      "reason": "preserved_untracked_collision"
+    },
+    {
+      "path": "simulation-recorder/job_client.py",
+      "reason": "preserved_untracked_collision"
+    },
+    {
+      "path": "simulation-recorder/main.py",
+      "reason": "preserved_clean_three_way_merge"
+    },
+    {
+      "path": "simulation-recorder/test_job_client.py",
+      "reason": "preserved_untracked_collision"
+    },
+    {
+      "path": "tests/test_shelly_compact_postgres.py",
+      "reason": "preserved_conflicting_local_override"
+    },
+    {
+      "path": "tests/test_shelly_counter_contract.py",
+      "reason": "preserved_untracked_collision"
+    }
+  ],
+  "checked_files": 336,
+  "runtime_source_files_matched": 70,
+  "containers_before": {
+    "/iot_api": {
+      "id": "23eba07f5379ebcb82c8e9c49d2a2f479f66714205d99535d43700e4c6476921",
+      "image": "sha256:c1d1970522a08e90b571313146da7ce9b725e3341120ad424f35bdfc25c7218a",
+      "started_at": "2026-10-05T17:30:25.803556376Z",
+      "status": "running",
+      "restart_count": 0
+    },
+    "/shelly_ingestor": {
+      "id": "9ecf73de86569075b0c8375a5726da18fa1bca49758cc39b0bfce8b75de8333e",
+      "image": "sha256:6d3e2f29bc682be29fa91cdeebc925408eceed33afe7aeea56fa851a4bf1aac9",
+      "started_at": "2026-10-05T17:30:25.802412229Z",
+      "status": "running",
+      "restart_count": 0
+    },
+    "/iot_postgres": {
+      "id": "3e8abad67a5a4bbfdb2dd0773287d808e83b49a294634cff9d4d57af8efc5e1d",
+      "image": "sha256:f30e3de0ac9cc938dac627ef2231099867c694b5f949fadb924c8c977428c399",
+      "started_at": "2026-09-17T07:03:21.953995541Z",
+      "status": "running",
+      "restart_count": 0
+    },
+    "/nzc_energyplus": {
+      "id": "a257550313c515d3e4f77049b0ac218dd1c15b24b3f4718efd2a682ef93efeca",
+      "image": "sha256:ff7efd8c4ed35c3e18a5c236c67a9e41c8c91936d66c4ebe066d6f1a1f29539d",
+      "started_at": "2026-10-02T15:28:52.891625095Z",
+      "status": "running",
+      "restart_count": 0
+    },
+    "/iot_mosquitto": {
+      "id": "cf158e027471756073c2230d15f5a0c7f4dd0e43b068185133eb77d84f31bbc1",
+      "image": "sha256:9cfdd46ad59f3e3e5f592f6baf57ab23e1ad00605509d0f5c1e9b179c5314d87",
+      "started_at": "2026-10-01T12:39:34.731169997Z",
+      "status": "running",
+      "restart_count": 0
+    },
+    "/iot_caddy": {
+      "id": "07d696ec3d0c7ce745fdb128362670fe8db054e92151cd56e4f5c812337644e7",
+      "image": "sha256:5f5c8640aae01df9654968d946d8f1a56c497f1dd5c5cda4cf95ab7c14d58648",
+      "started_at": "2026-09-16T13:27:46.654310407Z",
+      "status": "running",
+      "restart_count": 0
+    },
+    "/ttn_ingestor": {
+      "id": "f8c9cdccfd47a9d577a30364e1e18910c1c163b470a8e5cf740adbf5ac955f9e",
+      "image": "sha256:9a7d0f6bcb0f2dafed7e2a0487f1c371d018a492a9e78c730baf552c04e0d3bd",
+      "started_at": "2026-09-16T14:40:41.158245607Z",
+      "status": "running",
+      "restart_count": 0
+    }
+  },
+  "containers_after": {
+    "/iot_api": {
+      "id": "23eba07f5379ebcb82c8e9c49d2a2f479f66714205d99535d43700e4c6476921",
+      "image": "sha256:c1d1970522a08e90b571313146da7ce9b725e3341120ad424f35bdfc25c7218a",
+      "started_at": "2026-10-05T17:30:25.803556376Z",
+      "status": "running",
+      "restart_count": 0
+    },
+    "/shelly_ingestor": {
+      "id": "9ecf73de86569075b0c8375a5726da18fa1bca49758cc39b0bfce8b75de8333e",
+      "image": "sha256:6d3e2f29bc682be29fa91cdeebc925408eceed33afe7aeea56fa851a4bf1aac9",
+      "started_at": "2026-10-05T17:30:25.802412229Z",
+      "status": "running",
+      "restart_count": 0
+    },
+    "/iot_postgres": {
+      "id": "3e8abad67a5a4bbfdb2dd0773287d808e83b49a294634cff9d4d57af8efc5e1d",
+      "image": "sha256:f30e3de0ac9cc938dac627ef2231099867c694b5f949fadb924c8c977428c399",
+      "started_at": "2026-09-17T07:03:21.953995541Z",
+      "status": "running",
+      "restart_count": 0
+    },
+    "/nzc_energyplus": {
+      "id": "a257550313c515d3e4f77049b0ac218dd1c15b24b3f4718efd2a682ef93efeca",
+      "image": "sha256:ff7efd8c4ed35c3e18a5c236c67a9e41c8c91936d66c4ebe066d6f1a1f29539d",
+      "started_at": "2026-10-02T15:28:52.891625095Z",
+      "status": "running",
+      "restart_count": 0
+    },
+    "/iot_mosquitto": {
+      "id": "cf158e027471756073c2230d15f5a0c7f4dd0e43b068185133eb77d84f31bbc1",
+      "image": "sha256:9cfdd46ad59f3e3e5f592f6baf57ab23e1ad00605509d0f5c1e9b179c5314d87",
+      "started_at": "2026-10-01T12:39:34.731169997Z",
+      "status": "running",
+      "restart_count": 0
+    },
+    "/iot_caddy": {
+      "id": "07d696ec3d0c7ce745fdb128362670fe8db054e92151cd56e4f5c812337644e7",
+      "image": "sha256:5f5c8640aae01df9654968d946d8f1a56c497f1dd5c5cda4cf95ab7c14d58648",
+      "started_at": "2026-09-16T13:27:46.654310407Z",
+      "status": "running",
+      "restart_count": 0
+    },
+    "/ttn_ingestor": {
+      "id": "f8c9cdccfd47a9d577a30364e1e18910c1c163b470a8e5cf740adbf5ac955f9e",
+      "image": "sha256:9a7d0f6bcb0f2dafed7e2a0487f1c371d018a492a9e78c730baf552c04e0d3bd",
+      "started_at": "2026-09-16T14:40:41.158245607Z",
+      "status": "running",
+      "restart_count": 0
+    }
+  },
+  "database_before": {
+    "postgres_started_at": "2026-09-17 10:03:22.421025+03:00",
+    "legacy_table": null,
+    "sequence_oid": 16445,
+    "compact_oid": 121068,
+    "latest": {
+      "id": 96171649,
+      "event_time": "2026-10-05 21:13:14.918840+03:00"
+    }
+  },
+  "database_after": {
+    "postgres_started_at": "2026-09-17 10:03:22.421025+03:00",
+    "legacy_table": null,
+    "sequence_oid": 16445,
+    "compact_oid": 121068,
+    "latest": {
+      "id": 96171658,
+      "event_time": "2026-10-05 21:13:17.601233+03:00"
+    }
+  },
+  "compose_sha256": "86bb4e9c0370429ab7e9b0f82a3e184ccaa1bc26b343d76351d2a99d7fe9ed69",
+  "dev_compose_symlink": "docker-compose.prod.yml",
+  "health": {
+    "status": 200,
+    "body": {
+      "status": "ok",
+      "database": "connected"
+    }
+  },
+  "compose_validator": {
+    "status": "PASS",
+    "read_only": true,
+    "services": 9,
+    "postgres_owned_by_systemd": true,
+    "database_volume_absent_from_compose": true,
+    "network_external": true,
+    "live_environment_and_images_match": true,
+    "only_approved_contract_changes": false,
+    "default_entrypoint_checked": true,
+    "container_state_unchanged": true
+  },
+  "database_write_statements_executed": false,
+  "containers_restarted": false,
+  "rollback_directory": "/opt/schoolheroz-source-sync-20261005-fff3066/backup",
+  "controller_commit": "5d423422a209a92c395ba903b72787026a3ee764",
+  "git_status_after_count": 37,
+  "private_receipt_sha256": "a0f3ffc1cada41c25c768aed2bf12a7b1cb4f25722b2a4d64aca22f43314d150",
+  "private_receipt_path": "/opt/schoolheroz-source-sync-20261005-fff3066/accepted.json",
+  "post_acceptance_check": {
+    "status": "PASS",
+    "all_seven_containers_unchanged": true,
+    "latest_id": 96172186,
+    "latest_event_time": "2026-10-05 21:14:49.596239+03:00",
+    "postgres_started_at": "2026-09-17 10:03:22.421025+03:00",
+    "health": {
+      "status": 200,
+      "body": {
+        "status": "ok",
+        "database": "connected"
+      }
+    },
+    "local_overrides_preserved": true
+  }
+}
