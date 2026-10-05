@@ -1,5 +1,9 @@
 # Shelly compact storage: migration history
 
+Sequence update, 2026-10-05: `public.shelly_measurements_id_seq` is now
+free-standing (`OWNED BY NONE`), preserving its name and current value.
+The legacy table remains. See [the applied change and verification](SEQUENCE-DETACHED-20261005.md).
+
 Verified on 2026-09-29: the production shelly_ingestor writes compact-only
 (SHELLY_MEASUREMENTS_WRITE_MODE=compact), while iot_api reads
 shelly_compact.readings with one-decimal averaging. The active Python files
