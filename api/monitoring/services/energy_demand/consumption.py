@@ -23,6 +23,7 @@ from monitoring.policies.school_hours import is_local_school_hour
 from monitoring.services.energy_demand.devices import list_energy_devices_for_school, is_whole_building_energy_meter
 from monitoring.services.service_energy_api import _emissions_factor_contract
 from monitoring.utils.interval import ATHENS, Interval, parse_interval
+from monitoring.utils.timezone import isoformat_utc
 
 HOUR = timedelta(hours=1)
 UTC = timezone.utc
@@ -115,10 +116,6 @@ class ConsumptionHistory(BaseModel):
     breakdown: list[ConsumptionLoad]
     days: list[ConsumptionDay]
     hourly_profile: list[ConsumptionHourProfile]
-
-
-def instant(value: datetime) -> str:
-    return value.astimezone(UTC).isoformat().replace('+00:00', 'Z')
 
 
 def bounds(start_date: date | None, end_date: date | None,
@@ -277,7 +274,7 @@ def prepare(sources, basis, scope, school_id, room_id, start, end, interval):
     for _, selected in sorted(bins.items()):
         energy = total(selected)
         c = coverage(selected)
-        points.append(dict(start=instant(selected[0]), end=instant(selected[-1]+HOUR),
+        points.append(dict(start=isoformat_utc(selected[0]), end=isoformat_utc(selected[-1]+HOUR),
             energy_kwh=energy, equivalent_co2_kg=energy*factor if energy is not None else None,
             outside_school_hours_kwh=school_summary(selected)['outside_school_hours_kwh'],
             observed_series_hours=c['observed_series_hours'], expected_series_hours=c['expected_series_hours'],
@@ -300,8 +297,8 @@ def prepare(sources, basis, scope, school_id, room_id, start, end, interval):
              for h, hs in clock.items() if any(values[t] for t in hs)}
     profile_total = fsum(means.values())
     return ConsumptionHistory(school_id=school_id, room_id=room_id, source_basis=basis,
-        measurement_scope=scope, interval=interval.value, start=instant(start), end=instant(end),
-        fetched_at=instant(datetime.now(UTC)), **emission, points=points, coverage=cov, breakdown=breakdown,
+        measurement_scope=scope, interval=interval.value, start=isoformat_utc(start), end=isoformat_utc(end),
+        fetched_at=isoformat_utc(datetime.now(UTC)), **emission, points=points, coverage=cov, breakdown=breakdown,
         summary=dict(total_energy_kwh=energy, equivalent_co2_kg=energy*factor if energy is not None else None,
             mean_hourly_energy_kwh=energy/len(observed_totals) if observed_totals else None,
             peak_hourly_energy_kwh=max(observed_totals, default=None),

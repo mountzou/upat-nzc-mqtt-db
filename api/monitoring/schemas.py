@@ -1,4 +1,4 @@
-from datetime import date, datetime, time, timedelta
+from datetime import datetime
 from typing import Annotated, Literal
 
 from pydantic import AwareDatetime, BaseModel, Field, model_validator
@@ -9,7 +9,6 @@ COOLING_SETPOINT_MIN_C = 20.0
 COOLING_SETPOINT_MAX_C = 30.0
 MIN_DUAL_SETPOINT_DEADBAND_C = 2.0
 
-SimulationHorizon = Literal["forecast_1d", "forecast_7d", "tmy_30d", "tmy_182d", "custom"]
 
 # `SchoolMetadata` defines the metadata for a specific school in the room catalog.
 class SchoolMetadata(BaseModel):
@@ -20,20 +19,6 @@ class SchoolMetadata(BaseModel):
     lng: float | None = None
     school_level: str | None = None
     construction_year: int | None = None
-
-
-class SimulationBaselineClosure(BaseModel):
-    name: str
-    start_date: date
-    end_date: date
-    source: Literal["idf_default"] = "idf_default"
-
-
-class SimulationScheduleDefaultsResponse(BaseModel):
-    school_id: str
-    period_start: date
-    period_end: date
-    closures: list[SimulationBaselineClosure]
 
 
 # `RoomSimulationSupports` is derived at load time from catalog defaults and thermostat_type.
@@ -76,233 +61,6 @@ class RoomSimulationConfig(BaseModel):
 class RoomSimulationDefaults(RoomSimulationConfig):
     pass
 
-# `RoomSimulationInput` defines the input simulation parameters for a specific school room.
-class RoomSimulationInput(RoomSimulationConfig):
-    room_id: str
-
-# A period during which the school is fully closed (no occupancy, lighting, or HVAC).
-class ScheduleHoliday(BaseModel):
-    name: str | None = None
-    start_date: date
-    end_date: date | None = None
-
-    @model_validator(mode="after")
-    def validate_period(self):
-        if self.end_date is None:
-            self.end_date = self.start_date
-        if self.end_date < self.start_date:
-            raise ValueError("holiday end_date must be on or after start_date")
-        if (self.end_date - self.start_date) > timedelta(days=365):
-            raise ValueError("holiday period may not exceed 366 days")
-        return self
-
-
-# A Saturday/Sunday on which the school operates with its weekday schedules.
-class ScheduleWeekendEvent(BaseModel):
-    name: str | None = None
-    event_date: date
-
-    @model_validator(mode="after")
-    def validate_weekend(self):
-        if self.event_date.weekday() < 5:
-            raise ValueError("weekend event_date must fall on a Saturday or Sunday")
-        return self
-
-
-# A built-in IDF holiday date reopened for weekday-scheduled rooms in this run.
-class ScheduleOpeningDate(BaseModel):
-    name: str | None = None
-    opening_date: date
-
-
-# User-defined per-run schedule configuration. Opening overrides are filtered
-# by each room's operating-schedule capability during IDF preprocessing.
-class SimulationScheduleInput(BaseModel):
-    school_day_start_time: time | None = None
-    school_day_end_time: time | None = None
-    holidays: list[ScheduleHoliday] = Field(default_factory=list)
-    weekend_events: list[ScheduleWeekendEvent] = Field(default_factory=list)
-    opening_dates: list[ScheduleOpeningDate] = Field(default_factory=list)
-
-    @model_validator(mode="after")
-    def validate_school_day_window(self):
-        start = self.school_day_start_time
-        end = self.school_day_end_time
-        if (start is None) != (end is None):
-            raise ValueError(
-                "school_day_start_time and school_day_end_time must be provided together"
-            )
-        if start is not None and end is not None:
-            if start.tzinfo is not None or end.tzinfo is not None:
-                raise ValueError("school day times must not include a timezone")
-            if start < time(6, 0) or end > time(20, 0):
-                raise ValueError("school day must fall between 06:00 and 20:00")
-            start_minutes = start.hour * 60 + start.minute
-            end_minutes = end.hour * 60 + end.minute
-            if end_minutes - start_minutes < 60:
-                raise ValueError(
-                    "school_day_end_time must be at least one hour after school_day_start_time"
-                )
-            if (
-                start.minute != 0
-                or end.minute != 0
-                or start.second != 0
-                or end.second != 0
-                or start.microsecond != 0
-                or end.microsecond != 0
-            ):
-                raise ValueError(
-                    "school day times must fall on whole-hour boundaries (e.g. 08:00, 14:00)"
-                )
-
-        sorted_holidays = sorted(
-            self.holidays,
-            key=lambda holiday: (holiday.start_date, holiday.end_date),
-        )
-        for previous, current in zip(sorted_holidays, sorted_holidays[1:]):
-            if current.start_date <= previous.end_date:
-                raise ValueError("school closure periods may not overlap")
-
-        weekend_dates = [event.event_date for event in self.weekend_events]
-        if len(weekend_dates) != len(set(weekend_dates)):
-            raise ValueError("weekend opening dates must be unique")
-
-        for event_date in weekend_dates:
-            if any(
-                holiday.start_date <= event_date <= holiday.end_date
-                for holiday in sorted_holidays
-            ):
-                raise ValueError(
-                    "a date may not be both a school closure and a weekend opening"
-                )
-
-        opening_dates = [opening.opening_date for opening in self.opening_dates]
-        if len(opening_dates) != len(set(opening_dates)):
-            raise ValueError("school opening override dates must be unique")
-
-        for opening_date in opening_dates:
-            if any(
-                holiday.start_date <= opening_date <= holiday.end_date
-                for holiday in sorted_holidays
-            ):
-                raise ValueError(
-                    "a date may not be both a user-defined school closure and an opening override"
-                )
-            if opening_date in weekend_dates:
-                raise ValueError(
-                    "a date may not be both a weekend opening and a school opening override"
-                )
-        return self
-
-    def has_custom_school_hours(self) -> bool:
-        return self.school_day_start_time is not None and self.school_day_end_time is not None
-
-    def is_empty(self) -> bool:
-        return (
-            not self.has_custom_school_hours()
-            and not self.holidays
-            and not self.weekend_events
-            and not self.opening_dates
-        )
-
-
-# Schema for SimulationInput, which defines the input parameters for a simulation.
-class SimulationInput(BaseModel):
-    school_id: str
-    rooms: list[RoomSimulationInput] = Field(min_length=1)
-    simulation_horizon: SimulationHorizon
-    forecast_start_date: date | None = None
-    custom_start_date: date | None = None
-    custom_end_date: date | None = None
-    schedule: SimulationScheduleInput | None = None
-
-    @model_validator(mode="after")
-    def validate_custom_period(self):
-        room_ids = [room.room_id for room in self.rooms]
-        if len(room_ids) != len(set(room_ids)):
-            raise ValueError("rooms must contain unique room_id values")
-
-        if self.simulation_horizon == "custom":
-            if self.custom_start_date is None or self.custom_end_date is None:
-                raise ValueError(
-                    "custom_start_date and custom_end_date are required when simulation_horizon is 'custom'"
-                )
-            if self.custom_start_date > self.custom_end_date:
-                raise ValueError("custom_end_date must be on or after custom_start_date")
-        elif self.custom_start_date is not None or self.custom_end_date is not None:
-            raise ValueError(
-                "custom_start_date and custom_end_date may only be set when simulation_horizon is 'custom'"
-            )
-        if (
-            self.simulation_horizon not in {"forecast_1d", "forecast_7d"}
-            and self.forecast_start_date is not None
-        ):
-            raise ValueError(
-                "forecast_start_date may only be set for forecast horizons"
-            )
-        return self
-
-
-class SimulationAIQuestionRequest(BaseModel):
-    question: str = Field(min_length=3, max_length=500)
-
-    @model_validator(mode="after")
-    def normalize_question(self):
-        self.question = self.question.strip()
-        if len(self.question) < 3:
-            raise ValueError("question must contain at least three characters")
-        return self
-
-
-IndoorEnvironmentAIMode = Literal["realtime", "historical"]
-
-
-class IndoorEnvironmentAIQuestionRequest(BaseModel):
-    question: str = Field(min_length=3, max_length=500)
-    school_id: str = Field(min_length=1, max_length=100)
-    device_id: str = Field(min_length=1, max_length=100)
-    mode: IndoorEnvironmentAIMode
-    start_date: date | None = None
-    end_date: date | None = None
-
-    @model_validator(mode="after")
-    def normalize_and_validate_scope(self):
-        self.question = self.question.strip()
-        self.school_id = self.school_id.strip()
-        self.device_id = self.device_id.strip()
-        if len(self.question) < 3:
-            raise ValueError("question must contain at least three characters")
-        if not self.school_id or not self.device_id:
-            raise ValueError("school_id and device_id are required")
-
-        if self.mode == "historical":
-            if self.start_date is None or self.end_date is None:
-                raise ValueError(
-                    "start_date and end_date are required in historical mode"
-                )
-            if self.start_date > self.end_date:
-                raise ValueError("end_date must be on or after start_date")
-            if (self.end_date - self.start_date).days > 365:
-                raise ValueError("historical range cannot exceed 366 days")
-        elif self.start_date is not None or self.end_date is not None:
-            raise ValueError(
-                "start_date and end_date may only be set in historical mode"
-            )
-        return self
-
-
-class DayAheadSimulationRequest(BaseModel):
-    school_id: str
-    target_date: date | None = Field(
-        default=None,
-        description=(
-            "Athens-local D+1 date. Omission is temporarily supported and resolves to tomorrow."
-        ),
-    )
-    room_ids: list[str] | None = None
-    occupancy_multiplier: float = Field(default=1.0, ge=0.0, le=5.0)
-    heating_setpoint_offset_c: float = Field(default=0.0, ge=-5.0, le=5.0)
-    cooling_setpoint_offset_c: float = Field(default=0.0, ge=-5.0, le=5.0)
 
 # Schema for RoomStaticSchedules, which defines the static schedule names for a room in the catalog.
 class RoomStaticSchedules(BaseModel):
@@ -486,42 +244,6 @@ EnergyDeviceMetadata = Annotated[
 class SchoolEnergyDeviceCatalogEntry(BaseModel):
     school_id: str
     devices: list[EnergyDeviceMetadata]
-
-
-class SolarActivePowerPoint(BaseModel):
-    timestamp: str
-    value: float | None
-
-
-class SolarDayAheadForecastPoint(BaseModel):
-    timestamp: str
-    hour: int
-    predicted_power_kw: float
-
-
-class SolarDayAheadForecast(BaseModel):
-    forecast_date: str
-    count: int
-    items: list[SolarDayAheadForecastPoint]
-
-
-class SolarDayAheadForecastRangeResponse(BaseModel):
-    collection: str
-    source: Literal["postgres"]
-    start_date: str
-    end_date: str
-    count: int
-    forecasts: list[SolarDayAheadForecast]
-
-
-class SolarActivePowerResponse(BaseModel):
-    collection: str
-    source: Literal["postgres"] | None = None
-    latest_observed_at: str | None = None
-    start_date: str
-    end_date: str
-    count: int
-    points: list[SolarActivePowerPoint]
 
 
 # ============ Schemas for `/thermal-comfort` endpoints ============
