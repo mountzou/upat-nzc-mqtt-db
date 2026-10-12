@@ -1,7 +1,7 @@
 # Shelly compact migration history
 
 Current-state update, 2026-10-05: the legacy table has been retired and the
-shared public ID sequence is free-standing. See [the retirement receipt](LEGACY-RETIRED-20261005.md).
+shared public ID sequence is free-standing. See [current recovery guidance](RECOVERY.md).
 The sequence ownership and legacy-retention descriptions below record the
 September migration state.
 
@@ -79,17 +79,10 @@ Raw MQTT messages and energy counters remain separate operational data.
 
 ## Evidence
 
-The records below retain commits, image identities, backup/restore results,
-checkpoints, full-data counts/checksums and private evidence locations:
-
-- [Local validation](VALIDATION-20260916.md): isolated full-size rehearsal and
-  integration tests, with their coverage and limitations.
-- [Stage 1](DEPLOYMENT-STAGE1-20260916.md): dual writes, backfill and full equality.
-- [Stage 2](DEPLOYMENT-STAGE2-20260916.md): compact API reads and response comparisons.
-- [Stage 3](PRODUCTION-STAGE3-20260916.md): compact-only writes, certified checkpoint
-  and post-cutover observations, including the limits of runtime verification.
-
-These are dated migration receipts; future operations need fresh backup/restore,
-consumer, capacity, ownership and runtime checks. PostgreSQL references:
+Detailed migration, cutover and retirement records remain in Git history,
+including commits, image identities, backup/restore results, checkpoints,
+checksums and verification boundaries. Future operations need fresh
+backup/restore, consumer, capacity, ownership and runtime checks.
+PostgreSQL references:
 [snapshot isolation](https://www.postgresql.org/docs/15/transaction-iso.html) and
 [sequence behavior](https://www.postgresql.org/docs/15/functions-sequence.html).
