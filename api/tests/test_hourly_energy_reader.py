@@ -221,3 +221,21 @@ def test_retained_http_route_and_service_auth_match_direct_reader(hourly_databas
             assert response.status_code == 400
             assert response.json()["detail"] == detail
         connection.assert_not_called()
+
+
+@pytest.mark.parametrize("route_template,path", [
+    ("/shelly/energy", "/shelly/energy"),
+    ("/shelly/device/{device_id}/hourly-energy",
+     "/shelly/device/shellyplug-fixture/hourly-energy"),
+    ("/shelly/device/{device_id}/energy",
+     "/shelly/device/shellyplug-fixture/energy"),
+])
+def test_retired_shelly_energy_routes_never_read_database(monkeypatch, route_template, path):
+    connection = Mock(side_effect=AssertionError("Retired route reached database"))
+    monkeypatch.setattr(main, "get_connection", connection)
+    monkeypatch.setattr(database, "get_connection", connection)
+    with TestClient(main.app) as client:
+        response = client.get(path, params={"start": START.isoformat(), "end": END.isoformat()})
+    assert response.status_code == 404
+    assert route_template not in main.app.openapi()["paths"]
+    connection.assert_not_called()

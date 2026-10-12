@@ -87,6 +87,10 @@ The committed local history cleanup passes family, device ID and validated
 `HistoryQueryParams` to `monitoring/local_data.read_device_history`.
 URL dispatch and `DEVICE_API_BASE_URL` are removed from that local adapter;
 UPAT raw/rollup selection, Shelly compact reads and SQL stay unchanged.
+The local source also retires `/shelly/energy`,
+`/shelly/device/{device_id}/hourly-energy` and
+`/shelly/device/{device_id}/energy`, with their exclusive helper/imports.
+`/shelly/hourly-energy`, its protected service version and school insights remain.
 These cleanups are pending VPS deployment; source changes alone do not update
 the running API image.
 

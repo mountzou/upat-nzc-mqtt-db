@@ -639,32 +639,26 @@ Example:
 curl -s "http://localhost:8000/shelly/device/shellypro3em-example/history?start=2026-08-01&end=2026-08-02&metric=active_power"
 ```
 
-### Shelly hourly-energy endpoints
+### Shelly hourly-energy reader
 
-The following endpoints read the hourly rows produced by `aggregate-energy`:
+`GET /shelly/hourly-energy` reads stored hourly Wh rows for one or more devices.
+Repeat the required `device_id` parameter to select multiple devices. It retains
+optional `start`, `end` and `working_only` parameters. Without bounds, it reads
+the most recently completed 24-hour UTC interval; `working_only=true` selects
+working-day/hour rows in Europe/Athens.
 
-- `GET /shelly/hourly-energy` returns hourly rows for one or more devices. Repeat the required `device_id` parameter to select multiple devices.
-- `GET /shelly/device/{device_id}/hourly-energy` returns hourly rows for one device.
-
-Both endpoints accept optional `start`, `end`, and `working_only` parameters. Without explicit bounds, they return the most recently completed 24-hour UTC interval. `working_only=true` keeps only rows marked as both a working day and a working hour in `Europe/Athens`.
-
-Example:
+The protected backend version is `GET /internal/data/shelly/hourly-energy`,
+using `DATA_SERVICE_TOKEN`. The shared reader remains active for insights and
+research exports.
 
 ```bash
 curl -s "http://localhost:8000/shelly/hourly-energy?device_id=shellyplug-example&device_id=shellypro3em-example&start=2026-08-01&end=2026-08-02"
 ```
 
-### Shelly aggregate-energy endpoints
+For school/room consumption totals, use the authenticated
+[consumption history contract](ops/CONSUMPTION_HISTORY.md).
 
-The following endpoints sum the stored hourly energy rows over the selected interval:
-
-- `GET /shelly/energy` returns totals for one or more devices and requires at least one repeatable `device_id` parameter.
-- `GET /shelly/device/{device_id}/energy` returns the total for one device.
-
-They accept the same optional `start`, `end`, and `working_only` parameters and the same default 24-hour UTC interval as the hourly-energy endpoints. Device IDs must start with `shellyplug` or `shellypro3em`. Plug responses expose `energy_wh.total`; Pro 3EM responses also expose the `a`, `b`, and `c` phase totals.
-
-Example:
-
-```bash
-curl -s "http://localhost:8000/shelly/device/shellypro3em-example/energy?start=2026-08-01&end=2026-08-02&working_only=true"
-```
+The three former low-level routes `/shelly/energy`,
+`/shelly/device/{device_id}/hourly-energy` and
+`/shelly/device/{device_id}/energy` are removed from this source checkout and
+return 404. Production activation is pending a reviewed API image update.
