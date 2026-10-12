@@ -2,13 +2,18 @@
 
 from __future__ import annotations
 
-from datetime import date, datetime, timezone
+from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 
 from monitoring.config import APP_TIMEZONE_NAME
 
 UTC = timezone.utc
 APP_TIMEZONE = ZoneInfo(APP_TIMEZONE_NAME)
+
+
+def isoformat_utc(value: datetime) -> str:
+    """Format a timestamp in UTC with a Z suffix, preserving its precision."""
+    return value.astimezone(UTC).isoformat().replace('+00:00', 'Z')
 
 
 def as_utc(value: datetime) -> datetime:
@@ -26,13 +31,3 @@ def to_app_timezone(value: datetime) -> datetime:
 def utc_now() -> datetime:
     """Current aware UTC instant."""
     return datetime.now(UTC)
-
-
-def app_now() -> datetime:
-    """Current DST-aware application-local datetime."""
-    return datetime.now(APP_TIMEZONE)
-
-
-def app_today() -> date:
-    """Current calendar date in Europe/Athens."""
-    return app_now().date()

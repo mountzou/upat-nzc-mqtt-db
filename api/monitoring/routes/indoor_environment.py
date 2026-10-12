@@ -7,7 +7,6 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 
-from monitoring.config import APP_TIMEZONE_NAME
 from monitoring.routes.auth import get_current_user
 from monitoring.policies.iaq import build_iaq_policy_payload
 from monitoring.schemas import (
@@ -17,7 +16,6 @@ from monitoring.schemas import (
     DiscomfortIndexResponse,
     HumidexResponse,
     IAQPolicyResponse,
-    IndoorEnvironmentAIQuestionRequest,
     SchoolEnvironmentalInsightsResponse,
     SchoolDeviceMetadata,
 )
@@ -37,7 +35,6 @@ from monitoring.services.environment.thermal_comfort import (
 from monitoring.services.service_overview import (
     get_device_latest_overview,
 )
-from monitoring.utils.timezone import app_today
 
 from monitoring.services.environment.home_overview import get_home_overview, iter_home_overview, resolve_home_rooms
 
@@ -129,8 +126,6 @@ def get_school_insights(
     elapsed_ms = (perf_counter() - started) * 1000
     response.headers["Server-Timing"] = f"school-insights;dur={elapsed_ms:.1f}"
     return payload
-
-
 
 
 @router.get(
