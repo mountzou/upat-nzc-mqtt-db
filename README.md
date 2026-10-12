@@ -205,7 +205,7 @@ python -m unittest discover -p 'test_*.py'
 ```
 
 Live runs require the existing shared account ledger and the approved VPS
-launcher. Preserve that ledger through upgrades; never initialize a replacement. See [the API control policy](ops/PV_API_CONTROL.md).
+launcher. Preserve that ledger through upgrades; never initialize a replacement. See [the collector API policy](jobs/collect-pv/README.md#api-policy).
 
 ## Production day-ahead schedule
 

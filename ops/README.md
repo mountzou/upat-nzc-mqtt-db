@@ -97,24 +97,13 @@ rotated logs that have already expired.
 
 ## PV collection schedule
 
-The PV collector is a systemd oneshot service with a daily timer at
-`01:15 Europe/Athens`. Its source, shared launcher and prepared systemd units
-live in [jobs/collect-pv](../jobs/collect-pv/README.md). The VPS uses
-`upat-collect-pv.service` / `.timer` since 2026-10-01.
-The launcher uses a separately validated image digest and a
-persistent API ledger for scheduled and manual requests. It retains
-the three completed Athens dates, 20-minute timeout, and no automatic restart.
+The PV collector runs daily at `01:15 Europe/Athens` through
+`upat-collect-pv.service` / `.timer`. It fetches the last three completed
+Athens dates, with a 20-minute timeout and no automatic restart.
 
-The prepared job always fetches the last three completed dates. There is no
-separate backfill mode or configurable lookback window after cutover.
-
-The initial shared-control installation was completed on 2026-09-05. Its
-historical receipt and activation/rollback procedure are documented in
-[PV_API_CONTROL.md](PV_API_CONTROL.md). Preserve the existing ledger during
-upgrades; do not repeat initialization. Future changes follow commit, build,
-then separately authorized rollout. Installing only the unit or reusing the
-old image will not provide the new protections. No PostgreSQL migration or
-database restart is needed for these controls.
+The [collector guide](../jobs/collect-pv/README.md) owns the API policy,
+persistent ledger, verification commands and upgrade/recovery requirements.
+Preserve the existing ledger and its cooldowns when changing the job.
 
 ## Production Compose ownership
 
