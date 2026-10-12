@@ -113,3 +113,18 @@ def test_router_does_not_register_write_handlers():
     original.add_api_route("/health", lambda: {}, methods=["POST"])
     with pytest.raises(RuntimeError):
         build_data_service_router(original.routes)
+
+
+@pytest.mark.parametrize("path", [
+    "/upat/devices",
+    "/shelly/devices",
+    "/simulations/recordings/latest",
+    "/weather/hourly/latest",
+])
+def test_retired_inventory_and_latest_routes_never_read_database(client, monkeypatch, path):
+    connection = Mock(side_effect=AssertionError("Retired route reached database"))
+    monkeypatch.setattr(main, "get_connection", connection)
+    response = client.get(path, params={"school_id": "school_10"})
+    assert response.status_code == 404
+    assert path not in main.app.openapi()["paths"]
+    connection.assert_not_called()

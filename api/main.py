@@ -15,7 +15,7 @@ from fastapi.responses import JSONResponse
 from readers.measurements import fetch_device_latest, format_response_object
 from readers.shelly_storage import source_and_average
 from readers.shelly_energy import fetch_shelly_hourly_energy_rows
-from schemas import HistoryQueryParams, history_query_params, parse_datetime_bound, parse_telemetry_bound
+from schemas import HistoryQueryParams, history_query_params, parse_datetime_bound
 
 app = FastAPI()
 
@@ -134,34 +134,6 @@ def resolve_weather_time_bounds(start: str | None, end: str | None):
         )
 
     return start_time, end_time
-
-
-def format_simulation_recording(row):
-    return {
-        "id": row["id"],
-        "run_id": row["run_id"],
-        "school_id": row["school_id"],
-        "recording_date": row["recording_date"],
-        "room_id": row["room_id"],
-        "label": row["label"],
-        "physical_instance_count": row["physical_instance_count"],
-        "idf_file": row["idf_file"],
-        "zone_name": row["zone_name"],
-        "thermostat_type": row["thermostat_type"],
-        "supports": {
-            "cooling_setpoint": row["supports_cooling_setpoint"],
-        },
-        "defaults": {
-            "occupancy": row["default_occupancy"],
-            "heating_setpoint": numeric_or_none(row["default_heating_setpoint"]),
-            "cooling_setpoint": numeric_or_none(row["default_cooling_setpoint"]),
-            "lighting_w_per_m2": numeric_or_none(row["default_lighting_w_per_m2"]),
-            "infiltration_ach": numeric_or_none(row["default_infiltration_ach"]),
-        },
-        "raw_item": row["raw_item"],
-        "created_at": row["created_at"],
-        "updated_at": row["updated_at"],
-    }
 
 
 def format_day_ahead_room_result(row):
@@ -844,116 +816,6 @@ def get_pv_day_ahead_forecast_range(
     }
 
 
-@app.get("/upat/devices")
-def get_all_upat_devices():
-    with get_connection() as conn:
-        with conn.cursor() as cur:
-            cur.execute(
-                """
-                SELECT id, source, device_id, dev_eui, name, created_at
-                FROM upat_devices
-                ORDER BY source, device_id;
-                """
-            )
-            return cur.fetchall()
-
-
-@app.get("/shelly/devices")
-def get_all_shelly_devices():
-    with get_connection() as conn:
-        with conn.cursor() as cur:
-            cur.execute(
-                """
-                SELECT id, device_id, name, created_at
-                FROM shelly_devices
-                ORDER BY device_id;
-                """
-            )
-            return cur.fetchall()
-
-
-@app.get("/simulations/recordings/latest")
-def get_latest_simulation_recordings(
-    school_id: str = Query(...),
-):
-    normalized_school_id = normalize_required_text(school_id, "school_id")
-
-    with get_connection() as conn:
-        with conn.cursor() as cur:
-            cur.execute(
-                """
-                SELECT
-                    id,
-                    school_id,
-                    request_url,
-                    request_path,
-                    http_status,
-                    started_at,
-                    completed_at,
-                    created_at
-                FROM simulation_runs
-                WHERE school_id = %s
-                  AND success = TRUE
-                ORDER BY started_at DESC
-                LIMIT 1;
-                """,
-                (normalized_school_id,),
-            )
-            run = cur.fetchone()
-
-            if not run:
-                raise HTTPException(
-                    status_code=404,
-                    detail=f"No successful simulation recordings found for school_id={normalized_school_id}",
-                )
-
-            cur.execute(
-                """
-                SELECT
-                    id,
-                    run_id,
-                    school_id,
-                    recording_date,
-                    room_id,
-                    label,
-                    physical_instance_count,
-                    idf_file,
-                    zone_name,
-                    thermostat_type,
-                    supports_cooling_setpoint,
-                    default_occupancy,
-                    default_heating_setpoint,
-                    default_cooling_setpoint,
-                    default_lighting_w_per_m2,
-                    default_infiltration_ach,
-                    raw_item,
-                    created_at,
-                    updated_at
-                FROM simulation_room_recordings
-                WHERE run_id = %s
-                ORDER BY room_id ASC;
-                """,
-                (run["id"],),
-            )
-            rows = cur.fetchall()
-
-    return {
-        "school_id": normalized_school_id,
-        "run": {
-            "id": run["id"],
-            "request_url": run["request_url"],
-            "request_path": run["request_path"],
-            "http_status": run["http_status"],
-            "started_at": run["started_at"],
-            "completed_at": run["completed_at"],
-            "created_at": run["created_at"],
-        },
-        "recording_date": rows[0]["recording_date"] if rows else None,
-        "count": len(rows),
-        "items": [format_simulation_recording(row) for row in rows],
-    }
-
-
 @app.get("/simulations/day-ahead/latest")
 def get_latest_day_ahead_simulation_results(
     school_id: str = Query(...),
@@ -1184,59 +1046,6 @@ def get_weather_hourly_forecast(
         "count": len(rows),
         "items": [format_weather_forecast_hour(row) for row in rows],
     }
-
-
-@app.get("/weather/hourly/latest")
-def get_latest_weather_forecast_hour():
-    local_now = datetime.now(WEATHER_LOCAL_TZ).replace(
-        minute=0,
-        second=0,
-        microsecond=0,
-        tzinfo=None,
-    )
-
-    with get_connection() as conn:
-        with conn.cursor() as cur:
-            cur.execute(
-                """
-                SELECT
-                    source,
-                    latitude,
-                    longitude,
-                    timezone,
-                    forecast_timestamp,
-                    forecast_date,
-                    forecast_hour,
-                    temperature_2m AS temperature_2m_c,
-                    dew_point_2m AS dew_point_2m_c,
-                    relative_humidity_2m AS relative_humidity_2m_percent,
-                    surface_pressure AS surface_pressure_hpa,
-                    shortwave_radiation AS shortwave_radiation_w_m2,
-                    direct_normal_irradiance AS direct_normal_irradiance_w_m2,
-                    diffuse_radiation AS diffuse_radiation_w_m2,
-                    wind_direction_10m AS wind_direction_10m_degrees,
-                    wind_speed_10m AS wind_speed_10m_ms,
-                    weather_code,
-                    snow_depth AS snow_depth_m,
-                    precipitation AS precipitation_mm,
-                    cloud_cover AS cloud_cover_percent,
-                    fetched_at
-                FROM weather_hourly_forecasts
-                WHERE forecast_timestamp >= %s
-                ORDER BY forecast_timestamp ASC
-                LIMIT 1;
-                """,
-                (local_now,),
-            )
-            row = cur.fetchone()
-
-    if not row:
-        raise HTTPException(
-            status_code=404,
-            detail="No current or future hourly weather forecast found",
-        )
-
-    return format_weather_forecast_hour(row)
 
 
 @app.get("/upat/device/{device_id}/latest")
