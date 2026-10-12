@@ -6,19 +6,17 @@ Shelly averages retain one-decimal numeric rounding; raw measurements are unchan
 Current recovery boundaries are in [RECOVERY.md](RECOVERY.md).
 The completed preparation migration 017 is retained in the [SQL archive](../../db/archive/README.md);
 current compact initialization is defined directly in db/init.sql.
-The obsolete VPS stage/build artifacts and UTC-naive inverse SQL were removed;
-see [the applied cleanup and verification](LEGACY-ARTIFACTS-RETIRED-20261005.md).
+The obsolete VPS stage/build artifacts and UTC-naive inverse SQL were removed.
 The seven old VPS stage directories and their remaining historical files were
-subsequently removed; see [the directory retirement receipt](STAGE-DIRECTORIES-REMOVED-20261005.md).
+subsequently removed.
 
 Legacy retirement, 2026-10-05: `public.shelly_measurements` and its own indexes
 were removed after full history/dependency verification. Compact remains active;
 the existing public ID sequence is independent. About 14.54 GB was reclaimed.
-See [the applied retirement and verification](LEGACY-RETIRED-20261005.md).
 
 Sequence update, 2026-10-05: `public.shelly_measurements_id_seq` is now
 free-standing (`OWNED BY NONE`), preserving its name and current value.
-The legacy table was retained at that step. See [the applied change and verification](SEQUENCE-DETACHED-20261005.md).
+The legacy table was retained at that step.
 
 Historical observation, 2026-09-29: the production shelly_ingestor writes compact-only
 (SHELLY_MEASUREMENTS_WRITE_MODE=compact), while iot_api reads
@@ -29,15 +27,13 @@ images byte-for-byte by SHA-256. The existing shelly_compact.series and
 measurements tables and readings view were observed using a read-only catalog
 query. At that checkpoint the old public.shelly_measurements table still existed.
 
-PRODUCTION-STAGE3-20260916.md and VALIDATION-20260916.md record the completed
-cutover. This directory contains dated evidence and current recovery guidance. The staged
+This directory contains migration history and current recovery guidance.
+The detailed cutover record remains in Git history. The staged
 controllers (`stage1.py`, `stage2.py`, `stage3.py`), migration/recovery helpers
 (`copy-window.py`, `shadow-api.py`, `migrate.py`, `writer-cutover.py`) and
 `compose.stage1.prod.yml`, `compose.stage2.prod.yml`, `compose.stage3.prod.yml`
 have been retired from the repository. Their source remains in Git history.
 The recorded image identities, checkpoints and commands are dated evidence.
-The one-off cleanup controller is bound to the reviewed artifact inventory and
-only retires files; it does not migrate data or restart services.
 The September reverse-copy recovery is obsolete after legacy-table retirement.
 Restoring legacy/dual modes or the old UTC-naive timestamp contract cannot serve
 as recovery for today's deployment. Application rollback must preserve compact
