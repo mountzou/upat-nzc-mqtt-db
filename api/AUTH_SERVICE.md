@@ -23,6 +23,15 @@ identity for an active user and lets the Render backend compare current role,
 scope, and `token_version` with a signed JWT. Missing and inactive identities
 share the same HTTP 404 response.
 
+`POST /internal/auth/session` accepts a VPS-issued `access_token`. It verifies
+its signature, expiry, issuer and audience, then checks the active user's
+current database role, school scope and `token_version`. It returns the public
+identity and `token_version`; invalid, expired or revoked sessions return HTTP
+401, and unavailable authentication returns HTTP 503. It uses the same
+`AUTH_SERVICE_TOKEN` bearer credential as the other internal auth endpoints.
+EnergyPlus can therefore validate VPS sessions without receiving the VPS JWT
+signing secret.
+
 `PATCH /internal/auth/preferences` accepts `username` plus a light/dark theme,
 one versioned onboarding completion change, or both. It updates only an active
 identity and returns the current public identity. The Render backend derives
@@ -48,35 +57,34 @@ limiter.
 The limiter is intentionally process-local because the current production API
 runs one Uvicorn process. A future multi-process or multi-instance deployment
 must move this state to a shared rate-limit store before scaling out. The
-read-only `/resolve` endpoint is not part of the password-attempt budget.
+read-only `/resolve` and `/session` endpoints are not part of the
+password-attempt budget.
 
 ## Transport and trust boundary
 
-The Render caller must use the HTTPS Caddy route on
-`telemetry.schoolheroz.com`; it must never send credentials to the VPS IP or
-port 8000 over plaintext HTTP. The current production API still publishes port
-8000 for legacy consumers, so closing that binding remains a required hardening
-step before we describe this boundary as network-private.
+The Render caller uses the HTTPS Caddy route on `telemetry.schoolheroz.com`;
+it must never send credentials to the VPS IP or port 8000 over plaintext HTTP.
+Production publishes the API port only as `127.0.0.1:8000:8000`. Caddy reaches
+`api:8000` over the Docker network. The loopback binding and auth allowlist were
+rechecked on 5 October 2026.
 
 Caddy forwards only `POST /internal/auth/verify`,
-`POST /internal/auth/resolve`, and `PATCH /internal/auth/preferences`; other
-methods and paths under `/internal/auth/` remain outside the reverse-proxy
-allowlist.
+`POST /internal/auth/resolve`, `POST /internal/auth/session`, and
+`PATCH /internal/auth/preferences`; other methods and paths under
+`/internal/auth/` remain outside the reverse-proxy allowlist.
 
 `AUTH_SERVICE_TOKEN` must be generated as a high-entropy secret, stored only in
 the VPS and Render secret stores, and never reused as `OPS_TELEMETRY_TOKEN` or
 `AUTH_TOKEN_SECRET`.
 
-## Staged rollout
+## Deployment history
 
-1. Validate `012_app_user_preferences.sql` against a disposable PostgreSQL 15
-   database with migration 011 already applied.
-2. Apply migration 012 to production in a separately approved database batch.
-3. Deploy and verify the updated VPS API/Caddy surface.
-4. Deploy the matching Render adapter and frontend preference sync, then verify
-   login tracking, theme restoration, onboarding completion, and replay.
+Migrations 011 and 012 belong to the initial authentication and user-preferences
+implementation. The original rollout checklist is retained in Git history.
 
-Login rate limiting is implemented in the API boundary. Removal of the public
-API port remains a rollout prerequisite, but it must follow migration of the
-existing EnergyPlus `DEVICE_API_BASE_URL` caller to verified HTTPS routes; an
-immediate removal would break its device, weather, PV, and simulation reads.
+Backend data readers migrated to authenticated HTTPS and the host port was
+restricted to loopback on 7 September 2026. See
+[Protected backend data access](../ops/SERVICE_ACCESS.md) for the current access contract.
+Current deployments must retain the loopback binding, Caddy allowlist and
+separate auth/data service credentials. Port closure is no longer a pending
+rollout step.
