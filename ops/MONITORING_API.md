@@ -91,6 +91,9 @@ The local source also retires `/shelly/energy`,
 `/shelly/device/{device_id}/hourly-energy` and
 `/shelly/device/{device_id}/energy`, with their exclusive helper/imports.
 `/shelly/hourly-energy`, its protected service version and school insights remain.
+The source also retires raw `/upat/devices`, `/shelly/devices`,
+`/simulations/recordings/latest` and `/weather/hourly/latest` readers. The active
+weather forecast/day-ahead readers and the EnergyPlus simulation proxy remain.
 These cleanups are pending VPS deployment; source changes alone do not update
 the running API image.
 

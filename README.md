@@ -276,74 +276,13 @@ curl -s \
 
 The configured token must be at least 32 characters. An unconfigured or too-short server token returns `503`; a missing or incorrect bearer token returns `401`.
 
-### `GET /upat/devices`
+### Retired raw inventory and latest readers
 
-Returns all known environmental devices from the `upat_devices` table.
-
-Example:
-
-```bash
-curl -s http://localhost:8000/upat/devices
-```
-
-Example response:
-
-```json
-[
-  {
-    "id": 1,
-    "source": "ttn",
-    "device_id": "portable-112",
-    "dev_eui": "ABC123...",
-    "name": "portable-112",
-    "created_at": "2026-03-14T13:00:00"
-  }
-]
-```
-
-### `GET /shelly/devices`
-
-Returns all known Shelly devices from the `shelly_devices` table.
-
-Example:
-
-```bash
-curl -s http://localhost:8000/shelly/devices
-```
-
-### `GET /simulations/recordings/latest`
-
-Returns the latest successful stored room configuration recording for a school. This endpoint is retained for compatibility; use `/simulations/day-ahead/latest` for actual simulation result metrics.
-
-Query parameters:
-
-- `school_id`
-  Required. School identifier, for example `school_10`.
-
-Example:
-
-```bash
-curl -s "http://localhost:8000/simulations/recordings/latest?school_id=school_10"
-```
-
-Example response:
-
-```json
-{
-  "school_id": "school_10",
-  "recording_date": "2026-04-27",
-  "count": 8,
-  "items": [
-    {
-      "room_id": "classroom",
-      "label": "Classroom",
-      "physical_instance_count": 8,
-      "zone_name": "Classroom",
-      "thermostat_type": "single_heating"
-    }
-  ]
-}
-```
+`/upat/devices`, `/shelly/devices`, `/simulations/recordings/latest` and
+`/weather/hourly/latest` are removed from this API source checkout and return
+404. The active weather forecast and simulation day-ahead readers below remain.
+Production activation is pending a reviewed API image update; the separate
+EnergyPlus `/simulations/*` proxy is unchanged.
 
 ### `GET /simulations/day-ahead/latest`
 
@@ -429,16 +368,6 @@ Example:
 
 ```bash
 curl -s "http://localhost:8000/weather/hourly/forecast?start=2026-05-25&end=2026-05-31"
-```
-
-### `GET /weather/hourly/latest`
-
-Returns the nearest stored current or future hourly weather forecast row.
-
-Example:
-
-```bash
-curl -s http://localhost:8000/weather/hourly/latest
 ```
 
 ### `GET /upat/device/{device_id}/latest`
