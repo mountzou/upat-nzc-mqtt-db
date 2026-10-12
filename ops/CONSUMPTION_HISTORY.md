@@ -24,7 +24,7 @@ Unknown parameters and duplicate query keys return 422. There is no `metric`, `a
 
 ## Meter topology
 
-The existing energy device catalog defines room and phase assignments. The separate `energy_consumption_assumptions.json` records the explicit project assumption for school_10.
+The `energy` section of `device_assignments.json` defines room and phase assignments. Its optional `assume_school_total` flag defaults to false. When explicitly enabled, it only classifies school-total queries without a central meter and does not change the energy calculation. School 10 retains `assume_school_total: true`.
 
 * A single three-phase meter assigned to `all_rooms` is the authoritative central school meter. School-total queries select its phases only; other plugs and submeters are excluded. Missing central readings never trigger fallback to submeters.
 * Without a central meter, school queries select every independent plug and every phase once. Device total columns are not added to phase values. For school_10 this is five plugs plus nine phases (14 source series), presented as an assumed school total.

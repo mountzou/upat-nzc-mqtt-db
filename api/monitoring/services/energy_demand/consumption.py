@@ -20,7 +20,7 @@ from psycopg2.extras import Json
 from pydantic import BaseModel
 
 from monitoring.policies.school_hours import is_local_school_hour
-from monitoring.services.energy_demand.devices import list_energy_devices_for_school, is_whole_building_energy_meter
+from monitoring.services.energy_demand.devices import get_school_energy_catalog, is_whole_building_energy_meter
 from monitoring.services.service_energy_api import _emissions_factor_contract
 from monitoring.utils.interval import ATHENS, Interval, parse_interval
 from monitoring.utils.timezone import isoformat_utc
@@ -154,7 +154,9 @@ class Source:
 
 
 def source_plan(school_id: str, room_id: str | None):
-    devices = list_energy_devices_for_school(school_id)
+    school = get_school_energy_catalog(school_id)
+    devices = [device.model_dump() for device in school.devices] if school else []
+    assume_school_total = school.assume_school_total if school else False
     central = [d for d in devices if is_whole_building_energy_meter(d)]
     if len(central) > 1:
         raise HTTPException(409, 'School meter assignment is ambiguous')
@@ -179,15 +181,9 @@ def source_plan(school_id: str, room_id: str | None):
     if not sources:
         raise HTTPException(404, 'No energy meters are assigned to this scope')
     basis = 'central_meter' if room_id is None and central else 'submeter_sum'
-    # Explicit project assumption, configured independently of data availability.
-    from monitoring.config import DIR_ROOMS
-    from monitoring.services.catalog_loader import load_validated_json_catalog
-    from pydantic import TypeAdapter
-    assumptions = load_validated_json_catalog(
-        DIR_ROOMS / 'energy_consumption_assumptions.json',
-        TypeAdapter(dict[str, Literal['assumed_school_total']]), catalog_name='consumption scope assumptions')
+    # Explicit catalog assumption, independent of data availability.
     scope = 'whole_school' if basis == 'central_meter' else (
-        assumptions.get(school_id, 'metered_loads') if room_id is None else 'metered_loads')
+        'assumed_school_total' if room_id is None and assume_school_total else 'metered_loads')
     return tuple(sources), basis, scope
 
 

@@ -194,8 +194,7 @@ class SchoolDeviceMetadata(BaseModel):
     model: str = "v1.0"
 
 
-class SchoolEnvironmentDeviceCatalogEntry(BaseModel):
-    school_id: str
+class EnvironmentDeviceAssignments(BaseModel):
     devices: list[SchoolDeviceMetadata]
 
 
@@ -241,9 +240,15 @@ EnergyDeviceMetadata = Annotated[
 ]
 
 
-class SchoolEnergyDeviceCatalogEntry(BaseModel):
-    school_id: str
+class EnergyDeviceAssignments(BaseModel):
+    assume_school_total: bool = False
     devices: list[EnergyDeviceMetadata]
+
+
+class SchoolDeviceCatalogEntry(BaseModel):
+    school_id: str
+    environment: EnvironmentDeviceAssignments
+    energy: EnergyDeviceAssignments
 
 
 # ============ Schemas for `/thermal-comfort` endpoints ============
