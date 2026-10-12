@@ -83,7 +83,12 @@ Device normalization and energy-window resolution are shared with the other
 retained Shelly handlers. The service still normalizes its requested window to
 minutes and enforces the existing 90-day maximum. No consumption calculation,
 public endpoint, database schema, collector or production image pin changes.
-The generic UPAT/Shelly device-history adapter remains for a separate batch.
+The committed local history cleanup passes family, device ID and validated
+`HistoryQueryParams` to `monitoring/local_data.read_device_history`.
+URL dispatch and `DEVICE_API_BASE_URL` are removed from that local adapter;
+UPAT raw/rollup selection, Shelly compact reads and SQL stay unchanged.
+These cleanups are pending VPS deployment; source changes alone do not update
+the running API image.
 
 Validation used an isolated source snapshot and disposable local PostgreSQL:
 475 tests and 12 subtests passed; four optional tests were skipped. Comparison

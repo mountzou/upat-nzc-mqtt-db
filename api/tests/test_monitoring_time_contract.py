@@ -8,6 +8,7 @@ from monitoring.utils.timezone import as_utc, to_app_timezone
 from monitoring.utils.api_datetime import normalize_api_window_dt
 from monitoring.services.service_device_api import _parse_event_time
 from monitoring.services.service_overview import get_device_latest_overview
+from schemas import HistoryQueryParams
 
 
 @pytest.mark.parametrize("value", ["2026-09-06", "2026-09-06T12:00:00", "2026-10-25T03:30:00"])
@@ -59,5 +60,5 @@ def test_history_order_uses_instants_across_repeated_athens_hour(monkeypatch):
     from monitoring.services.service_device_api import _fetch_batched_metric_history
     first = {"event_time": "2026-10-25T03:00:00+03:00"}
     second = {"event_time": "2026-10-25T03:00:00+02:00"}
-    monkeypatch.setattr("monitoring.services.service_device_api._get_json", lambda *a, **kw: {"items": [first, second]})
-    assert _fetch_batched_metric_history("fixture", "fixture", {}, ()) == [second, first]
+    monkeypatch.setattr("monitoring.services.service_device_api.read_device_history", lambda *a, **kw: {"items": [first, second]})
+    assert _fetch_batched_metric_history("fixture", HistoryQueryParams()) == [second, first]

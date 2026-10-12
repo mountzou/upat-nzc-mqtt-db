@@ -3,7 +3,6 @@ from pathlib import Path
 
 APP_TIMEZONE_NAME = "Europe/Athens"
 DIR_ROOMS = Path(__file__).parent / "catalog"
-DEVICE_API_BASE_URL = ""
 
 ENERGY_CO2_FACTOR_KG_PER_KWH = max(
     0.0,

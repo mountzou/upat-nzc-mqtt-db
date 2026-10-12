@@ -1,4 +1,4 @@
-"""Latest-reader transport, concurrency and real PostgreSQL snapshot contracts."""
+"""Latest/history transport, concurrency and PostgreSQL snapshot contracts."""
 import os
 from datetime import datetime, timezone
 from unittest.mock import Mock
@@ -19,6 +19,7 @@ from monitoring.services.authentication import AuthUserRecord
 from monitoring.services.environment.history import service as environment_history
 from monitoring.services import service_device_api, service_energy_api
 from readers.measurements import fetch_device_latest
+from schemas import HistoryQueryParams
 
 
 @pytest.mark.parametrize("family", ["upat", "shelly"])
@@ -29,7 +30,7 @@ def test_latest_services_use_direct_readers_with_native_timestamps(monkeypatch, 
                "items": [{"event_time": stamp}]}
     reader = Mock(return_value=payload)
     monkeypatch.setattr(module, "read_latest", reader)
-    monkeypatch.setattr(module, "local_read", Mock(side_effect=AssertionError("URL adapter used")))
+    monkeypatch.setattr(module, "read_device_history", Mock(side_effect=AssertionError("History adapter used")))
     if family == "upat":
         actual = module.fetch_device_latest("fixture")
         limit = 1
@@ -75,9 +76,79 @@ def test_reader_failure_returns_the_shared_budget(monkeypatch):
             read_limits._reads.release()
 
 
-def test_history_adapter_no_longer_accepts_latest():
-    with pytest.raises(ValueError, match="Unsupported local monitoring query"):
-        local_data.local_read("/upat/device/fixture/latest")
+@pytest.mark.parametrize("family", ["upat", "shelly"])
+def test_local_history_retains_response_encoding_and_source_dispatch(monkeypatch, family):
+    query = HistoryQueryParams(interval="1h", metric=["temperature"])
+    payload = {"device_id": "fixture", "count": 1, "items": [{
+        "device_id": "fixture",
+        "event_time": datetime.fromisoformat("2026-10-25T03:00:00+02:00"),
+        "measurements": {"temperature": {"value": 0, "unit": None}},
+    }]}
+    upat = Mock(return_value=payload)
+    shelly = Mock(return_value=payload)
+    monkeypatch.setattr(main, "fetch_upat_device_history", upat)
+    monkeypatch.setattr(main, "fetch_device_history", shelly)
+
+    assert local_data.read_device_history(family, "fixture", query) == {
+        "device_id": "fixture", "count": 1, "items": [{
+            "device_id": "fixture", "event_time": "2026-10-25T03:00:00+02:00",
+            "measurements": {"temperature": {"value": 0, "unit": None}},
+        }],
+    }
+    if family == "upat":
+        upat.assert_called_once_with("fixture", query)
+        shelly.assert_not_called()
+    else:
+        shelly.assert_called_once_with("shelly_measurements", "fixture", query)
+        upat.assert_not_called()
+
+
+@pytest.mark.parametrize("family", ["upat", "shelly"])
+def test_busy_history_never_reaches_the_database(monkeypatch, family):
+    acquire = Mock(return_value=False)
+    monkeypatch.setattr(read_limits._reads, "acquire", acquire)
+    upat = Mock(side_effect=AssertionError("Busy history reached UPAT reader"))
+    shelly = Mock(side_effect=AssertionError("Busy history reached Shelly reader"))
+    monkeypatch.setattr(main, "fetch_upat_device_history", upat)
+    monkeypatch.setattr(main, "fetch_device_history", shelly)
+
+    with pytest.raises(HTTPException) as caught:
+        local_data.read_device_history(family, "fixture", HistoryQueryParams())
+    assert caught.value.status_code == 503
+    assert caught.value.detail == "Monitoring data is busy. Try again shortly."
+    acquire.assert_called_once_with(timeout=5)
+    upat.assert_not_called()
+    shelly.assert_not_called()
+
+
+@pytest.mark.parametrize("family", ["upat", "shelly"])
+def test_failed_history_releases_its_read_slot(monkeypatch, family):
+    reader = Mock(side_effect=RuntimeError("fixture history failure"))
+    target = "fetch_upat_device_history" if family == "upat" else "fetch_device_history"
+    monkeypatch.setattr(main, target, reader)
+    with pytest.raises(RuntimeError, match="fixture history failure"):
+        local_data.read_device_history(family, "fixture", HistoryQueryParams())
+
+    acquired = 0
+    try:
+        for _ in range(8):
+            assert read_limits._reads.acquire(blocking=False)
+            acquired += 1
+        assert not read_limits._reads.acquire(blocking=False)
+    finally:
+        for _ in range(acquired):
+            read_limits._reads.release()
+
+
+def test_unknown_history_family_never_selects_a_reader(monkeypatch):
+    upat = Mock(side_effect=AssertionError("Unknown family reached UPAT reader"))
+    shelly = Mock(side_effect=AssertionError("Unknown family reached Shelly reader"))
+    monkeypatch.setattr(main, "fetch_upat_device_history", upat)
+    monkeypatch.setattr(main, "fetch_device_history", shelly)
+    with pytest.raises(ValueError, match="Unknown device family"):
+        local_data.read_device_history("unknown", "fixture", HistoryQueryParams())
+    upat.assert_not_called()
+    shelly.assert_not_called()
 
 
 @pytest.fixture

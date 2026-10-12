@@ -1,4 +1,4 @@
-from monitoring.local_data import local_read
+from monitoring.local_data import read_device_history
 from monitoring.read_limits import monitoring_read
 from readers.measurements import fetch_device_latest as read_latest
 from readers.shelly_energy import fetch_shelly_hourly_energy_rows as read_hourly_energy
@@ -6,9 +6,9 @@ import logging
 from datetime import datetime, timedelta
 
 from fastapi import HTTPException
+from schemas import HistoryQueryParams
 
 from monitoring.config import (
-    DEVICE_API_BASE_URL,
     ENERGY_CO2_FACTOR_KG_PER_KWH,
     ENERGY_CO2_FACTOR_REFERENCE_YEAR,
     ENERGY_CO2_FACTOR_SOURCE,
@@ -21,8 +21,6 @@ from monitoring.utils.interval import parse_interval
 
 logger = logging.getLogger(__name__)
 
-BASE_URL = DEVICE_API_BASE_URL.rstrip("/")
-
 
 def _emissions_factor_contract() -> dict:
     return {
@@ -31,10 +29,6 @@ def _emissions_factor_contract() -> dict:
         "emissions_factor_reference_year": ENERGY_CO2_FACTOR_REFERENCE_YEAR,
         "emissions_factor_version": ENERGY_CO2_FACTOR_VERSION,
     }
-
-
-def _get_json(url: str, *, device_id: str, params: dict | None = None):
-    return local_read(url, params)
 
 
 def fetch_energy_device_latest(device_id: str, *, limit: int):
@@ -50,25 +44,18 @@ def fetch_energy_device_history(
     limit: int,
     metrics: tuple[str, ...] | None = None,
 ):
-    url = f"{BASE_URL}/shelly/device/{device_id}/history"
     start, end = get_history_window(
         interval=interval,
         limit=limit,
     )
-    params = {
-        "start": normalize_api_window_dt(start).isoformat(timespec="minutes"),
-        "end": normalize_api_window_dt(end).isoformat(timespec="minutes"),
-        "aggregate": aggregate,
-        "interval": parse_interval(interval).value,
-    }
-    if metrics:
-        params["metric"] = metrics
-
-    return _get_json(
-        url,
-        device_id=device_id,
-        params=params,
+    query = HistoryQueryParams(
+        start=normalize_api_window_dt(start).isoformat(timespec="minutes"),
+        end=normalize_api_window_dt(end).isoformat(timespec="minutes"),
+        aggregate=aggregate,
+        interval=parse_interval(interval).value,
+        metric=list(metrics) if metrics else None,
     )
+    return read_device_history("shelly", device_id, query)
 
 
 def fetch_shelly_hourly_energy(

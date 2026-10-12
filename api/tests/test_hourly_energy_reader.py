@@ -14,7 +14,7 @@ from fastapi.testclient import TestClient
 
 import database
 import main
-from monitoring import local_data, read_limits
+from monitoring import read_limits
 from monitoring.services import service_energy_api
 from monitoring.services.energy import school_insights
 from readers.shelly_energy import fetch_shelly_hourly_energy_rows
@@ -28,8 +28,8 @@ def test_hourly_service_returns_native_rows_without_the_url_adapter(monkeypatch)
     payload = {"items": [{"window_start": START, "window_end": END}]}
     reader = Mock(return_value=payload)
     monkeypatch.setattr(service_energy_api, "read_hourly_energy", reader)
-    monkeypatch.setattr(service_energy_api, "local_read",
-                        Mock(side_effect=AssertionError("URL adapter used")))
+    monkeypatch.setattr(service_energy_api, "read_device_history",
+                        Mock(side_effect=AssertionError("History adapter used")))
     result = service_energy_api.fetch_shelly_hourly_energy(
         ["shellyplug-a", "shellypro3em-b"],
         start=START + timedelta(seconds=45, microseconds=123),
@@ -87,11 +87,6 @@ def test_hourly_reader_failure_releases_the_budget(monkeypatch):
     finally:
         for _ in range(acquired):
             read_limits._reads.release()
-
-
-def test_history_adapter_no_longer_dispatches_hourly_energy():
-    with pytest.raises(ValueError, match="Unsupported local monitoring query"):
-        local_data.local_read("/shelly/hourly-energy")
 
 
 def test_insights_keep_repeated_hour_and_newest_duplicate_with_native_timestamps():
