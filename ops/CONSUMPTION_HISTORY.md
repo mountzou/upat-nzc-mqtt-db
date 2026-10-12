@@ -1,6 +1,6 @@
 # Consumption history contract
 
-The canonical API and web consumer were deployed on 2026-09-06; iOS build 5 was validated and installed on the Simulator. On 2026-09-07 the retired room-hourly route and its legacy/compact serializers were removed from the VPS API. The shared web/iOS checkout was also reconciled with the consumption release, preserving unrelated local work. Current cleanup evidence and rollback instructions are recorded in `backups/consumption-cleanup-20260906/REPORT.md` (the work began before midnight). A physical iPhone with an older consumer needs build 5 to load consumption.
+Authenticated history returns additive kWh from persisted hourly energy.
 
 ```http
 GET /energy/consumption/history?school_id=school_10&start_date=2026-09-01&end_date=2026-09-05&interval=1h
@@ -52,17 +52,12 @@ Coverage measures valid persisted **hourly source records**, not raw MQTT sample
 
 One parameterized SQL round trip reads only the selected devices/channels and bounded time range in `shelly_plug_hourly_energy` / `shelly_pro3em_hourly_energy`. The existing primary-key prefixes support device/time filtering. Raw power and MQTT tables are not scanned. Bounded in-process caching retains at most eight prepared responses for 60 seconds and coalesces identical concurrent reads. Keys include topology, scope, bounds, interval and emissions metadata. Browser responses use `Cache-Control: private, no-store`.
 
-The old `/energy/schools/{school_id}/rooms/hourly-energy` route is retired and returns 404, including requests using `format=compact`. The old Wh room response schemas, compact builder, room-series grouping/serialization helpers and compact-only NULL-preservation switch were removed. Device telemetry and energy insights remain separate contracts. The legacy `pro3em-energy` power estimate was retired from the live VPS API on 2026-09-07. The internal hourly device query remains necessary for insights and research exports. Above-baseline and PV-alignment displays still compare separate insight/production contracts; this batch moves consumption values, totals, load grouping and hourly profiles to the new service.
+The canonical endpoint supplies grouped loads, totals and profiles to web/iOS;
+clients retain unit, scope, bounds and quality validation. Device telemetry,
+energy insights and protected hourly research reads remain separate contracts.
+The retired room-hourly Wh route and pro3em-energy power estimate return 404.
 
-The web Home, consumption screen and PV demand-alignment consumer use the new route. The iOS transport uses the new route and validates scope, units, bounds and hourly quality before adapting to existing chart models. Its server metadata supplies totals, metrics, daily calendar energy and breakdowns; the older in-memory fixture/presentation models are retained to preserve existing repository and paging behavior. No new endpoint fallback is performed by either production consumer.
-
-## Completed rollout order
-
-1. Reconfirm current VPS image, catalog and health; back up current API source/image. Use the isolated additive candidate, not the unrelated dirty API tree.
-2. Roll out API only, keeping existing routes and tables. Validate school_10, school_22 central selection, rooms, interval/day/DST, authorization and missing-data behavior. Caddy's existing `/energy/*` proxy already covers the new route.
-3. Publish the tested web consumer and release/install the iOS consumer after API availability. Render has no new consumption runtime caller in the inspected baseline; no backend release is required solely for this contract.
-4. The subsequent user-requested cleanup retired the room-hourly route after consumer inventory, source reconciliation, a read-only candidate and unchanged-result verification. Live device telemetry and insights were retained.
-
-No database migration or MQTT pause was needed. Only the API container was replaced for the retirement rollout. The immediately preceding API image still supports the canonical endpoint and can restore the legacy route if rollback is needed. Rolling the web back to a consumer using the retired route requires restoring API compatibility first; do not use the earlier web-only rollback instructions without this dependency.
-
-The internal counter accounting policy is documented in [SHELLY_COUNTER_ENERGY.md](SHELLY_COUNTER_ENERGY.md); it does not change the public history response.
+Recovery must preserve the canonical response. Reverting a consumer that requires
+retired routes needs matching upstream compatibility first; an old image is not
+an automatic fallback. Use [current recovery requirements](shelly-compact/RECOVERY.md).
+Counter accounting is documented in [SHELLY_COUNTER_ENERGY.md](SHELLY_COUNTER_ENERGY.md).
