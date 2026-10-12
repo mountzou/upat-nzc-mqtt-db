@@ -61,8 +61,10 @@ the retired `public.shelly_measurements` table and reverses the shared time
 contract. Its source and September rehearsal evidence remain in Git history;
 it is not a current maintenance command. See [current recovery boundaries](../../ops/shelly-compact/RECOVERY.md).
 
-`detach_shelly_sequence.sql` and `retire_shelly_legacy_table.sql` record one-off
-operations already applied on 2026-10-05. They are retained as dated audit source,
-not scheduled maintenance or commands to replay. The active sequence remains
-`public.shelly_measurements_id_seq`; its historical name must not be removed.
+The completed sequence-detachment and legacy-table retirement scripts remain
+in Git history. The active `public.shelly_measurements_id_seq` is independent
+(`OWNED BY NONE`); preserve its name and value.
+
+The former full-recalculation retention script has been retired. Use the
+incremental rollups and watermark-protected retention batches described above.
 The numbered forward migrations remain available for database initialization.
