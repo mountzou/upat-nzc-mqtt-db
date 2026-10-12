@@ -99,10 +99,10 @@ and rollback.
 
 The `simulation-recorder` service is a one-shot container intended to be run by VPS cron. It signs in to the simulation backend with the dedicated `SIMULATION_API_USERNAME` and `SIMULATION_API_PASSWORD` service credentials, uses the temporary bearer token for the run, and calls the backend with an explicit `Europe/Athens` D+1 `target_date`. It records the raw execution response in PostgreSQL and stores one extracted room recording per returned item. The raw response preserves the quality-gated 24-hour `hourly_load` profile for the optimization adapter. Missing or rejected credentials stop the recorder before it opens a database connection or creates a run record; credential and token values are never logged.
 
-The simulation endpoint, recording timezone, and supported school allowlist are defined in `simulation-recorder/main.py`. The schools processed by a run can be narrowed with the comma-separated `SIMULATION_SCHOOL_IDS` environment variable; every configured ID must belong to the supported allowlist.
+The simulation endpoint, recording timezone, and default school list are defined in `simulation-recorder/main.py`. The schools processed by a run are configured with the comma-separated `SIMULATION_SCHOOL_IDS` environment variable, defaulting to the six schools listed below.
 
 ```text
-base URL: https://upat-nzc-energyplus-backend.onrender.com
+base URL: https://telemetry.schoolheroz.com
 path: /simulate/day-ahead
 supported schools: school_3, school_7, school_10, school_13, school_22, school_23
 recording timezone: Europe/Athens
