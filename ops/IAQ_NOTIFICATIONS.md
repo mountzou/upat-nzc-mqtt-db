@@ -1,7 +1,8 @@
-# Room IAQ notifications — local PoC
+# Room IAQ notifications
 
-This change is local implementation only. No migration or timer has been applied
-on the VPS. Frontend integration is separate.
+The VPS notification schema is installed and the hourly/daily timers are enabled.
+Jobs run as separate Python processes in the API container, independently of
+HTTP requests and Uvicorn startup.
 
 ## Contract
 
@@ -29,7 +30,7 @@ previous day's 23:59 minute. Event timestamps are stored with timezone.
 
 Missing/null/non-finite readings do not contribute; no samples for a metric
 means no notification for that metric. A valid measured zero is not missing.
-This first version has no minimum sample-coverage rule: a daily good notification
+There is no minimum sample-coverage rule: a daily good notification
 only describes the mean of available samples, not uninterrupted good conditions.
 The sample count and exact period are included in its persisted evidence.
 
@@ -44,10 +45,8 @@ processes, independent of HTTP requests. They read only
 `upat_measurements_hourly`. Hourly checks select the stored average directly;
 daily checks use `SUM(value_avg * sample_count) / SUM(sample_count)` per sensor.
 Room means use `AVG(sensor_average)`; no raw-data fallback.
-The live VPS crontab was inspected read-only on 9 September 2026: incremental
-rollups run every five minutes (`*/5`). Hourly notifications run at :10, ten
-minutes after the :00 rollup, and evaluate the previous completed hour. This
-is a scheduling margin, not a guarantee against failed or delayed rollup jobs.
+The :10 schedule allows time for hourly rollups. It is a scheduling margin,
+not a guarantee that a failed or delayed rollup is ready.
 
 These commands evaluate the previous period at execution time, not arbitrary
 historical backfills. Late data arriving after a successful check does not
@@ -92,78 +91,29 @@ an account share read state. Authorized accounts can see older school history,
 including events predating account creation. Losing school access hides its
 history immediately on subsequent requests.
 
-## Local validation and eventual deployment
+## Operation and recovery
 
-Use a disposable local PostgreSQL with the tests in
-`api/tests/test_iaq_notifications.py`; never point fixture tests at production.
-The tests require `NOTIFICATIONS_TEST_DSN` containing `host=127.0.0.1` and
-`local-fixture-only`. They create and remove only their fixture schema.
-
-For eventual approved VPS rollout: apply migration 016, deploy the reviewed API
-image (the job is packaged in the same image), load the reviewed Caddy routing
-addition for `/notifications` and `/notifications/*/read`, then install the three
-`ops/systemd/upat-iaq-notifications*` templates. They execute a separate Python
-process in the API container; no background task is attached to Uvicorn startup.
-Confirm Docker path, Compose project/location and API image before installation.
-Timers are **not installed or enabled by this change**. They do not catch up all
-missed periods after downtime; this PoC evaluates only scheduled previous periods.
-A later recovery/backfill policy can be added explicitly if needed.
-
-Verification must check job exit, run marker, notification evidence and API scope.
-An empty notification list alone cannot distinguish healthy conditions from a
-failed scheduler; inspect `iaq_notification_runs` and the journal.
-
-For a local test container whose network namespace is shared with the disposable
-PostgreSQL container, mount this worktree at `/workspace` and run from
-`/workspace/api` with `PYTHONPATH=/workspace/api`:
+The maintained units are `upat-iaq-notifications@.service`,
+`upat-iaq-notifications-hourly.timer` and `upat-iaq-notifications-daily.timer`.
+They evaluate the previous period at execution time, without catching up every
+missed period after downtime. Migration 016 is a schema prerequisite for a new
+installation; the existing VPS schema does not need initial setup repeated.
 
 ```sh
-python -m pytest -p no:cacheprovider tests/test_iaq_notifications.py tests/test_monitoring_catalog.py tests/test_monitoring_contract_iaq_policy.py -q
+systemctl status upat-iaq-notifications-hourly.timer upat-iaq-notifications-daily.timer --no-pager
+journalctl -u upat-iaq-notifications@hourly.service -u upat-iaq-notifications@daily.service -n 50 --no-pager
 ```
 
-### Initial raw-reader verification — 9 September 2026 (before aggregate-only change)
+Check job exit, `iaq_notification_runs`, persisted evidence and API scope.
+An empty notification list alone cannot distinguish zero matches from a failed
+scheduler. API recovery must retain the notification routes, job module and
+compatible tables; coordinate timers with any reviewed image change. Preserve
+existing notification/read history and the [current storage/time contract](shelly-compact/RECOVERY.md).
 
-- 32 tests passed across notifications, catalog authorization and IAQ policy.
-- SQL tests exercised real disposable PostgreSQL 15: room sample weighting,
-  strict thresholds, missing data, consecutive hours, per-account reads,
-  school isolation, duplicate prevention, overlapping jobs and transaction
-  rollback after notification insertion.
-- Full `db/init.sql` initialization, including migration 016, succeeded in the
-  disposable database; repeated application of migration 016 also passed.
-- The unchanged API Dockerfile built successfully with the new modules included.
-- No production database, scheduler or frontend was changed.
+## Local validation
 
-### Aggregate-only update — 9 September 2026
-
-The notification job now reads hourly aggregates exclusively. The hourly timer
-is :10 and the daily timer remains 00:10 Athens time. Tests use a database with
-only an hourly-aggregate table (no raw table), and include weighted daily
-buckets plus independent hourly/daily execution at 00:10. Earlier School 10
-raw-reader validation remains historical evidence, not a rerun of this version.
-
-Validation of the aggregate-only update: **34 tests passed**, including real
-PostgreSQL SQL/API tests, catalog scope regressions and policy contracts.
-`git diff --check` passed. The timer changes remain local and uninstalled.
-
-### Final room-mean rule — 9 September 2026
-
-Finalized equal weighting of the two Teachers Office sensor means for both
-hourly and daily notifications. Single-sensor hourly checks preserve the stored
-`value_avg`; daily sensor means retain sample-weighted hourly aggregation.
-One available sensor is sufficient; neither available means no notification.
-
-**36 tests passed** against the final code, including real PostgreSQL tests
-with no raw telemetry table. Added checks distinguish the simple two-sensor
-mean from sample-weighted pooling, verify missing-sensor behavior, and preserve
-a stored hourly value immediately above its threshold without rounding.
-
-The earlier School 10 real-data report predates this final Teachers Office
-rule and must not be used as final-version production acceptance evidence.
-
-### Final PR preparation
-
-The final 9 September 2026 validation covered real hourly-aggregate replay with
-the final Teachers Office rule, reconciliation of the deployed hourly reader,
-combined API tests and Caddy checks. The dated School 10 and final PR reports
-have been retired from the repository; their reports and JSON results remain
-in Git history.
+Use an API dependency environment and disposable local PostgreSQL.
+[Test fixtures](../api/tests/test_iaq_notifications.py) require
+`NOTIFICATIONS_TEST_DSN` containing `host=127.0.0.1` and `local-fixture-only`;
+they create/remove only their fixture schema. Historical test counts and
+intermediate calculation-rule reports remain in Git history.
