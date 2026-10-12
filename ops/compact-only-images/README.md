@@ -1,23 +1,25 @@
-# Compact-only images with the production runtime
+# Compact-only production-runtime images
 
-The approved API/Shelly rollout completed on 2026-10-05. See
-[the activation and post-check receipt](ROLLOUT-20261005.md).
+The active API/Shelly image, source and configuration mapping is kept in
+[the rollout record](ROLLOUT-20261005.md), with the retained VPS recovery location.
+See [current recovery requirements](../shelly-compact/RECOVERY.md).
 
-Build the requested source cleanup on the exact inspected production images.
-Only the reader/writer source files are overlaid; Python, packages, command and
-entrypoint remain inherited. Pass BASE_IMAGE explicitly and label the resulting
-image with the committed revision before changing production Compose references.
+## Build scope
 
-The initial rebuild from python:3.12-slim refreshed unpinned Python/framework
-packages. Those images remain local test artifacts and are superseded for rollout
-by these production-runtime overlays.
+These Dockerfiles overlay specific source files on an explicitly selected
+`BASE_IMAGE`. Python, packages, command and entrypoint are inherited; no pip
+installation or dependency change occurs. Verify the base archive/configuration
+against the inspected image, build from the repository root for linux/amd64,
+and label the candidate with its committed Git revision.
 
-Prepare a uniquely named local base reference from each inspected image archive.
-Verify the archived config identity against the live image, then build from this
-repository root with the corresponding Dockerfile and --platform linux/amd64.
-No Dockerfile here runs pip or changes dependencies.
+The API recipe copies only `api/readers/shelly_storage.py`; the ingestor recipe
+copies `main.py` and `measurements.py`. Review every intended changed runtime
+file before a future build. The pending broader API cleanup needs an updated,
+verified build scope; these narrow overlays alone do not include it.
 
-The bootstrap SQL is for fresh databases. The existing production compact schema
-already matches it; do not execute init.sql or migration 014 during this rollout.
-Production application changes remain limited to API and Shelly ingestor, with the
-existing PostgreSQL, Caddy and other services retained.
+## Deployment boundary
+
+Use [canonical production ownership](../postgres-volume/COMPOSE-OWNERSHIP.md)
+and target only the approved application services. Preserve PostgreSQL, Caddy
+and unrelated services. Bootstrap SQL is for fresh databases; image updates
+do not require replaying init.sql or migration 014 on the existing compact schema.
