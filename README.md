@@ -522,7 +522,7 @@ Notes:
   from being returned as a partial bucket.
 - Retired `bucket_unit`, `bucket_size` and `bucket_minutes` parameters return
   422, even when empty or combined with `interval`. Use `interval` only.
-  See [the interval contract](ops/INTERVAL.md).
+  See [the time and interval contract](ops/TIME_PERSISTENCE.md#intervals).
 - `limit` applies only when no explicit `start` and `end` range is provided.
 - If no time range is provided, the default history view is the last 1 day aggregated at 1-minute resolution.
 - UPAT minute buckets that are exact multiples of five use persisted five-minute
