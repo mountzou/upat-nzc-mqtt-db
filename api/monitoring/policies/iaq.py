@@ -35,22 +35,6 @@ _IAQ_POLICY = {
     },
 }
 
-IAQ_THRESHOLD_PERIOD_LABELS = {
-    period_id: {
-        "en": (
-            "configured short-window threshold"
-            if period_id in {"1m", "1h"}
-            else "configured aggregated-period threshold"
-        ),
-        "el": (
-            "ρυθμισμένο όριο βραχέος παραθύρου"
-            if period_id in {"1m", "1h"}
-            else "ρυθμισμένο όριο συγκεντρωτικής περιόδου"
-        ),
-    }
-    for period_id in ("1m", "1h", "24h", "7d", "14d")
-}
-
 
 def get_iaq_threshold(metric: IAQPolicyMetric, period_id: IAQPeriodId) -> float:
     return float(_IAQ_POLICY[metric]["thresholds"][period_id])

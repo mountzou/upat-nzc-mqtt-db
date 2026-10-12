@@ -9,10 +9,6 @@ def normalize_api_window_dt(dt: datetime) -> datetime:
     return as_utc(dt).replace(microsecond=0)
 
 
-def _floor_to_bucket_boundary(dt: datetime, *, interval: str) -> datetime:
-    return parse_interval(interval).floor(dt)
-
-
 def get_history_window(*, interval: str, limit: int) -> tuple[datetime, datetime]:
     """Return an aware [start, end) window; day boundaries follow Athens DST."""
     spec = parse_interval(interval)

@@ -1,4 +1,3 @@
-from collections.abc import Callable
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
@@ -92,24 +91,6 @@ def get_current_user(
     if user is None:
         raise unauthorized()
     return user
-
-
-def require_roles(*allowed_roles: str) -> Callable[..., AuthUserRecord]:
-    allowed = frozenset(allowed_roles)
-    if not allowed:
-        raise ValueError("At least one allowed role is required.")
-
-    def require_allowed_role(
-        user: AuthUserRecord = Depends(get_current_user),
-    ) -> AuthUserRecord:
-        if user.role not in allowed:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="You do not have permission to access this resource.",
-            )
-        return user
-
-    return require_allowed_role
 
 
 @router.post("/login", response_model=LoginResponse)

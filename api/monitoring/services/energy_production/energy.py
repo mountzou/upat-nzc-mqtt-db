@@ -19,6 +19,7 @@ from fastapi import HTTPException
 from pydantic import BaseModel, Field
 
 from monitoring.utils.interval import ATHENS, ORIGIN, Interval, parse_interval
+from monitoring.utils.timezone import isoformat_utc
 
 Kind = Literal['history', 'forecast']
 Quality = Literal['complete', 'partial', 'missing']
@@ -88,10 +89,6 @@ class ProductionEnergyResponse(BaseModel):
     summary: EnergySummary
     hourly_profile: list[HourProfile]
     runs: list[ForecastRun] = Field(default_factory=list)
-
-
-def instant(value: datetime) -> str:
-    return value.astimezone(timezone.utc).isoformat().replace('+00:00', 'Z')
 
 
 def midnight(day: date) -> datetime:
@@ -233,7 +230,7 @@ class EnergyDayCache:
             if owned:
                 try:
                     rows = query_days(owned[0], owned[-1], interval, kind)
-                    fetched = instant(datetime.now(timezone.utc))
+                    fetched = isoformat_utc(datetime.now(timezone.utc))
                     prepared = {d: PreparedDay(r, fetched, self.clock()+self.ttl) for d, r in rows.items()}
                     with self.lock:
                         for day, entry in prepared.items():
@@ -291,7 +288,7 @@ def get_energy(start: date, end: date, value: str = '1h', kind: Kind = 'history'
         if daily:
             latest.append(daily['latest'])
             if daily['run_id'] is not None:
-                runs.append(ForecastRun(run_id=daily['run_id'], forecast_date=str(day), generated_at=instant(daily['generated_at'])))
+                runs.append(ForecastRun(run_id=daily['run_id'], forecast_date=str(day), generated_at=isoformat_utc(daily['generated_at'])))
             if interval.calendar_day:
                 bucket_rows[midnight(day)] = [daily]
         for row in entry.rows:
@@ -309,7 +306,7 @@ def get_energy(start: date, end: date, value: str = '1h', kind: Kind = 'history'
         expected = int((right-left).total_seconds()/step)
         if count > expected:
             raise HTTPException(502, 'Duplicate PV energy source intervals')
-        points.append(EnergyBucket(start=instant(left), end=instant(right),
+        points.append(EnergyBucket(start=isoformat_utc(left), end=isoformat_utc(right),
             energy_kwh=fsum(float(r['energy_kwh']) for r in rows) if rows else None,
             observed_samples=count, expected_samples=expected,
             quality=quality(count, expected, all(r['complete'] for r in rows))))
@@ -323,7 +320,7 @@ def get_energy(start: date, end: date, value: str = '1h', kind: Kind = 'history'
             share_pct=energy/total*100 if total and energy is not None else 0 if energy is not None else None,
             observed_samples=sum(int(r['observed_samples']) for r in rows)))
     return ProductionEnergyResponse(kind=kind, interval=interval.value, start_date=str(start), end_date=str(end),
-        latest_observed_at=instant(max(latest)) if latest and kind == 'history' else None,
+        latest_observed_at=isoformat_utc(max(latest)) if latest and kind == 'history' else None,
         fetched_at=min(e.fetched_at for e in entries.values()), points=points, days=days,
         summary=EnergySummary(total_energy_kwh=total,
             mean_daily_energy_kwh=total/len(measured) if measured else None,
