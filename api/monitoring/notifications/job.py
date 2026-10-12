@@ -10,7 +10,7 @@ from psycopg2.extras import Json
 from database import get_connection
 from monitoring.config import APP_TIMEZONE_NAME
 from monitoring.policies.iaq import IAQ_POLICY_VERSION, get_iaq_metric_descriptor, get_iaq_threshold
-from monitoring.services.environment.devices import _load_environment_device_catalog
+from monitoring.services.catalog_loader import load_device_catalog
 
 ATHENS = ZoneInfo(APP_TIMEZONE_NAME)
 
@@ -32,8 +32,8 @@ def previous_period(kind, now):
 def room_assignments():
     assignments = []
     seen = set()
-    for school in _load_environment_device_catalog():
-        for device in school.devices:
+    for school in load_device_catalog():
+        for device in school.environment.devices:
             if device.id in seen:
                 raise ValueError('Environmental device is assigned more than once')
             seen.add(device.id)

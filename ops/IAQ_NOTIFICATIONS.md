@@ -6,7 +6,7 @@ HTTP requests and Uvicorn startup.
 
 ## Contract
 
-All rooms in `api/monitoring/catalog/device_assignments.json` are checked.
+All rooms assigned in the `environment` section of `api/monitoring/catalog/device_assignments.json` are checked.
 Room identity is `(school_id, room_id)`. Notifications are never school-level
 summaries. Single-sensor rooms use the stored hourly `value_avg` directly.
 For School 10 Teachers Office, portable-110 and portable-111 represent two

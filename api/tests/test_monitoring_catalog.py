@@ -97,3 +97,31 @@ def test_retired_catalog_aliases_are_not_available(client, path, authenticated):
         assert client.get(path).status_code == 404
     schools.assert_not_called()
     rooms.assert_not_called()
+
+
+@pytest.mark.parametrize('school_id,room_id,basis,scope', [
+    ('school_10', None, 'submeter_sum', 'assumed_school_total'),
+    ('school_10', 'teachers', 'submeter_sum', 'metered_loads'),
+    ('school_22', None, 'central_meter', 'whole_school'),
+    ('school_22', 'teachers', 'submeter_sum', 'metered_loads'),
+])
+def test_energy_catalog_preserves_consumption_scope(school_id, room_id, basis, scope):
+    from monitoring.services.energy_demand.consumption import source_plan
+
+    sources, actual_basis, actual_scope = source_plan(school_id, room_id)
+    assert sources
+    assert (actual_basis, actual_scope) == (basis, scope)
+
+
+@pytest.mark.parametrize('path,count', [
+    ('/indoor_environment/schools/school_10/devices', 5),
+    ('/energy/schools/school_10/devices', 8),
+])
+def test_merged_catalog_preserves_flat_device_responses(client, path, count):
+    identify()
+    response = client.get(path)
+    assert response.status_code == 200
+    devices = response.json()
+    assert len(devices) == count
+    assert all('id' in device and 'room_id' in device for device in devices)
+    assert all('environment' not in device and 'energy' not in device for device in devices)
