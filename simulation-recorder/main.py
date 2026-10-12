@@ -24,19 +24,17 @@ DB_PASSWORD = os.getenv("POSTGRES_PASSWORD")
 DB_CONNECT_RETRIES = int(os.getenv("POSTGRES_CONNECT_RETRIES", "5"))
 DB_CONNECT_DELAY_SECONDS = float(os.getenv("POSTGRES_CONNECT_DELAY_SECONDS", "2"))
 
-SIMULATION_API_BASE_URL = "https://upat-nzc-energyplus-backend.onrender.com"
+SIMULATION_API_BASE_URL = os.getenv(
+    "SIMULATION_API_BASE_URL", "https://telemetry.schoolheroz.com"
+)
 SIMULATION_API_AUTH_PATH = "/auth/login"
 SIMULATION_API_PATH = "/simulate/day-ahead"
 SIMULATION_API_USERNAME = os.getenv("SIMULATION_API_USERNAME", "").strip()
 SIMULATION_API_PASSWORD = os.getenv("SIMULATION_API_PASSWORD", "")
-DEFAULT_SIMULATION_SCHOOL_IDS = [
-    "school_3",
-    "school_7",
-    "school_10",
-    "school_13",
-    "school_22",
-    "school_23",
-]
+SIMULATION_SCHOOL_IDS = os.getenv(
+    "SIMULATION_SCHOOL_IDS",
+    "school_3,school_7,school_10,school_13,school_22,school_23",
+).split(",")
 SIMULATION_AUTH_TIMEOUT_SECONDS = float(
     os.getenv("SIMULATION_AUTH_TIMEOUT_SECONDS", "30")
 )
@@ -55,33 +53,6 @@ LOCAL_TZ = ZoneInfo(SIMULATION_RECORDING_TIMEZONE)
 
 class SimulationAuthenticationError(RuntimeError):
     """Raised when the recorder cannot obtain a simulation API bearer token."""
-
-
-def parse_simulation_school_ids(raw_value):
-    if raw_value is None:
-        return list(DEFAULT_SIMULATION_SCHOOL_IDS)
-
-    values = (value.strip() for value in raw_value.split(","))
-    school_ids = list(dict.fromkeys(filter(None, values)))
-
-    if not school_ids:
-        raise ValueError(
-            "SIMULATION_SCHOOL_IDS must contain at least one school id"
-        )
-
-    unsupported = sorted(set(school_ids) - set(DEFAULT_SIMULATION_SCHOOL_IDS))
-    if unsupported:
-        raise ValueError(
-            "SIMULATION_SCHOOL_IDS contains unsupported school ids: "
-            f"{', '.join(unsupported)}"
-        )
-
-    return school_ids
-
-
-SIMULATION_SCHOOL_IDS = parse_simulation_school_ids(
-    os.getenv("SIMULATION_SCHOOL_IDS")
-)
 
 
 def db_connect():

@@ -1,6 +1,7 @@
 import unittest
 from contextlib import redirect_stdout
 from datetime import date, datetime, timezone
+from importlib import reload
 from io import StringIO
 from unittest.mock import Mock, patch
 
@@ -8,46 +9,42 @@ import main
 
 
 class SimulationRecorderRequestContractTests(unittest.TestCase):
-    def test_simulation_urls_use_the_shared_api_base(self):
-        self.assertEqual(
-            main.build_simulation_url(),
-            f"{main.SIMULATION_API_BASE_URL}/simulate/day-ahead",
-        )
-        self.assertEqual(
-            main.build_simulation_auth_url(),
-            f"{main.SIMULATION_API_BASE_URL}/auth/login",
-        )
+    def test_simulation_urls_default_to_vps_origin(self):
+        self.addCleanup(reload, main)
+        with patch.dict("os.environ"):
+            main.os.environ.pop("SIMULATION_API_BASE_URL", None)
+            reload(main)
+            self.assertEqual(
+                main.build_simulation_url(),
+                "https://telemetry.schoolheroz.com/simulate/day-ahead",
+            )
+            self.assertEqual(
+                main.build_simulation_auth_url(),
+                "https://telemetry.schoolheroz.com/auth/login",
+            )
 
-    def test_school_scope_defaults_to_supported_school_catalog(self):
-        self.assertEqual(
-            main.parse_simulation_school_ids(None),
-            main.DEFAULT_SIMULATION_SCHOOL_IDS,
-        )
+    def test_simulation_and_login_use_configured_origin(self):
+        self.addCleanup(reload, main)
+        with patch.dict("os.environ", {"SIMULATION_API_BASE_URL": "https://backend.example/"}):
+            reload(main)
+            self.assertEqual(main.build_simulation_url(), "https://backend.example/simulate/day-ahead")
+            self.assertEqual(main.build_simulation_auth_url(), "https://backend.example/auth/login")
 
-    def test_school_scope_accepts_one_explicit_school(self):
-        self.assertEqual(
-            main.parse_simulation_school_ids("school_10"),
-            ["school_10"],
-        )
+    def test_school_scope_defaults_to_six_schools(self):
+        self.addCleanup(reload, main)
+        with patch.dict("os.environ"):
+            main.os.environ.pop("SIMULATION_SCHOOL_IDS", None)
+            reload(main)
+            self.assertEqual(
+                main.SIMULATION_SCHOOL_IDS,
+                ["school_3", "school_7", "school_10", "school_13", "school_22", "school_23"],
+            )
 
-    def test_school_scope_trims_and_deduplicates(self):
-        self.assertEqual(
-            main.parse_simulation_school_ids(
-                " school_10,school_10, school_22 "
-            ),
-            ["school_10", "school_22"],
-        )
-
-    def test_school_scope_rejects_empty_or_unsupported_values(self):
-        for raw_value, expected_message in (
-            ("  , ", "at least one school id"),
-            ("school_10,school_typo", "unsupported school ids: school_typo"),
-        ):
-            with (
-                self.subTest(raw_value=raw_value),
-                self.assertRaisesRegex(ValueError, expected_message),
-            ):
-                main.parse_simulation_school_ids(raw_value)
+    def test_school_scope_reads_comma_separated_environment_value(self):
+        self.addCleanup(reload, main)
+        with patch.dict("os.environ", {"SIMULATION_SCHOOL_IDS": "school_10,school_22"}):
+            reload(main)
+            self.assertEqual(main.SIMULATION_SCHOOL_IDS, ["school_10", "school_22"])
 
     def test_request_contains_explicit_d_plus_one_target_date(self):
         self.assertEqual(

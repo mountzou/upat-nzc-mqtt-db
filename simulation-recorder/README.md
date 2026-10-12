@@ -1,4 +1,8 @@
-# Simulation recorder job compatibility
+# Simulation recorder
+
+The recorder calls the VPS EnergyPlus backend at `https://telemetry.schoolheroz.com`.
+The backend runs one persisted shared IDF per school and returns school totals
+and results per room from that shared execution.
 
 The recorder submits one `POST /simulate/day-ahead` per admitted school/date attempt.
 It continues to accept the synchronous HTTP 200 day-ahead payload while also
@@ -37,6 +41,8 @@ Observed zero is valid; missing optional metrics remain null. Legacy HTTP 200
 
 ## Configuration
 
+- `SIMULATION_API_BASE_URL`: `https://telemetry.schoolheroz.com`; login,
+  submission and status polling use this configured origin.
 - `SIMULATION_CONNECT_TIMEOUT_SECONDS`: 10 (existing POST connection timeout).
 - `SIMULATION_REQUEST_TIMEOUT_SECONDS`: 600 (existing POST read timeout).
 - `SIMULATION_POLL_INTERVAL_SECONDS`: 5.
@@ -64,23 +70,11 @@ The tests create a separate temporary schema per case. They connect the real
 caller to FastAPI with a mocked engine, exercise the actual job queue and SQL
 persistence, and never call weather or EnergyPlus providers.
 
-## Review and integration status (2026-09-29)
+## Deployment
 
-The EnergyPlus backend job patch and cross-repository integration test are in its
-main branch (commit `e249f52`). The latest Render deployment in its history
-(commit `d3a9d30`) includes that patch, but the service is currently suspended
-by the user. Live job behavior cannot be verified while it is suspended.
-
-The integration suite passed 13 tests against a disposable local PostgreSQL
-database, and this recorder's local suite passed 50 tests. PR #4 is merged and
-PR #5 was archived. This recorder change can be merged as source code without
-a production rollout. The production Compose matched the installed VPS file
-byte-for-byte at the review on 2026-09-29.
-
-For a later rollout, build the recorder image with both `main.py` and
+Build the recorder image with both `main.py` and
 `job_client.py`, verify its source/image identity and the running backend,
-then validate a job end to end. Existing cron time, six-school scope and
-PostgreSQL service remain unchanged by this PR. The caller accepts both the
+then validate a job end to end. The caller accepts both the
 synchronous response and the job response. A backend rollback to synchronous
 responses does not resolve a previously saved pending job; reconcile those
 handles separately.
