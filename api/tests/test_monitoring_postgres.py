@@ -104,7 +104,6 @@ def test_auth_scope_revocation_and_internal_verifier(database,client):
     headers=login(client)
     assert client.get('/auth/me',headers=headers).json()['school_ids']==['school_10']
     assert client.get('/catalog/schools',headers=headers).json()[0]['id']=='school_10'
-    assert client.get('/catalog/schools/school_10/rooms',headers=headers).status_code==200
     assert client.get('/energy/schools/school_3/devices',headers=headers).status_code==403
     assert client.get('/indoor_environment/schools/school_3/devices',headers=headers).status_code==403
     body={'access_token':headers['Authorization'].split(' ',1)[1]}
@@ -169,6 +168,5 @@ def test_municipality_and_admin_catalog_scope(database,client):
         assert schools.status_code==200
         if expected:
             assert {s['id'] for s in schools.json()}==expected
-            assert client.get('/catalog/schools/school_22/rooms',headers=headers).status_code==403
         else:assert len(schools.json())>2
         assert client.get('/energy/production/history?start_date=2026-09-01&end_date=2026-09-01&interval=day',headers=headers).status_code==200

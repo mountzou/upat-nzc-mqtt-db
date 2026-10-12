@@ -9,7 +9,8 @@ in-process monitoring reads do not call Render or make HTTP requests to themselv
 | Purpose | Routes / contract |
 | --- | --- |
 | Sessions/preferences | `/auth/login`, `/auth/me`, `/auth/preferences` |
-| Authorized catalog | `/catalog/schools`, `/catalog/schools/{school_id}/rooms` |
+| Authorized school catalog | `/catalog/schools` (API) |
+| Simulation room catalog | `/catalog/schools/{school_id}/rooms` (EnergyPlus through Caddy) |
 | Consumption | [Consumption history](CONSUMPTION_HISTORY.md); separate school insights and device telemetry |
 | PV | [Production history and forecasts](PV_ENERGY.md), in kWh |
 | Environment/Home | [Environmental history](ENVIRONMENTAL_HISTORY.md), latest readings, insights and NDJSON Home streaming |
@@ -28,6 +29,10 @@ IAQ policy and pure thermal calculations expose no private measurements.
 `24h`, `7d`, `14d`. Clients must support this shape.
 The retired `/schools` and `/rooms?school_id=...` aliases return 404;
 EnergyPlus' simulation-schedule-defaults compute route remains separate.
+
+Caddy forwards the room catalog to `nzc_energyplus:8000` on their shared Docker
+network, as it already does in production. The local API source retires its
+duplicate rooms endpoint, six room JSON files and exclusive simulation schemas.
 
 EnergyPlus accepts VPS sessions through the protected `/internal/auth/session`
 verifier. JWT signing secrets stay on the VPS. Protected backend reads use
