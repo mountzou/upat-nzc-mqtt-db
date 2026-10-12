@@ -1,6 +1,6 @@
 import unittest
 from datetime import datetime, timedelta, timezone
-from unittest.mock import patch
+from unittest.mock import call, patch
 
 from fastapi.testclient import TestClient
 
@@ -26,7 +26,6 @@ from monitoring.services.energy.school_insights import (
     _recent_increase_candidate,
     _resolve_school_series,
     build_school_energy_insights,
-    get_school_energy_insights,
 )
 from monitoring.services.authentication import AuthUserRecord
 
@@ -463,11 +462,16 @@ class SchoolEnergyInsightsTests(unittest.TestCase):
             "subdirector": {stamp: 100.0 for stamp in stamps},
             "computer": {stamp: 50.0 for stamp in stamps},
         }
+        # Incomplete hours would falsely make the computer load dominant.
+        for stamp in stamps[:24]:
+            rows["subdirector"].pop(stamp)
+            rows["computer"][stamp] = 10000.0
         points = [
             _HourlyPoint(
                 stamp=stamp,
                 local_stamp=stamp.astimezone(school_insights._school_timezone()),
-                value_wh=150.0,
+                value_wh=sum(series.get(stamp, 0.0) for series in rows.values()),
+                source_coverage=sum(stamp in series for series in rows.values()) / len(rows),
             )
             for stamp in sorted(stamps)
         ]
@@ -484,7 +488,8 @@ class SchoolEnergyInsightsTests(unittest.TestCase):
         self.assertEqual(candidate.kind, "dominant_load")
         self.assertEqual(candidate.scope_labels, ["Subdirector Room"])
         self.assertEqual(candidate.evidence[0].value, "67%")
-        self.assertEqual(candidate.evidence[2].value, "100%")
+        self.assertEqual(candidate.evidence[1].value, "31.2 kWh")
+        self.assertEqual(candidate.evidence[2].value, "93%")
         self.assertNotIn("Last 14 complete days", candidate.period_label)
 
     @patch("monitoring.services.energy.school_insights.fetch_shelly_hourly_energy")
@@ -635,25 +640,11 @@ class SchoolEnergyInsightsTests(unittest.TestCase):
         self.assertEqual(_expected_hours_for_local_day(datetime(2026, 3, 29).date()), 23)
         self.assertEqual(_expected_hours_for_local_day(datetime(2026, 10, 25).date()), 25)
 
-    @patch("monitoring.services.energy.school_insights.build_school_energy_insights")
-    def test_repeated_requests_are_recomputed(self, mock_build):
-        mock_build.return_value = SchoolEnergyInsightsResponse(
-            school_id="school-fresh",
-            generated_at=END,
-            policy_version="energy-insights-v1.4",
-            metering_scope="whole_building",
-        )
-
-        get_school_energy_insights("school-fresh")
-        get_school_energy_insights("school-fresh")
-
-        self.assertEqual(mock_build.call_count, 2)
-
 
 class SchoolEnergyInsightsRouteTests(unittest.TestCase):
-    @patch("monitoring.routes.energy_demand.get_school_energy_insights")
-    def test_get_route_exposes_schema_without_response_caching(self, mock_get):
-        mock_get.return_value = SchoolEnergyInsightsResponse(
+    @patch("monitoring.services.energy.school_insights.build_school_energy_insights")
+    def test_get_route_recomputes_each_request_and_preserves_schema(self, mock_build):
+        first_result = SchoolEnergyInsightsResponse(
             school_id="school-route",
             generated_at=END,
             data_through=END,
@@ -667,27 +658,31 @@ class SchoolEnergyInsightsRouteTests(unittest.TestCase):
                 {"weekday": 0, "hour": 8, "baseline_wh": 250.0}
             ],
         )
+        expected_results = [
+            first_result,
+            first_result.model_copy(update={"generated_at": END + timedelta(minutes=1)}),
+        ]
+        mock_build.side_effect = expected_results
         app.dependency_overrides[get_current_user] = lambda: AuthUserRecord(
             username="test-admin",
             role="system_admin",
         )
         try:
             with TestClient(app) as client:
-                response = client.get("/energy/schools/school-route/insights")
+                responses = [
+                    client.get("/energy/schools/school-route/insights")
+                    for _ in expected_results
+                ]
         finally:
             app.dependency_overrides.pop(get_current_user, None)
 
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json()["metering_scope"], "whole_building")
-        self.assertEqual(response.json()["emissions_factor_kg_per_kwh"], 0.285)
         self.assertEqual(
-            response.json()["hourly_baseline_profile"],
-            [{"weekday": 0, "hour": 8, "baseline_wh": 250.0}],
+            mock_build.call_args_list,
+            [call("school-route"), call("school-route")],
         )
-        self.assertEqual(
-            response.json()["emissions_factor_version"],
-            "project-grid-factor-v1",
-        )
-        self.assertNotIn("cache-control", response.headers)
-        self.assertNotIn("cache_hit", response.json())
-        self.assertIn("school-energy-insights;dur=", response.headers["server-timing"])
+        for response, expected in zip(responses, expected_results):
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(response.json(), expected.model_dump(mode="json"))
+            self.assertNotIn("cache-control", response.headers)
+            self.assertNotIn("cache_hit", response.json())
+            self.assertIn("school-energy-insights;dur=", response.headers["server-timing"])
