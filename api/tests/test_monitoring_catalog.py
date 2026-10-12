@@ -1,4 +1,4 @@
-"""Catalog URL migration preserves data, authentication and school scope."""
+"""School catalog access and retirement of the duplicate API room catalog."""
 from unittest.mock import patch
 
 import pytest
@@ -26,14 +26,10 @@ def identify(role='teacher', school_ids=('school_10',)):
     )
 
 
-@pytest.mark.parametrize('path', [
-    '/catalog/schools', '/catalog/schools/school_10/rooms',
-])
-def test_catalog_requires_authentication_before_reading(client, path):
-    with patch.object(catalog, 'schools') as schools, patch.object(catalog, 'rooms') as rooms:
-        assert client.get(path).status_code == 401
+def test_catalog_requires_authentication_before_reading(client):
+    with patch.object(catalog, 'schools') as schools:
+        assert client.get('/catalog/schools').status_code == 401
     schools.assert_not_called()
-    rooms.assert_not_called()
 
 
 @pytest.mark.parametrize('role,scope', [
@@ -47,56 +43,6 @@ def test_catalog_preserves_scope_and_payloads(client, role, scope):
     assert schools.status_code == 200
     expected = {s['id'] for s in catalog.schools()} if role == 'system_admin' else set(scope)
     assert {s['id'] for s in schools.json()} == expected
-    rooms = client.get('/catalog/schools/school_10/rooms')
-    assert rooms.status_code == 200
-    assert rooms.json()
-    assert all(r['school_id'] == 'school_10' for r in rooms.json())
-
-
-@pytest.mark.parametrize('path', [
-    '/catalog/schools/school_3/rooms',
-    '/catalog/schools/school_3/rooms?school_id=school_10',
-])
-def test_room_scope_is_checked_before_catalog_read(client, path):
-    identify()
-    with patch.object(catalog, 'rooms') as rooms:
-        assert client.get(path).status_code == 403
-    rooms.assert_not_called()
-
-
-def test_unknown_school_is_not_found_for_admin(client):
-    identify('system_admin', ())
-    assert client.get('/catalog/schools/unknown/rooms').status_code == 404
-
-
-def test_openapi_only_advertises_canonical_catalog(client):
-    paths = client.get('/openapi.json').json()['paths']
-    assert '/schools' not in paths and '/rooms' not in paths
-    assert '/catalog/schools' in paths
-    parameters = paths['/catalog/schools/{school_id}/rooms']['get']['parameters']
-    school = next(p for p in parameters if p['name'] == 'school_id')
-    assert school['in'] == 'path' and school['required'] is True
-
-
-def test_catalog_cors_preflight(client):
-    result = client.options('/catalog/schools/school_10/rooms', headers={
-        'Origin': 'https://schoolheroz.com',
-        'Access-Control-Request-Method': 'GET',
-        'Access-Control-Request-Headers': 'authorization',
-    })
-    assert result.status_code == 200
-    assert result.headers['access-control-allow-origin'] == 'https://schoolheroz.com'
-
-
-@pytest.mark.parametrize('path', ['/schools', '/rooms?school_id=school_10'])
-@pytest.mark.parametrize('authenticated', [False, True])
-def test_retired_catalog_aliases_are_not_available(client, path, authenticated):
-    if authenticated:
-        identify()
-    with patch.object(catalog, 'schools') as schools, patch.object(catalog, 'rooms') as rooms:
-        assert client.get(path).status_code == 404
-    schools.assert_not_called()
-    rooms.assert_not_called()
 
 
 @pytest.mark.parametrize('school_id,room_id,basis,scope', [
@@ -125,3 +71,37 @@ def test_merged_catalog_preserves_flat_device_responses(client, path, count):
     assert len(devices) == count
     assert all('id' in device and 'room_id' in device for device in devices)
     assert all('environment' not in device and 'energy' not in device for device in devices)
+
+
+def test_openapi_only_advertises_canonical_catalog(client):
+    paths = client.get('/openapi.json').json()['paths']
+    assert '/schools' not in paths and '/rooms' not in paths
+    assert '/catalog/schools' in paths
+    assert '/catalog/schools/{school_id}/rooms' not in paths
+
+
+@pytest.mark.parametrize('path', [
+    '/schools', '/rooms?school_id=school_10',
+    '/catalog/schools/school_10/rooms',
+    '/catalog/schools/school_3/rooms?school_id=school_10',
+    '/catalog/schools/unknown/rooms',
+])
+@pytest.mark.parametrize('authenticated', [False, True])
+def test_retired_catalog_routes_are_not_available(client, path, authenticated):
+    if authenticated:
+        identify()
+    with patch.object(catalog, 'schools') as schools, patch(
+        'main.get_connection', side_effect=AssertionError('Retired catalog route read the database')
+    ):
+        assert client.get(path).status_code == 404
+    schools.assert_not_called()
+
+
+def test_catalog_cors_preflight(client):
+    result = client.options('/catalog/schools', headers={
+        'Origin': 'https://schoolheroz.com',
+        'Access-Control-Request-Method': 'GET',
+        'Access-Control-Request-Headers': 'authorization',
+    })
+    assert result.status_code == 200
+    assert result.headers['access-control-allow-origin'] == 'https://schoolheroz.com'

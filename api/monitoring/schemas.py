@@ -1,16 +1,10 @@
 from datetime import datetime
 from typing import Annotated, Literal
 
-from pydantic import AwareDatetime, BaseModel, Field, model_validator
-
-HEATING_SETPOINT_MIN_C = 15.0
-HEATING_SETPOINT_MAX_C = 24.0
-COOLING_SETPOINT_MIN_C = 20.0
-COOLING_SETPOINT_MAX_C = 30.0
-MIN_DUAL_SETPOINT_DEADBAND_C = 2.0
+from pydantic import AwareDatetime, BaseModel, Field
 
 
-# `SchoolMetadata` defines the metadata for a specific school in the room catalog.
+# `SchoolMetadata` defines the metadata for a school in the catalog.
 class SchoolMetadata(BaseModel):
     id: str
     label: str
@@ -19,133 +13,6 @@ class SchoolMetadata(BaseModel):
     lng: float | None = None
     school_level: str | None = None
     construction_year: int | None = None
-
-
-# `RoomSimulationSupports` is derived at load time from catalog defaults and thermostat_type.
-class RoomSimulationSupports(BaseModel):
-    occupancy: bool
-    heating_setpoint: bool
-    cooling_setpoint: bool
-    lighting_w_per_m2: bool
-    infiltration_ach: bool
-
-# `RoomSimulationConfig` defines the simulation default configuration and input fields.
-class RoomSimulationConfig(BaseModel):
-    occupancy: int = Field(ge=0)
-    heating_setpoint: float = Field(
-        ge=HEATING_SETPOINT_MIN_C,
-        le=HEATING_SETPOINT_MAX_C,
-    )
-    cooling_setpoint: float | None = Field(
-        default=None,
-        ge=COOLING_SETPOINT_MIN_C,
-        le=COOLING_SETPOINT_MAX_C,
-    )
-    lighting_w_per_m2: float = Field(default=10.0, ge=0)
-    infiltration_ach: float | None = Field(default=None, ge=0)
-
-    @model_validator(mode="after")
-    def validate_setpoint_order(self):
-        if (
-            self.cooling_setpoint is not None
-            and self.cooling_setpoint - self.heating_setpoint
-            < MIN_DUAL_SETPOINT_DEADBAND_C
-        ):
-            raise ValueError(
-                "cooling_setpoint must be at least "
-                f"{MIN_DUAL_SETPOINT_DEADBAND_C:g}°C above heating_setpoint"
-            )
-        return self
-
-# `RoomSimulationDefaults` defines the default simulation configurations for a specific school room.
-class RoomSimulationDefaults(RoomSimulationConfig):
-    pass
-
-
-# Schema for RoomStaticSchedules, which defines the static schedule names for a room in the catalog.
-class RoomStaticSchedules(BaseModel):
-    occupancy: str | None = None
-    lighting: str | None = None
-    equipment: str | None = None
-    heating_availability: str | None = None
-    hvac_availability: str | None = None
-    thermostat_control: str | None = None
-    secondary_thermostat_control: str | None = None
-    ventilation: str | None = None
-    infiltration: str | None = None
-    activity: str | None = None
-    heating_setpoint: str | None = None
-    cooling_setpoint: str | None = None
-    outdoor_co2: str | None = None
-
-# Schema for RoomCatalogEntry, which defines the metadata and configuration for a room in the catalog.
-class RoomCatalogEntry(BaseModel):
-    id: str
-    label: str
-    physical_instance_count: int = Field(
-        default=1,
-        ge=1,
-        le=500,
-        description=(
-            "Identical physical rooms represented by this single IDF; simulation scales energy only."
-        ),
-    )
-    idf_file: str
-    simulation_enabled: bool = True
-    simulation_unavailable_reason: str | None = None
-    zone_name: str
-    people_object_name: str
-    occupancy_schedule_name: str
-    thermostat_type: Literal["single_heating", "dual_setpoint"]
-    heating_schedule_name: str
-    cooling_schedule_name: str | None = None
-    defaults: RoomSimulationDefaults
-    static_schedules: RoomStaticSchedules
-
-    @model_validator(mode="after")
-    def validate_simulation_catalog_configuration(self):
-        expects_cooling = self.thermostat_type == "dual_setpoint"
-
-        if not self.simulation_enabled and not self.simulation_unavailable_reason:
-            raise ValueError(
-                "simulation_unavailable_reason is required when simulation_enabled is false"
-            )
-        if self.simulation_enabled and self.simulation_unavailable_reason is not None:
-            raise ValueError(
-                "simulation_unavailable_reason must be null when simulation_enabled is true"
-            )
-        if expects_cooling and self.cooling_schedule_name is None:
-            raise ValueError(
-                "cooling_schedule_name is required when cooling_setpoint is supported"
-            )
-        if not expects_cooling and self.cooling_schedule_name is not None:
-            raise ValueError(
-                "cooling_schedule_name must be null when cooling_setpoint is unsupported"
-            )
-        if not expects_cooling and self.defaults.cooling_setpoint is not None:
-            raise ValueError(
-                "defaults.cooling_setpoint must be null when cooling_setpoint is unsupported"
-            )
-        if (
-            self.thermostat_type == "dual_setpoint"
-            and self.defaults.cooling_setpoint is not None
-            and self.defaults.heating_setpoint >= self.defaults.cooling_setpoint
-        ):
-            raise ValueError(
-                "defaults.heating_setpoint must be lower than defaults.cooling_setpoint for dual_setpoint rooms"
-            )
-        if self.defaults.infiltration_ach is not None and self.defaults.infiltration_ach < 0:
-            raise ValueError("defaults.infiltration_ach must be non-negative when set")
-        return self
-
-# Schema for RoomMetadata, which extends RoomCatalogEntry with additional metadata fields for API responses.
-class RoomMetadata(RoomCatalogEntry):
-    supports: RoomSimulationSupports
-    school_id: str
-    idf_path: str
-    idf_exists: bool
-    simulatable: bool
-    simulation_status: Literal["available", "disabled", "missing_idf"]
 
 
 class OverviewReading(BaseModel):
