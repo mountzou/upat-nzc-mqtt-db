@@ -1,14 +1,8 @@
 # Shelly cumulative energy contract
 
-The source commit that adds this document records the counter schema, ingestor
-and hourly worker. The matching API and production scheduler configuration are
-recorded in subsequent commits. Production notes below describe the September
-2026 rollouts; this source-recording step is not an instruction to apply the
-migration or activate a writer again.
-
-Final agreed policy: `counter_delta_v1`, hourly counter differences, boundary
-observations within ±60 seconds, no veto based only on message-gap length.
-The public `consumption.history.v1` response remains unchanged.
+Policy: `counter_delta_v1`, hourly counter differences with boundary observations
+within ±60 seconds and no veto based only on message-gap length.
+Public [consumption history](CONSUMPTION_HISTORY.md) retains its kWh contract.
 
 ## Source data
 
@@ -56,64 +50,19 @@ Long outages, repeated connectivity issues and resets belong to consolidated
 operational diagnostics. This change does not introduce minute-level incident
 rows, alerts or a new anomalies endpoint. Existing diagnostics remain separate.
 
-## Safe activation
+## Operation and recovery
 
-1. Back up exact live images/configuration. Apply additive migration 015 before
-   activating the ingestor; existing tables/values are not rewritten.
-2. Start counter collection and verify all communicating meters. Keep old hourly
-   aggregation active during warm-up.
-3. Choose an aligned future `SHELLY_COUNTER_START`, after collection has begun.
-   Check candidate results and set the new scheduler/image with no writer overlap.
-4. The new worker waits past the ±60s boundary before considering an hour closed,
-   rechecks the last three closed hours, and refuses writes before cutover.
-5. Verify counter freshness, scheduled-run result, hourly values and API coverage.
-   The first complete new hour becomes verifiable only after its ending boundary.
+The current schema includes `shelly_energy_counters` from migration 015.
+The ingestor writes counters atomically with raw/compact telemetry.
+The [scheduled aggregator](ENERGY_AGGREGATOR.md) retains the fixed production
+cutover, flock and PostgreSQL writer locks. It waits beyond the ±60s boundary,
+rechecks three closed hours and refuses pre-cutover writes. Explicit replay is
+bounded to seven days; `--dry-run` uses a read-only connection.
 
-The existing cron flock and a PG advisory lock serialize the new writer.
-Explicit replay is bounded to seven days; default execution needs the configured
-cutover. `--dry-run` uses a read-only database connection. Pre-cutover historical
-energy remains unchanged; historical conversion requires a separate reviewed
-backfill and rollback plan.
+An application change keeps the cutover and newly collected counters. Coordinate
+the writer before restoring a verified compatible image/configuration pair;
+hourly-row restoration or historical conversion needs separate reconciliation
+that preserves newer history. See [current recovery requirements](shelly-compact/RECOVERY.md).
 
-Rollback: stop the new writer, restore the backed-up image/configuration and any
-affected backed-up hourly rows before resuming. Keep newly collected counters
-and the additive table. Ingestor rollback restores its prior image. Do not deploy
-an entire dirty checkout or overwrite unrelated live Compose configuration.
-
-## Retired contract
-
-The public `/energy/devices/{device_id}/pro3em-energy` estimate, its exclusive
-SQL raw-power integration, schemas, interval dependency and unused consumer
-helper were removed from the live VPS API on 2026-09-07. Device telemetry, school insights
-and internal hourly readers still serve separate active uses. Production state
-and evidence are recorded separately in the rollout report.
-
-Current rollout receipt: `../backups/shelly-counter-final-20260907/REPORT.md`.
-First complete counter hour: 2026-09-07 11:00–12:00 Athens; first cron 12:02.
-The initial rollout receipt records this timed acceptance as pending.
-
-## VPS source alignment
-
-On 7 September 2026 the VPS `energy-aggregator/main.py`, `counter_energy.py` and
-`Dockerfile` were aligned with the recorded tested counter release. Requirements
-already matched. This was a guarded source-only transfer with verified backups;
-no job, build or restart was performed. Cron still uses the explicit release
-image and private `aggregator.env`, with the original cutover unchanged. Scheduler
-simplification and Compose reconciliation remain separate work.
-See `../backups/aggregator-source-alignment-20260907/REPORT.md`.
-
-## Previous scheduler installation (2026-09-07)
-
-The 7 September installation cleanup moved cron to the repository launcher,
-with the same hourly schedule, flock, pinned image and historical cutover.
-Production Compose became the job configuration; the root `.env` supplied its
-database credentials. Legacy migration scripts/env remained as recovery
-artifacts only. See [ENERGY_AGGREGATOR.md](ENERGY_AGGREGATOR.md) for operation,
-rollback and the first natural-run verification boundary.
-
-## Hourly systemd scheduler
-
-The `jobs/aggregate-energy` migration replaces that cron with
-`upat-aggregate-energy.timer`, at the same minute 02 of every UTC hour. The
-service keeps both writer locks and the historical cutover. See
-[ENERGY_AGGREGATOR.md](ENERGY_AGGREGATOR.md) for current operation and rollback.
+The former public pro3em-energy estimate is retired. Device telemetry, energy
+insights and protected hourly readers remain active dependencies.
