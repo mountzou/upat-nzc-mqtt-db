@@ -20,9 +20,12 @@ This project is organized into service directories, each implementing a core par
 
 ## Project setup
 
-This project follows a container-based architecture, where each core service is built from its own Docker image and runs as an independent container managed through Docker Compose.
-
-Each Python service directory contains its own `Dockerfile`. At the project root, `docker-compose.yml` defines the local development setup, while `docker-compose.prod.yml` defines the production deployment setup.
+The services run in Docker containers. At the project root, `docker-compose.yml`
+defines the local development setup, while `docker-compose.prod.yml` defines the
+Compose-managed production services and jobs. Production PostgreSQL is owned
+by `upat-postgres-volume.service` outside Compose. The PV collector also runs
+outside Compose: `upat-collect-pv.service` invokes its launcher, which starts
+the container directly with Docker.
 
 **Command scope:** unqualified `docker compose` commands in this README, including
 `up`, `run`, and `exec postgres`, refer to the local development Compose and
@@ -192,10 +195,11 @@ docker compose exec -T postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB
 ## PV collection job
 
 The [`collect-pv` job](jobs/collect-pv/README.md) performs bounded FusionSolar
-collection and stores actual PV telemetry. Its source, launcher and prepared
+collection and stores actual PV telemetry. Its source, launcher and versioned
 `upat-collect-pv.service` / `.timer` definitions live in `jobs/collect-pv`.
 The VPS uses `upat-collect-pv.timer` daily at `01:15 Europe/Athens` since
-2026-10-01. The first scheduled execution under the new name is pending.
+2026-10-01. Verify execution through the service result, shared ledger and
+persisted output as described in the [collector operations guide](jobs/collect-pv/README.md#schedule-and-operation).
 
 Run the offline tests for local validation:
 
@@ -234,8 +238,10 @@ Verify the entry against the live crontab before applying changes:
 The production database-backed application-user boundary is documented in
 [`api/AUTH_SERVICE.md`](api/AUTH_SERVICE.md). It is fail-closed, stores simple
 per-user theme/onboarding state plus the latest successful login timestamp.
-The preference extension remains inactive until migration 012 and the matching
-VPS/Render application revisions are rolled out in separately approved batches.
+Preferences use `PATCH /internal/auth/preferences` and require the schema
+introduced by migration 012. Callers must follow the documented server-to-server
+authentication contract; client rollout and end-to-end acceptance are verified
+separately for each deployment.
 
 Base URL in local development:
 
