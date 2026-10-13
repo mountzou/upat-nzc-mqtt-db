@@ -31,8 +31,8 @@ The retired `/schools` and `/rooms?school_id=...` aliases return 404;
 EnergyPlus' simulation-schedule-defaults compute route remains separate.
 
 Caddy forwards the room catalog to `nzc_energyplus:8000` on their shared Docker
-network, as it already does in production. The local API source retires its
-duplicate rooms endpoint, six room JSON files and exclusive simulation schemas.
+network. The API activated on 2026-10-13 removes its duplicate rooms endpoint,
+six room JSON files and exclusive simulation schemas.
 
 EnergyPlus accepts VPS sessions through the protected `/internal/auth/session`
 verifier. JWT signing secrets stay on the VPS. Protected backend reads use
@@ -50,25 +50,28 @@ verifier. JWT signing secrets stay on the VPS. Protected backend reads use
   acquisition timeout. Canonical SQL, rollup watermarks and persisted energy
   remain the data sources.
 
-The committed local history cleanup passes family, device ID and validated
+The history adapter passes family, device ID and validated
 `HistoryQueryParams` to `monitoring/local_data.read_device_history`.
 URL dispatch and `DEVICE_API_BASE_URL` are removed from that local adapter;
 UPAT raw/rollup selection, Shelly compact reads and SQL stay unchanged.
-The local source also retires `/shelly/energy`,
+The API also retires `/shelly/energy`,
 `/shelly/device/{device_id}/hourly-energy` and
 `/shelly/device/{device_id}/energy`, with their exclusive helper/imports.
 `/shelly/hourly-energy`, its protected service version and school insights remain.
 The source also retires raw `/upat/devices`, `/shelly/devices`,
 `/simulations/recordings/latest` and `/weather/hourly/latest` readers. The active
 weather forecast/day-ahead readers and the EnergyPlus simulation proxy remain.
-These source cleanups are synchronized to the VPS checkout. Activation in the
-running API requires a separately reviewed image update.
+These cleanups were activated in the running API on 2026-10-13. The eight
+retired API paths returned the expected 404 responses during acceptance.
 
 ## Deployment and recovery
 
 Use the [production ownership guide](postgres-volume/COMPOSE-OWNERSHIP.md) and
-[current recovery requirements](shelly-compact/RECOVERY.md). The active API/Shelly
-image/configuration mapping is kept in [the rollout record](compact-only-images/ROLLOUT-20261005.md).
+[current recovery requirements](shelly-compact/RECOVERY.md). The API image,
+activation evidence and API-only rollback are recorded in the
+[2026-10-13 activation guide](api-cleanup-activation/README.md). The unchanged
+Shelly ingestor mapping remains in the
+[2026-10-05 rollout record](compact-only-images/ROLLOUT-20261005.md).
 
 1. Validate and commit only the scoped source. Inspect the live baseline, build
    from that commit and record the immutable image ID and rollback pair.

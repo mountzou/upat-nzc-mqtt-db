@@ -14,8 +14,13 @@ require storage selectors must explicitly select compact reads/writes and the
 same rounding policy. Restoring an image alone or selecting legacy/dual storage
 would address the retired table and is not a valid recovery method.
 
-The accepted October overlay rollout and its retained image/configuration pairs
-are documented in [the rollout receipt](../compact-only-images/ROLLOUT-20261005.md).
+The [API activation guide](../api-cleanup-activation/README.md) records the
+2026-10-13 API image and its verified rollback pair, backup and API-only controller.
+Use that operation's exact backup for API rollback; the October 5 Compose
+snapshot predates the newer API configuration.
+
+The unchanged Shelly ingestor and the earlier API overlay are documented in the
+[2026-10-05 rollout receipt](../compact-only-images/ROLLOUT-20261005.md).
 Its private recovery materials at
 `/opt/schoolheroz-compact-only-20261005-0ac942b9/` are retained. The September
 stage scripts and their embedded checkpoints/image identities are historical.

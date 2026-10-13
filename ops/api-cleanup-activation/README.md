@@ -1,6 +1,6 @@
 # API cleanup activation, 2026-10-13
 
-This recipe activates reviewed application source `1cd68d9246782e64779f44031b1d6fb51b01b7d3` while retaining the exact Python 3.12.14 and installed packages of the current amd64 API. It removes obsolete catalogs rather than leaving them behind in an overlay.
+This recipe activated reviewed application source `1cd68d9246782e64779f44031b1d6fb51b01b7d3` on 2026-10-13, retaining the exact Python 3.12.14 and installed packages of the preceding amd64 API. The resulting image excludes the obsolete catalogs. The procedure below documents that completed rollout; future changes need a fresh baseline and reviewed plan.
 
 Baseline: `schoolheroz-api:compact-only-overlay-0ac942b9b89e`, immutable image `sha256:c1d1970522a08e90b571313146da7ce9b725e3341120ad424f35bdfc25c7218a`.
 
@@ -49,4 +49,41 @@ Guard tests: `python3 -B -m unittest discover -s ops/api-cleanup-activation -p '
 - Activation controller: includes subsequent OCI verification fix `c7d5878fcbc0466df9bdfa6ad51a00b0f1b020f9`; that fix does not change the Dockerfile, source payload or already tested image.
 - 510 API tests passed in that image, including all enabled PostgreSQL integration tests; zero skips. Six controller/archive tests passed. Python/package versions and all 60 source hashes matched.
 - Isolated canary and rollback image passed startup, health/auth/CORS and 45/53-path checks. All retained routes and shared public schemas matched. The internal test network blocked external access; HTTP probes ran over loopback inside its namespace.
-- Production activation and observation evidence are recorded separately after the switch. Successful candidate tests alone do not assert a production deployment.
+- Production acceptance and the retained rollback location are recorded below.
+
+## Production acceptance, 2026-10-13
+
+The candidate above became active at **10:51:44 Europe/Athens**. Only `iot_api`
+was recreated; production Compose changed only `/services/api/image`. Caddy,
+PostgreSQL, ingestors, other services, environment and schedules were preserved.
+No database migration or manual background job was run.
+
+Acceptance included 13 before/after HTTP checks, identical results for the four
+compared data responses, eight expected retired-path 404s and authenticated
+School 10 reads through an existing browser session. Observation through 11:10:49
+covered 73 requests with zero HTTP 5xx, ERROR/Traceback entries or restarts.
+This bounded observation is not a load benchmark. Home/NDJSON and tenant isolation
+were covered by candidate tests; no separate manual production NDJSON request was
+made. The public EnergyPlus room catalog was checked for anonymous 401 and CORS
+200, not an authenticated end-to-end room-catalog flow.
+
+The normal 11:10 IAQ hourly run passed systemd, journal and persisted-result
+verification. At this acceptance checkpoint, verification of the next normal
+daily run remained pending, scheduled for 2026-10-14 after 00:10 Europe/Athens.
+
+Private release/controller location:
+`/opt/schoolheroz-api-cleanup-20261013-1d3569d/`.
+Verified root-only backup:
+`/var/backups/upat-nzc-mqtt-db/api-activation-20261013-1d3569d-v2`.
+The backup contains the exact previous Compose and baseline image archive;
+all 29 OCI blobs were verified. No production rollback was needed.
+
+For an authorized rollback of this activation, use the staged controller:
+
+```sh
+python3 -B /opt/schoolheroz-api-cleanup-20261013-1d3569d/recipe/switch_api.py rollback \
+  --backup /var/backups/upat-nzc-mqtt-db/api-activation-20261013-1d3569d-v2
+```
+
+The drift guards and verification requirements in the rollback section still
+apply. Keep the private backup and release evidence outside Git.
