@@ -35,6 +35,11 @@ def run(args, **kwargs):
 def digest(data):
     return hashlib.sha256(data).hexdigest()
 
+def stream_digest(file):
+    value = hashlib.sha256()
+    for chunk in iter(lambda:file.read(1024*1024),b''): value.update(chunk)
+    return value.hexdigest()
+
 def dump(obj):
     return json.dumps(obj, sort_keys=True, separators=(',', ':')).encode()
 
@@ -105,6 +110,38 @@ def load_record(backup):
         raise RuntimeError('Backup must be a root-owned private directory')
     return json.loads((backup/'record.json').read_text())
 
+def verify_archive(archive, expected_id):
+    """Verify the complete OCI descriptor graph, including every saved layer.
+
+    With Docker's containerd store, inspect.Id is the OCI index digest rather
+    than the config blob digest. Never compare those two different identities.
+    """
+    with tarfile.open(archive) as tf:
+        index = json.load(tf.extractfile('index.json'))
+        roots = [d for d in index['manifests'] if d['digest'] == expected_id]
+        if len(roots) != 1:
+            raise RuntimeError('Archive does not reference the pinned OCI image')
+        checked = set()
+        def verify(desc):
+            identity = desc['digest']
+            if identity in checked: return
+            if not re.fullmatch(r'sha256:[0-9a-f]{64}',identity):
+                raise RuntimeError('Unsupported OCI descriptor digest')
+            member = tf.getmember('blobs/sha256/'+identity.split(':')[1])
+            if not member.isfile() or member.size != desc['size']:
+                raise RuntimeError('OCI blob type/size mismatch')
+            with tf.extractfile(member) as f:
+                actual = stream_digest(f)
+            if 'sha256:'+actual != identity:
+                raise RuntimeError('OCI blob checksum mismatch')
+            checked.add(identity)
+            if desc['mediaType'].endswith(('index.v1+json','manifest.v1+json')):
+                obj = json.load(tf.extractfile(member))
+                for child in obj.get('manifests',[]) + obj.get('layers',[]): verify(child)
+                if 'config' in obj: verify(obj['config'])
+        verify(roots[0])
+        return len(checked)
+
 def prepare(backup, candidate):
     os.umask(0o077)
     if COMPOSE.is_symlink() or (ROOT/'docker-compose.yml').readlink() != Path('docker-compose.prod.yml'):
@@ -131,16 +168,12 @@ def prepare(backup, candidate):
     image_only(baseline,model(backup/'compose.candidate.yml'),OLD,candidate)
     archive = backup/'baseline-image.tar'
     run(['docker','image','save','--output',str(archive),OLD],timeout=120)
-    with tarfile.open(archive) as tf:
-        entries = json.load(tf.extractfile('manifest.json'))
-        configs = [tf.extractfile(e['Config']).read() for e in entries]
-        if not any('sha256:'+digest(c)==BASE for c in configs):
-            raise RuntimeError('Image archive lacks the pinned baseline config')
-    archive_hash = hashlib.file_digest(archive.open('rb'),'sha256').hexdigest()
+    archive_blobs = verify_archive(archive,BASE)
+    with archive.open('rb') as f: archive_hash = stream_digest(f)
     if protected() != before or COMPOSE.read_bytes() != old: raise RuntimeError('Production drift during backup')
     record = dict(candidate=candidate,candidate_id=candidate_id,base_image=BASE,base_ref=OLD,
                   before_sha256=digest(old),candidate_sha256=digest(proposed),
-                  archive_sha256=archive_hash,protected=before,api_before=inspect('iot_api'))
+                  archive_sha256=archive_hash,archive_verified_blobs=archive_blobs,protected=before,api_before=inspect('iot_api'))
     (backup/'record.json').write_bytes(dump(record))
     print(json.dumps({k:v for k,v in record.items() if k not in ('api_before','protected')}))
 
