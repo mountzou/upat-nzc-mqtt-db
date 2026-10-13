@@ -47,8 +47,8 @@ results; the worker emits bounded aggregate run counts. Deployment records and
 the configured cutover identify the method transition.
 
 Long outages, repeated connectivity issues and resets belong to consolidated
-operational diagnostics. This change does not introduce minute-level incident
-rows, alerts or a new anomalies endpoint. Existing diagnostics remain separate.
+operational diagnostics. Counter aggregation does not create minute-level
+incident rows, alerts or an anomalies endpoint. Diagnostics remain separate.
 
 ## Operation and recovery
 

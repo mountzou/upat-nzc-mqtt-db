@@ -84,6 +84,6 @@ contiguous elapsed one-hour intervals according to the target Athens day. The
 backend forecast path rejects 2026-10-25 during fixed-timezone EPW preparation,
 before EnergyPlus runs. In synthetic projection checks, the backend's 24
 local-clock intervals were rejected by the recorder for the 23-hour 2026-03-29
-and 25-hour 2026-10-25 days. This existing edge case is not addressed by this
-PR. It is not a merge prerequisite for the independent job compatibility
-change; incomplete hourly results must still be rejected.
+and 25-hour 2026-10-25 days. The calendar-day limitation remains unresolved;
+job-response compatibility does not resolve it. Incomplete hourly results must
+still be rejected.

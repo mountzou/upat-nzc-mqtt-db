@@ -46,7 +46,7 @@ The `energy` section of `device_assignments.json` defines room and phase assignm
 
 An observed zero remains zero. Entirely missing buckets are null. Partial buckets contain the observed subtotal and are marked partial; values are never scaled up for missing sources or hours. The summary's energy is also an observed subtotal if coverage is partial. Ratios with a zero energy denominator are null.
 
-Coverage measures valid persisted **hourly source records**, not raw MQTT sample completeness. Existing rollups do not provide raw sample coverage; this change does not invent that information. NULL, negative, non-finite, off-grid or malformed-duration source rows do not contribute. The existing Mon–Fri 08:00–14:59 Athens school-hours policy is reused.
+Coverage measures valid persisted **hourly source records**, not raw MQTT sample completeness. Existing rollups do not provide raw sample coverage, so the endpoint does not report or infer it. NULL, negative, non-finite, off-grid or malformed-duration source rows do not contribute. The existing Mon–Fri 08:00–14:59 Athens school-hours policy is reused.
 
 ## Efficiency and compatibility
 

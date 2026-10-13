@@ -62,8 +62,11 @@ sudo systemctl enable --now upat-journal-vacuum.timer
 
 ## Verify
 
+Use debug mode to inspect the configuration without rotating logs or updating
+logrotate state:
+
 ```bash
-sudo logrotate --verbose /etc/logrotate.conf
+sudo logrotate --debug /etc/logrotate.conf
 systemctl is-enabled upat-journal-vacuum.timer
 systemctl is-active upat-journal-vacuum.timer
 systemctl list-timers upat-journal-vacuum.timer --no-pager
