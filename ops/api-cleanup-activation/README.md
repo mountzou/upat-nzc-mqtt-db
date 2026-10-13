@@ -10,13 +10,13 @@ Baseline: `schoolheroz-api:compact-only-overlay-0ac942b9b89e`, immutable image `
 2. Verify the local baseline reference resolves to the immutable ID above. Build with `--network=none --pull=false`, `BASE_IMAGE` set to that verified reference, the pinned `SOURCE_REVISION`, and the exact `RECIPE_REVISION`. Use a unique `schoolheroz-api:cleanup-1cd68d9-<recipe-commit>` tag. Do not use the generic API Dockerfile or install/upgrade runtime packages.
 3. Check every runtime source against `source-manifest.json`, the absence of eight obsolete JSON files, and equality of Python/package fingerprints, CMD, entrypoint, user, working directory and runtime image settings. The image must serve 45 OpenAPI paths; all retained route definitions and common public schemas must match the baseline's 53-path schema.
 4. Run the API test suite against the actual image. Test dependencies are separate read-only mounts, never a runtime image layer. Supply only fixture credentials and a disposable PostgreSQL container, with no production data, volumes, credentials or network. Enable the PostgreSQL integration suites explicitly. Skips/failures require an explanation before acceptance.
-5. Run an isolated canary on a verified free loopback port, with no production aliases or Caddy traffic. Rehearse the old image in the same disposable environment, checking the original source/packages and 53 paths. Production remains untouched until candidate acceptance.
+5. Run an isolated canary on a verified free loopback port (the container network namespace is sufficient), with no production aliases or Caddy traffic. Rehearse the old image in the same disposable environment, checking the original source/packages and 53 paths. Production remains untouched until candidate acceptance.
 
 ## Production switch
 
 Select a quiet window, without an active IAQ job and with sufficient time before the next scheduled run. Preserve the production Compose symlink, Caddy file and loaded configuration, environment values, PostgreSQL ownership/data and every other container/timer. Recreating the API can briefly interrupt requests and streams.
 
-`switch_api.py prepare --backup /var/backups/upat-nzc-mqtt-db/<new-release> --candidate <tag>` creates a root-only directory with the exact previous Compose, env and Caddy files, full private API inspection, protected-state fingerprints and verified baseline image archive. Its configuration guard permits only `/services/api/image` to change in the complete resolved Compose model. Never publish the private backup, resolved configuration, tokens or container environment.
+`switch_api.py prepare --backup /var/backups/upat-nzc-mqtt-db/<new-release> --candidate <tag>` creates a root-only directory with the exact previous Compose, env and Caddy files, full private API inspection, protected-state fingerprints and a baseline archive verified through the complete OCI index/manifest/config/layer descriptor graph. Its configuration guard permits only `/services/api/image` to change in the complete resolved Compose model. Never publish the private backup, resolved configuration, tokens or container environment.
 
 After candidate acceptance, run `switch_api.py activate --backup <same-directory>`. The only service operation is:
 
@@ -40,3 +40,13 @@ Run `switch_api.py rollback --backup <same-directory>`. It refuses concurrent Co
 No SQL, database restore, inverse migration, Caddy reload, timer changes, broad Compose operations or pruning are part of this rollout. Preserve backup and release evidence. Remove only explicitly named disposable test resources after recording their ownership and results. Keep source commit → recipe commit → immutable image → activation/rollback mapping in the release record.
 
 Guard tests: `python3 -B -m unittest discover -s ops/api-cleanup-activation -p 'test_*.py'`.
+
+## Validated candidate
+
+- Application source: `1cd68d9246782e64779f44031b1d6fb51b01b7d3`.
+- Build recipe commit: `1d3569dd6b95599e3c45562138d60bff784a86ae`.
+- Candidate: `schoolheroz-api:cleanup-1cd68d9-1d3569d`, immutable ID `sha256:82724b2bfc4936842101238170528687072c67400d8b950810062238bb6d60f3`.
+- Activation controller: includes subsequent OCI verification fix `c7d5878fcbc0466df9bdfa6ad51a00b0f1b020f9`; that fix does not change the Dockerfile, source payload or already tested image.
+- 510 API tests passed in that image, including all enabled PostgreSQL integration tests; zero skips. Six controller/archive tests passed. Python/package versions and all 60 source hashes matched.
+- Isolated canary and rollback image passed startup, health/auth/CORS and 45/53-path checks. All retained routes and shared public schemas matched. The internal test network blocked external access; HTTP probes ran over loopback inside its namespace.
+- Production activation and observation evidence are recorded separately after the switch. Successful candidate tests alone do not assert a production deployment.

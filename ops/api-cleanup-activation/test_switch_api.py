@@ -79,4 +79,3 @@ class ArchiveTests(unittest.TestCase):
             with self.assertRaises(RuntimeError):module.verify_archive(path,'sha256:'+'0'*64)
 
 if __name__=='__main__':unittest.main()
-
