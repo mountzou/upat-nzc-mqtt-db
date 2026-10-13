@@ -1,50 +1,63 @@
-# Shelly compact storage: migration history
+# Shelly compact storage and recovery
 
-Current contract, 2026-10-05: API reads and ingestor writes are fixed to compact.
-The retired storage/write/rounding selectors are no longer part of the runtime.
-Shelly averages retain one-decimal numeric rounding; raw measurements are unchanged.
-Current recovery boundaries are in [RECOVERY.md](RECOVERY.md).
-The completed preparation migration 017 is retained in the [SQL archive](../../db/archive/README.md);
-current compact initialization is defined directly in db/init.sql.
-The obsolete VPS stage/build artifacts and UTC-naive inverse SQL were removed.
-The seven old VPS stage directories and their remaining historical files were
-subsequently removed.
+## Storage contract
 
-Legacy retirement, 2026-10-05: `public.shelly_measurements` and its own indexes
-were removed after full history/dependency verification. Compact remains active;
-the existing public ID sequence is independent. About 14.54 GB was reclaimed.
+API reads and ingestor writes use compact-only storage. The old storage/write/
+rounding selectors are retired. Keep `shelly_compact` series and measurements,
+the readings view and the independent `public.shelly_measurements_id_seq`
+(`OWNED BY NONE`), preserving its name and current value.
 
-Sequence update, 2026-10-05: `public.shelly_measurements_id_seq` is now
-free-standing (`OWNED BY NONE`), preserving its name and current value.
-The legacy table was retained at that step.
+Raw float8 values, IDs, NULLs, units and TIMESTAMPTZ instants are preserved without
+rounding. Shelly API averages use `ROUND(AVG(value::numeric),1)::double precision`:
+ties round away from zero, so results can differ by 0.1 from former floating-point
+rounding. Device metadata, raw MQTT messages, energy counters and hourly energy
+tables remain separate contracts; the storage migration did not change UPAT,
+PV or simulation job behavior.
 
-Historical observation, 2026-09-29: the production shelly_ingestor writes compact-only
-(SHELLY_MEASUREMENTS_WRITE_MODE=compact), while iot_api reads
-shelly_compact.readings with one-decimal averaging. The active Python files
-api/main.py, api/readers/measurements.py, api/readers/shelly_storage.py,
-mqtt/shelly-devices/main.py and mqtt/shelly-devices/measurements.py match the running
-images byte-for-byte by SHA-256. The existing shelly_compact.series and
-measurements tables and readings view were observed using a read-only catalog
-query. At that checkpoint the old public.shelly_measurements table still existed.
+Current compact initialization is defined directly in [db/init.sql](../../db/init.sql).
+The completed preparation migration 017 remains in the [SQL archive](../../db/archive/README.md).
+Do not replay it against the existing production schema.
 
-This directory contains migration history and current recovery guidance.
-The detailed cutover record remains in Git history. The staged
-controllers (`stage1.py`, `stage2.py`, `stage3.py`), migration/recovery helpers
-(`copy-window.py`, `shadow-api.py`, `migrate.py`, `writer-cutover.py`) and
-`compose.stage1.prod.yml`, `compose.stage2.prod.yml`, `compose.stage3.prod.yml`
-have been retired from the repository. Their source remains in Git history.
-The recorded image identities, checkpoints and commands are dated evidence.
-The September reverse-copy recovery is obsolete after legacy-table retirement.
-Restoring legacy/dual modes or the old UTC-naive timestamp contract cannot serve
-as recovery for today's deployment. Application rollback must preserve compact
-storage and use a compatible image/configuration pair. The original helpers
-remain in Git history; they are not current operating procedures.
+## Recovery
 
-`compose.override.yml`, `smoke-local-images.py`, `build-local.sh`,
-`Dockerfile.api` and `Dockerfile.ingestor` have been retired from this directory.
-They remain available in Git history as build and rehearsal artifacts for the
-completed migration.
+[RECOVERY.md](RECOVERY.md) owns the current compatibility checks and links to
+the API activation/rollback and unchanged Shelly ingestor image records.
+Application recovery must preserve compact data, sequence state, timestamps and
+reader/rounding behavior, using a verified image with its matching configuration.
+Legacy/dual modes and September API images are not a generic fallback.
 
-The current deployment contract is ../../docker-compose.prod.yml; PostgreSQL
-ownership and deployment boundaries are documented in
-../postgres-volume/COMPOSE-OWNERSHIP.md.
+The legacy `public.shelly_measurements` table is absent. The retired September
+reverse-copy recovery required that table and paused the writer to copy/verify
+the newer compact tail. It was rehearsed locally and never needed in production;
+it cannot be reused after legacy-table retirement. Recreating a legacy layout
+would be a new migration needing full-history, sequence and consumer verification.
+The removed UTC-naive inverse SQL is also not a current recovery path.
+
+Future operations require fresh backup/restore, consumer, capacity, ownership and
+runtime checks. Refresh the writer/consumer inventory before relying on old
+equality proofs: the original proof assumed an append-only writer and accounted-for
+consumers. Historical updates or additional writers require a new assessment.
+Target only approved application services, retaining PostgreSQL's systemd ownership
+and the [production Compose contract](../postgres-volume/COMPOSE-OWNERSHIP.md).
+Allow for a possible MQTT QoS 0 collection gap during an ingestor interruption;
+durable replay of messages during the original pauses was not claimed.
+
+## Completed migration
+
+The staged migration completed on 2026-09-16: prepare/dual-write, bounded backfill,
+full-history verification, then compact reads and writes. The final equality proof
+combined a read-only repeatable-read snapshot with a drained-writer tail check,
+covering IDs allocated before a checkpoint but committed later. Raw values and
+existing data contracts were preserved.
+
+On 2026-10-05 the public ID sequence was detached before the legacy table and
+its indexes were retired after full history/dependency verification. Approximately
+14.54 GB was reclaimed at that checkpoint. The compact-only runtime subsequently
+removed the old mode selectors. The stage controllers, migration/recovery helpers,
+staged Compose/build files, UTC-naive inverse SQL and seven old VPS stage directories
+were retired; their dated checkpoints and image identities are not recovery defaults.
+
+The [historical migration guide](https://github.com/mountzou/upat-nzc-mqtt-db/blob/b6de1fd04635a4145f09c02348cae248e08f17c0/ops/shelly-compact/RUNBOOK.md) preserves
+the detailed method, validation boundaries and references. Earlier cutover and
+retirement receipts remain in Git history. Future storage changes need a new plan
+against the current deployment rather than replaying those completed procedures.
