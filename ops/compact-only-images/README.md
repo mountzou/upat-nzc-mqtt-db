@@ -1,7 +1,10 @@
 # Compact-only production-runtime images
 
-The active API/Shelly image, source and configuration mapping is kept in
-[the rollout record](ROLLOUT-20261005.md), with the retained VPS recovery location.
+The [2026-10-05 rollout record](ROLLOUT-20261005.md) records the compact-only
+API/Shelly overlays and their retained VPS recovery location. Its Shelly ingestor
+image remains the deployed version; its API image is the retained rollback image
+for the [API cleanup activated on 2026-10-13](../api-cleanup-activation/README.md).
+Use that newer guide for the active API mapping and API-only rollback.
 See [current recovery requirements](../shelly-compact/RECOVERY.md).
 
 ## Build scope
@@ -14,8 +17,9 @@ and label the candidate with its committed Git revision.
 
 The API recipe copies only `api/readers/shelly_storage.py`; the ingestor recipe
 copies `main.py` and `measurements.py`. Review every intended changed runtime
-file before a future build. The pending broader API cleanup needs an updated,
-verified build scope; these narrow overlays alone do not include it.
+file before a future build. The broader API cleanup used the separate
+[complete-source recipe](../api-cleanup-activation/README.md); these narrow
+overlays alone do not reproduce the API activated on 2026-10-13.
 
 ## Deployment boundary
 

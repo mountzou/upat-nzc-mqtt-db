@@ -281,8 +281,9 @@ The configured token must be at least 32 characters. An unconfigured or too-shor
 `/upat/devices`, `/shelly/devices`, `/simulations/recordings/latest` and
 `/weather/hourly/latest` are removed from this API source checkout and return
 404. The active weather forecast and simulation day-ahead readers below remain.
-Production activation is pending a reviewed API image update; the separate
-EnergyPlus `/simulations/*` proxy is unchanged.
+These removals were activated on 2026-10-13; see the
+[API activation and rollback record](ops/api-cleanup-activation/README.md).
+The separate EnergyPlus `/simulations/*` proxy is unchanged.
 
 ### `GET /simulations/day-ahead/latest`
 
@@ -590,4 +591,5 @@ For school/room consumption totals, use the authenticated
 The three former low-level routes `/shelly/energy`,
 `/shelly/device/{device_id}/hourly-energy` and
 `/shelly/device/{device_id}/energy` are removed from this source checkout and
-return 404. Production activation is pending a reviewed API image update.
+return 404 in the API activated on 2026-10-13. See the
+[activation and rollback record](ops/api-cleanup-activation/README.md).
